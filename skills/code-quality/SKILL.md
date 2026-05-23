@@ -29,7 +29,7 @@ Load these as needed based on the task:
 | Reference | When to Load |
 |-----------|-------------|
 | [references/design-principles.md](references/design-principles.md) | When reviewing/writing — 13 principles, violation signals, fixes (language-agnostic) |
-| [references/design-patterns.md](references/design-patterns.md) | When architecting — 13 patterns with when-to-apply (language-agnostic) |
+| [references/design-patterns.md](references/design-patterns.md) | When architecting — pattern selection guide + cheat sheet (language-agnostic) |
 | [references/python/rules.md](references/python/rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, config, structure |
 | [references/python/examples.md](references/python/examples.md) | Python projects — code examples for all 13 principles + 13 patterns |
 | [references/rust/rules.md](references/rust/rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, config, structure |
