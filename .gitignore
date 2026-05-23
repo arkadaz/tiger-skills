@@ -1,0 +1,5 @@
+code-quality-workspace/
+evals/
+__pycache__/
+*.pyc
+.DS_Store
