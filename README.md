@@ -25,7 +25,13 @@ tiger-skills/
 
 ## Install
 
-### Method 1: Plugin Marketplace (recommended)
+### Method 1: npx (recommended)
+
+```bash
+npx skills add arkadaz/tiger-skills
+```
+
+### Method 2: Plugin Marketplace
 
 In Claude Code:
 ```
@@ -33,7 +39,7 @@ In Claude Code:
 /plugin install tiger-skills@arkadaz
 ```
 
-### Method 2: Manual Install
+### Method 3: Manual Install
 
 **macOS/Linux:**
 ```bash
@@ -51,7 +57,7 @@ Copy-Item -Recurse tiger-skills\skills\code-quality "$env:USERPROFILE\.claude\sk
 Copy-Item -Recurse tiger-skills\skills\harness-engineering "$env:USERPROFILE\.claude\skills\"
 ```
 
-### Method 3: Symlink (dev/contributing)
+### Method 4: Symlink (dev/contributing)
 
 ```bash
 git clone https://github.com/arkadaz/tiger-skills.git
