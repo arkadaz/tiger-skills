@@ -2,6 +2,24 @@
 
 Always loaded for Rust projects. These are non-negotiable for every `.rs` file written or modified.
 
+## Naming Conventions (Capital Rule)
+
+All configuration keys, constants, and enum variants MUST use proper Rust casing:
+
+| What | Convention | Example |
+|------|-----------|---------|
+| Config/env keys | `SCREAMING_SNAKE_CASE` | `DATABASE_URL`, `JWT_SECRET`, `MAX_RETRIES` |
+| `const` / `static` items | `SCREAMING_SNAKE_CASE` | `const DEFAULT_PAGE_SIZE: u32 = 20;` |
+| Enum variants | `PascalCase` | `OrderStatus::PendingConfirmation` |
+| Struct/enum/trait names | `PascalCase` | `CreateOrderRequest`, `EmailNotifier` |
+| Function/method names | `snake_case` | `fn calculate_total(&self) -> Money` |
+| Variable names | `snake_case` | `let user_count = users.len();` |
+| Private items | (no leading `_` needed — privacy is by module) | `fn internal_helper()` |
+
+**Serde JSON mapping:** When enum variants need lowercase JSON, use `#[serde(rename_all = "snake_case")]` — the Rust variant stays PascalCase, serialization handles the rest.
+
+**Never:** `camelCase` in Rust, config keys in lowercase, magic strings where enums exist, `SHOUTY_SNAKE_CASE` for enum variants (that's Python convention, not Rust).
+
 ## Strong Types at Boundaries
 
 Rust's type system is the boundary validator. Every external input MUST be parsed into a concrete type at the edge of the system — never pass raw `String`, `Vec<u8>`, or `serde_json::Value` through business logic.

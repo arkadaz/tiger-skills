@@ -28,15 +28,17 @@ Load these as needed based on the task:
 
 | Reference | When to Load |
 |-----------|-------------|
-| [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with Python + Rust examples |
-| [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with code sketches |
-| [references/python-rules.md](references/python-rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, project structure |
-| [references/rust-rules.md](references/rust-rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, project structure |
-| [references/review-agent.md](references/review-agent.md) | After implementing non-trivial code — spawn an independent review agent |
+| [references/design-principles.md](references/design-principles.md) | When reviewing/writing — 13 principles, violation signals, fixes (language-agnostic) |
+| [references/design-patterns.md](references/design-patterns.md) | When architecting — 13 patterns with when-to-apply (language-agnostic) |
+| [references/python/rules.md](references/python/rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, config, structure |
+| [references/python/examples.md](references/python/examples.md) | Python projects — code examples for all 13 principles + 13 patterns |
+| [references/rust/rules.md](references/rust/rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, config, structure |
+| [references/rust/examples.md](references/rust/examples.md) | Rust projects — code examples for all 13 principles + 13 patterns |
+| [references/review-agent.md](references/review-agent.md) | After implementing — spawn an independent review agent |
 
 ## Quick Start
 
-1. Detect language → read [references/python-rules.md](references/python-rules.md) or [references/rust-rules.md](references/rust-rules.md)
+1. Detect language → load `references/<lang>/rules.md` + `references/<lang>/examples.md`
 2. If reviewing/refactoring: read [references/design-principles.md](references/design-principles.md)
 3. If architecting: read [references/design-patterns.md](references/design-patterns.md)
 4. After implementing: read [references/review-agent.md](references/review-agent.md) and spawn a review agent

@@ -2,6 +2,22 @@
 
 Always loaded. These are non-negotiable for every Python file written or modified.
 
+## Naming Conventions (Capital Rule)
+
+All configuration keys, module-level constants, and enum members MUST use proper casing:
+
+| What | Convention | Example |
+|------|-----------|---------|
+| Config/env keys | `SCREAMING_SNAKE_CASE` | `DATABASE_URL`, `JWT_SECRET`, `MAX_RETRIES` |
+| Module constants | `SCREAMING_SNAKE_CASE` | `DEFAULT_PAGE_SIZE = 20` |
+| Enum members | `SCREAMING_SNAKE_CASE` | `OrderStatus.PENDING_CONFIRMATION` |
+| Class names | `PascalCase` | `CreateOrderRequest`, `EmailNotifier` |
+| Functions/methods | `snake_case` | `def calculate_total(self) -> Money:` |
+| Variables | `snake_case` | `user_count = len(users)` |
+| Private members | `_leading_underscore` | `self._password_hash` |
+
+**Never:** `camelCase` in Python, config keys in lowercase, magic strings where enums exist.
+
 ## Pydantic for All I/O Boundaries
 
 Every function receiving data from outside the process MUST use Pydantic models. This applies to:
