@@ -1,55 +1,145 @@
 # Implementation Workflow
 
+The full 14-step flow that every feature follows. Do not skip steps. Do not reorder.
+
 ## Normal Flow (per feature)
 
-1. **Clock in** — read PROGRESS.md, DECISIONS.md, `docs/codebase-map.md`, run `make check`
-2. **Clarify** — if ANY aspect of the task is ambiguous, ask the user before proceeding
-3. **Mark feature active** — update PROGRESS.md, WIP=1
-4. **Explore codebase** — read `docs/codebase-map.md`, `docs/business/*.md`, search for overlapping code
-5. **Write spec** — `docs/specs/YYYY-MM-DD-<topic>.md`, present to user if non-trivial
-6. **Implement** — write code following code-quality skill rules
-7. **Layer 1 verify** — lint + type check, fix all issues
-8. **Layer 2 verify** — run tests, all must pass
-9. **Layer 3 verify** — if cross-component, run E2E or manual smoke test
-10. **Record evidence** — save verification output, update feature state to `passing`
-11. **Update docs** — update spec with actual outcome, update `docs/business/*.md` if rules changed, update `docs/codebase-map.md` if files changed, update AGENTS.md if conventions changed
-12. **Commit** — atomic commit with clean message
-13. **Clock out** — session exit checklist, update PROGRESS.md
+1. **Clock in** — read PROGRESS.md, DECISIONS.md, `docs/codebase-map.md`, `docs/GRAPH.md`. Run `make check`. Understand the current state and code flow BEFORE touching anything.
+2. **Clarify** — if ANY aspect of the task is ambiguous (scope, I/O, files to touch, verification criteria), ask the user before proceeding. A 30-second clarification prevents a 30-minute wrong implementation.
+3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
+4. **Explore codebase** — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob.
+5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Present to user for approval if non-trivial. Do NOT write code until spec is approved.
+6. **Implement** — write the code, following code-quality skill rules (Pydantic, logging, enums, types, no water, SRP, etc.).
+7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
+8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
+9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
+10. **Spawn review agent** — per code-quality skill, independent agent audits the diff.
+11. **Address review findings** — fix every MAJOR and BLOCKING finding. Re-run verification after fixes.
+12. **Record evidence** — save verification output, update feature state to `passing`.
+13. **Update docs** — update the spec with actual outcome, update `docs/GRAPH.md` with new/changed flows, update `docs/business/*.md` if rules changed, update `docs/codebase-map.md` if files changed, update AGENTS.md if conventions changed.
+14. **Commit and clock out** — atomic commit with clean message. Session exit checklist. Update PROGRESS.md.
+
+## What to Read Before Implementing
+
+The agent MUST read these files (in this order) before writing any code:
+
+| Order | File | Why |
+|-------|------|-----|
+| 1 | `PROGRESS.md` | Current state — what's done, what's in progress, known issues |
+| 2 | `DECISIONS.md` | Past architectural decisions and their rationale |
+| 3 | `docs/codebase-map.md` | Directory overview, key files, dependencies |
+| 4 | `docs/GRAPH.md` | Code flow — how things connect, entry points, data transformations |
+| 5 | `docs/business/<domain>.md` | Business rules for the domain being modified |
+| 6 | `AGENTS.md` | Hard constraints, verification commands, conventions |
+
+**Why GRAPH.md is critical:** Without understanding the code flow, the agent will:
+- Break existing call chains by modifying a function's contract
+- Add duplicate code because it doesn't know a similar flow already exists
+- Misunderstand how data transforms through layers
+- Put business logic in the wrong layer
+
+## What to Update After Implementing
+
+The agent MUST update these files after every non-trivial change:
+
+| Order | File | What to Update |
+|-------|------|---------------|
+| 1 | `docs/GRAPH.md` | New flows, changed flows, new branches, new error paths |
+| 2 | `docs/codebase-map.md` | New files, renamed files, deleted files |
+| 3 | `docs/business/<domain>.md` | New or changed business rules |
+| 4 | `PROGRESS.md` | Feature marked passing, known issues updated |
+| 5 | `AGENTS.md` | New conventions, commands, or constraints |
 
 ## Diagnostic Loop (when something fails)
 
-1. What failed? (exact error, expected vs actual)
-2. Which layer? (spec / context / environment / verification / state)
-3. What's the fix? (clarify spec? add context? fix env? add test? record state?)
-4. Apply fix to the harness so this failure class never happens again.
-5. Retry.
+Never guess. Never blindly retry. Apply the diagnostic loop:
+
+1. **What failed?** — exact error message, expected vs actual
+2. **Which layer?** — one of: spec / context / environment / verification / state
+3. **What's the fix?** — specific to the layer
+4. **Apply the fix to the harness** — so this class of failure never happens again
+5. **Retry** — run verification again from layer 1
+
+### Layer-Specific Fixes
+
+| Layer | Example Failure | Fix |
+|-------|----------------|-----|
+| **Spec** | "I built X but you wanted Y" | Clarify the feature spec. Add detail. Ask before implementing. |
+| **Context** | "I used raw SQL because I didn't know about SQLAlchemy rule" | Add the rule to AGENTS.md hard constraints. |
+| **Environment** | "Module not found: pydantic" | Fix dependency in pyproject.toml. Add to make setup. |
+| **Verification** | "Tests pass but E2E fails because DB migration wasn't run" | Add migration step to make check. Add migration test. |
+| **State** | "I re-implemented a feature that was already done" | Update PROGRESS.md more clearly. Read it at clock-in. |
 
 ## Anti-Patterns
 
-**Forbidden:**
-- "I'll just start coding and figure it out" — spec first
-- "The requirements are clear enough" — if not 100% sure, ask
-- "I'll document it later" — same session, or it won't happen
-- "I'll fix the lint later" — fix now, layer 1 is always required
-- "Let me also refactor X while I'm here" — WIP=1
-- "Tests pass on my machine" — verification must be reproducible
-- "The code looks right" — verification passes or not done
-- "I'll update PROGRESS.md next session" — state decays, update now
-- Starting a new feature before current reaches `passing`
-- Committing without `make check`
-- Implementing without exploring codebase map and business docs first
+These behaviors are FORBIDDEN. They cause the majority of agent failures:
 
-## Harness Initialization
+### Implementation Anti-Patterns
 
-Before any implementation on a new project, a dedicated init session creates:
+- **"I'll just start coding and figure it out"** — Spec first, code second. Always.
+- **"The requirements are clear enough"** — If not 100% sure, ask. Guessing is wrong.
+- **"I'll document it later"** — Update docs in the same session. "Later" never comes.
+- **"Let me also refactor X while I'm here"** — WIP=1. Stay on task. Refactoring is its own feature.
+- **"This is a simple change, I don't need to read GRAPH.md"** — Every change has context. Read the graph.
 
-1. `AGENTS.md` — router answering all five questions
-2. `Makefile` — setup, test, lint, check, dev
-3. `PROGRESS.md` — with initial task breakdown (≥3 tasks)
-4. `DECISIONS.md` — empty template
-5. `docs/features.md` — feature list with triple structure
-6. `docs/codebase-map.md` — directory overview with code references
-7. `docs/business/` — empty, ready for business rules
-8. `docs/specs/` — empty, ready for specs
+### Verification Anti-Patterns
 
-Bootstrap contract: after init, `make setup` works from scratch, ≥1 test passes, all five AGENTS.md questions answerable from repo alone.
+- **"Tests pass on my machine"** — Verification must be reproducible with `make check`.
+- **"The code looks right"** — Verification passes or it's not done. No judgment calls.
+- **"I'll fix the lint later"** — Layer 1 is always required. Fix it now.
+- **"The failing test is probably unrelated"** — Investigate. Fix. Or document as known issue.
+
+### State Anti-Patterns
+
+- **"I'll update PROGRESS.md next session"** — State decays. Update now.
+- **"I don't need to read DECISIONS.md, I know what I'm doing"** — Past decisions exist for a reason.
+- **Starting a new feature before current reaches `passing`** — WIP=1. Finish first.
+- **Committing without running `make check`** — Broken commits cascade into broken sessions.
+
+### Documentation Anti-Patterns
+
+- **"I'll update GRAPH.md after the next feature too"** — Update it now while the flow is fresh in mind.
+- **"The code is self-documenting"** — Code shows WHAT. GRAPH.md shows HOW IT CONNECTS. Business docs show WHY.
+- **"Nobody reads the docs anyway"** — Agents read them. Every session. That's the point.
+
+## Harness Initialization (New Projects)
+
+Before ANY implementation on a new project, dedicate one session to harness setup. Do NOT mix init and implementation.
+
+### Bootstrap Contract
+
+After initialization, a fresh agent session must be able to:
+1. **Start:** `make setup` works from a completely fresh clone
+2. **Test:** At least one example test passes (proving the test framework is configured)
+3. **See progress:** `PROGRESS.md` exists with task breakdown (≥3 tasks in triple structure)
+4. **Pick up:** Clear next action in PROGRESS.md — no ambiguity
+
+### Initialization Deliverables
+
+Create these files in the init session:
+
+1. **`AGENTS.md`** — Router: project overview, quick start, hard constraints, topic doc links
+2. **`Makefile`** — Targets: `setup`, `test`, `lint`, `check`, `dev`, `clean`
+3. **`PROGRESS.md`** — With initial task breakdown (≥3 tasks, each with triple structure)
+4. **`DECISIONS.md`** — Empty template, ready for first decision
+5. **`docs/GRAPH.md`** — Empty template, ready for first code flow
+6. **`docs/codebase-map.md`** — Directory overview (even if mostly empty)
+7. **`docs/features.md`** — Feature list with triple structure
+8. **`docs/business/`** — Empty directory, ready for business rule docs
+9. **`docs/specs/`** — Empty directory, ready for per-feature specs
+10. **`docs/reviews/`** — Empty directory, ready for review reports
+11. **`.env.example`** — All required env vars documented (no real values)
+12. **Initial git commit** — Everything above, committed with message "Initialize project harness"
+
+### Init Acceptance Checklist
+```
+- [ ] make setup succeeds from clean clone
+- [ ] make test has ≥1 passing example test
+- [ ] make check runs and reports pass (even if minimal)
+- [ ] AGENTS.md answers all five entry-file questions
+- [ ] PROGRESS.md has ≥3 tasks with triple structure
+- [ ] GRAPH.md template exists
+- [ ] codebase-map.md exists
+- [ ] .env.example has all required env vars
+- [ ] Everything committed
+```

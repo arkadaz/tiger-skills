@@ -16,7 +16,7 @@ A harness has five subsystems. All five must be present:
 | **Instructions** | What the agent should know and enforce | `AGENTS.md` / `CLAUDE.md`, topic docs |
 | **Tools** | What the agent can execute | Shell, git, package manager, linter, test runner |
 | **Environment** | Reproducible runtime | `pyproject.toml`, lock files, Docker |
-| **State** | Progress + decisions across sessions | `PROGRESS.md`, `DECISIONS.md`, git commits |
+| **State** | Progress + decisions across sessions | `PROGRESS.md`, `DECISIONS.md`, `GRAPH.md`, git commits |
 | **Feedback** | Explicit verification that work is correct | Verification commands, test suites, lint/type checks |
 
 **The diagnostic loop:** Every failure must be attributed to one of five layers — spec / context / environment / verification / state. Fix that layer. Never fail the same way twice.
@@ -38,7 +38,7 @@ Load these as needed based on the task:
 
 1. If setting up a new project: read [references/repo-system.md](references/repo-system.md) first
 2. Every session: read [references/session-discipline.md](references/session-discipline.md)
-3. Before implementing: read [references/doc-first.md](references/doc-first.md)
+3. Before implementing: read [references/doc-first.md](references/doc-first.md) — includes GRAPH.md for code flow understanding
 4. During implementation: follow [references/workflow.md](references/workflow.md)
 5. Before declaring done: read [references/verification.md](references/verification.md)
 6. When tracking work: read [references/task-management.md](references/task-management.md)
