@@ -1,19 +1,26 @@
 ---
 name: code-quality
-description: Enforce code quality when writing, reviewing, refactoring, or auditing Python code. Use this skill whenever the user mentions code quality, clean code, design principles, software design, SOLID, refactoring, code review, wants to improve code, or asks about writing well-designed code. Also use when the user says "make this better", "improve this", "clean up this code", or any variation suggesting code improvement. This skill is rigid — its rules must be followed, not negotiated.
+description: Enforce code quality when writing, reviewing, refactoring, or auditing code in ANY language. Use this skill whenever the user mentions code quality, clean code, design principles, software design, SOLID, refactoring, code review, wants to improve code, or asks about writing well-designed code. Supports Python and Rust with language-specific rules. Also use when the user says "make this better", "improve this", "clean up this code", or any variation suggesting code improvement. This skill is rigid — its rules must be followed, not negotiated.
 ---
 
 # Code Quality
 
-Enforces design principles from *Software Design for Python Programmers* by Ronald Mak, plus Python-specific rules for types, logging, and clean code.
+Enforces design principles from *Software Design for Python Programmers* by Ronald Mak, plus language-specific rules for types, validation, logging, and clean code. Supports **Python** and **Rust**.
 
-## Five Non-Negotiables
+## Language Detection
+
+Detect the project language from file extensions, Cargo.toml/pyproject.toml, or user context:
+- `.py`, `pyproject.toml`, `requirements.txt` → Python — load [references/python-rules.md](references/python-rules.md)
+- `.rs`, `Cargo.toml` → Rust — load [references/rust-rules.md](references/rust-rules.md)
+- Mixed project → load both
+
+## Five Non-Negotiables (Language-Agnostic)
 
 1. **Explore before implement.** Search the codebase for existing code before writing new.
-2. **Types first.** Concrete types, Pydantic at boundaries. Never `dict` or `Any`.
-3. **Lint and type-check every change.** `ruff check` + `mypy --strict` after every step.
-4. **Logs always.** `logging` module, structured. Never `print()`.
-5. **No water.** No dead code, no redundant comments, no unused variables.
+2. **Types first.** Use the strongest type system available. Validate at boundaries. Never untyped data flowing through business logic.
+3. **Lint and type-check every change.** Run the project's linter and type checker after every step. Zero errors tolerated.
+4. **Logs always.** Structured logging. Never `print()` / `println!()` for operational output.
+5. **No water.** No dead code, no redundant comments, no unused variables. Every line earns its place.
 
 ## Reference Files
 
@@ -21,14 +28,15 @@ Load these as needed based on the task:
 
 | Reference | When to Load |
 |-----------|-------------|
-| [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with violation signals and fixes |
-| [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with when to apply |
-| [references/python-rules.md](references/python-rules.md) | Always — Pydantic, logging, enums, linting, project structure, no magic try/except, explore-before-implement |
+| [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with violation signals and fixes (language-agnostic) |
+| [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with when to apply (language-agnostic) |
+| [references/python-rules.md](references/python-rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, project structure |
+| [references/rust-rules.md](references/rust-rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, project structure |
 | [references/review-agent.md](references/review-agent.md) | After implementing non-trivial code — spawn an independent review agent |
 
 ## Quick Start
 
-1. Read [references/python-rules.md](references/python-rules.md) — always loaded
+1. Detect language → read [references/python-rules.md](references/python-rules.md) or [references/rust-rules.md](references/rust-rules.md)
 2. If reviewing/refactoring: read [references/design-principles.md](references/design-principles.md)
 3. If architecting: read [references/design-patterns.md](references/design-patterns.md)
 4. After implementing: read [references/review-agent.md](references/review-agent.md) and spawn a review agent
