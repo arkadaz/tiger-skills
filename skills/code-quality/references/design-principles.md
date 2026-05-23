@@ -1,6 +1,6 @@
 # Design Principles
 
-From *Software Design for Python Programmers* by Ronald Mak. Apply in order of priority. Each principle includes violation signals that MUST trigger a fix, and concrete before/after examples.
+From *Software Design for Python Programmers* by Ronald Mak. Apply in order of priority. Each principle includes violation signals and before/after examples. **Principles are language-agnostic — examples shown in Python and Rust.**
 
 ## 1. Single Responsibility Principle (SRP)
 
@@ -60,6 +60,42 @@ class CreateOrderUseCase:
         order_id = self._repo.save(Order.from_validated(validated, total))
         self._notifier.send_confirmation(validated.email, order_id, total)
         return OrderResult(order_id=order_id, total=total)
+```
+
+**Rust equivalent — same SRP, different syntax:**
+```rust
+// SRP violation — one struct doing validation, pricing, persistence, notification
+impl OrderProcessor {
+    fn process(&self, data: serde_json::Value) -> Result<(), Box<dyn Error>> {
+        // validate + calculate + save + notify all in one method
+    }
+}
+
+// SRP applied — each struct has one reason to change
+struct OrderValidator;
+impl OrderValidator { fn validate(&self, req: CreateOrderRequest) -> Result<ValidatedOrder, AppError> { todo!() } }
+
+struct PricingCalculator;
+impl PricingCalculator { fn calculate(&self, items: &[OrderItem]) -> Money { todo!() } }
+
+struct OrderRepository { pool: PgPool }
+impl OrderRepository { async fn save(&self, order: &Order) -> Result<Uuid, sqlx::Error> { todo!() } }
+
+struct EmailNotifier { client: reqwest::Client }
+impl EmailNotifier { async fn send_confirmation(&self, email: &EmailAddress, order_id: Uuid) -> Result<(), AppError> { todo!() } }
+
+// Orchestrator — single responsibility: wire the steps together
+struct CreateOrderUseCase<R: OrderRepository, E: EmailNotifier> { repo: R, notifier: E, pricing: PricingCalculator, validator: OrderValidator }
+impl<R: OrderRepository, E: EmailNotifier> CreateOrderUseCase<R, E> {
+    async fn execute(&self, req: CreateOrderRequest) -> Result<OrderResponse, AppError> {
+        let validated = self.validator.validate(req)?;
+        let total = self.pricing.calculate(&validated.items);
+        let order = Order::new(validated, total);
+        let id = self.repo.save(&order).await?;
+        self.notifier.send_confirmation(&order.email, id).await?;
+        Ok(OrderResponse::from(order))
+    }
+}
 ```
 
 **Fix:** Split along responsibility boundaries. Each extracted piece gets a name that describes its single job. The original class becomes an orchestrator that delegates.
@@ -227,6 +263,34 @@ class ExportRegistry:
 # New format = new class + one register() call. No existing code modified.
 ```
 
+**Rust OCP — traits + enum dispatch instead of if-else chains:**
+```rust
+// OCP violation — if-else chain for every format
+fn export(data: &ReportData, format: &str) -> Vec<u8> {
+    if format == "pdf" { export_pdf(data) }
+    else if format == "csv" { export_csv(data) }
+    else { panic!("unknown format") }
+}
+
+// OCP applied — trait + registry
+trait ReportExporter: Send + Sync {
+    fn export(&self, data: &ReportData) -> Vec<u8>;
+}
+
+struct PdfExporter;
+impl ReportExporter for PdfExporter { fn export(&self, data: &ReportData) -> Vec<u8> { todo!() } }
+struct CsvExporter;
+impl ReportExporter for CsvExporter { fn export(&self, data: &ReportData) -> Vec<u8> { todo!() } }
+
+struct ExportRegistry { exporters: HashMap<ExportFormat, Box<dyn ReportExporter>> }
+impl ExportRegistry {
+    fn export(&self, fmt: ExportFormat, data: &ReportData) -> Vec<u8> {
+        self.exporters.get(&fmt).expect("unknown format").export(data)
+    }
+}
+// New format = new struct + impl trait + one register() call. No existing code modified.
+```
+
 **Fix:** Define a stable interface (ABC or Protocol). New behavior arrives as new classes implementing that interface. Register them via a factory or registry.
 
 ## 6. Code to the Interface Principle
@@ -371,7 +435,31 @@ class Car:
 # Any engine + driver combination works. No deep hierarchy needed.
 ```
 
-**Fix:** Replace inheritance with composition. The former subclass holds an instance of a collaborator and delegates to it. Behaviors become swappable plugins.
+**Rust — composition is the default (no inheritance):**
+```rust
+// Rust has no class inheritance — composition is the only option. Use traits for behavior.
+trait Engine: Send + Sync { fn sound(&self) -> &'static str; }
+struct GasEngine;
+impl Engine for GasEngine { fn sound(&self) -> &'static str { "vroom" } }
+struct ElectricEngine;
+impl Engine for ElectricEngine { fn sound(&self) -> &'static str { "..." } }
+
+trait Driver: Send + Sync { fn operate(&self) -> &'static str; }
+struct HumanDriver;
+impl Driver for HumanDriver { fn operate(&self) -> &'static str { "driving" } }
+struct AIDriver;
+impl Driver for AIDriver { fn operate(&self) -> &'static str { "driving itself" } }
+
+struct Car<E: Engine, D: Driver> { engine: E, driver: D }
+impl<E: Engine, D: Driver> Car<E, D> {
+    fn describe(&self) -> String {
+        format!("{} {}", self.driver.operate(), self.engine.sound())
+    }
+}
+// Any engine + driver combination. No deep hierarchy. Behaviors are swappable via generics.
+```
+
+**Fix:** Replace inheritance with composition. The former subclass holds an instance of a collaborator and delegates to it. Behaviors become swappable plugins. In Rust, this is the only option — there is no implementation inheritance.
 
 ## 9. Principle of Least Astonishment
 

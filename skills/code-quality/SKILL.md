@@ -28,8 +28,8 @@ Load these as needed based on the task:
 
 | Reference | When to Load |
 |-----------|-------------|
-| [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with violation signals and fixes (language-agnostic) |
-| [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with when to apply (language-agnostic) |
+| [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with Python + Rust examples |
+| [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with code sketches |
 | [references/python-rules.md](references/python-rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, project structure |
 | [references/rust-rules.md](references/rust-rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, project structure |
 | [references/review-agent.md](references/review-agent.md) | After implementing non-trivial code — spawn an independent review agent |

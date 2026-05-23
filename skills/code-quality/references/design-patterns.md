@@ -1,6 +1,6 @@
 # Design Patterns
 
-From *Software Design for Python Programmers* by Ronald Mak. Each pattern solves a specific architecture problem. When you recognize the "before" symptoms, apply the corresponding pattern.
+From *Software Design for Python Programmers* by Ronald Mak. **Language-agnostic — patterns apply to Python, Rust, and any OO language.** Each pattern solves a specific architecture problem. Code sketches in Python; apply the same structure in Rust using traits, enums, and generics.
 
 ## Pattern Selection Guide
 
