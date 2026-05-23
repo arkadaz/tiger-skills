@@ -339,6 +339,63 @@ When reviewing code, check each item. If any check fails, that's a violation tha
 18. **Patterns:** Is there an architecture problem that a design pattern should solve?
 19. **AGENTS.md updated:** If new conventions, commands, or architectural decisions were introduced, is AGENTS.md/CLAUDE.md updated?
 
+## Independent Code Review
+
+After implementing any non-trivial change, a SEPARATE review agent MUST audit the code before it is considered done. The agent that wrote the code cannot be the sole judge of its quality — agents systematically over-rate their own output.
+
+### When to Spawn a Review Agent
+
+Required when:
+- A new class or module is created
+- A function longer than 15 lines is added or modified
+- A new API endpoint or public interface is introduced
+- Code touches shared infrastructure (database, auth, config)
+- The change spans 3+ files
+
+Skip only for single-line fixes, typos, or configuration value changes.
+
+### How the Review Works
+
+1. The implementation agent finishes its work: code written, lint clean, type check clean, tests pass.
+2. Spawn a review agent using the Agent tool. The review agent reads `code-quality/SKILL.md` and audits the diff against every item in the audit checklist.
+3. The review agent saves findings to `docs/reviews/YYYY-MM-DD-<topic>-review.md`.
+4. The implementation agent addresses every finding before marking the feature `passing`.
+5. If the review finds architectural issues (SRP/OCP violations, missing interfaces), the implementation agent MUST fix them — not just note them.
+
+### Review Report Template
+
+```markdown
+# Code Review: <feature/task>
+
+## Summary
+- Reviewed by: <agent>
+- Files reviewed: <list>
+- Pass rate: <N>/<19 audit items>
+
+## Violations Found
+### <Violation>
+- File: `src/module/file.py:123`
+- Rule: <which audit item>
+- Problem: <specific issue>
+- Fix: <what to do>
+
+## Approved With Changes
+- <item> — addressed in commit <hash>
+```
+
+### Review Agent Prompt
+
+When spawning the review agent, use this structure:
+```
+You are a code review agent. Read the code-quality skill at <path>.
+Audit the files at <list of changed files> against all 19 audit checklist items.
+For each violation, cite the file, line, and which rule it breaks.
+Save the review to docs/reviews/<date>-<topic>-review.md.
+The implementation agent will address your findings — do NOT modify the code yourself.
+```
+
+Do NOT skip review because "the code looks fine." The review agent provides an independent check — it often catches issues the implementation agent missed.
+
 ## Implementation Guidance
 
 When writing new code, follow this order:
@@ -350,6 +407,7 @@ When writing new code, follow this order:
 5. Add logging at entry, exit, and state-changing branches.
 6. Add error handling only for known, specific failure modes.
 7. Run `ruff check` (or the project's linter) and `mypy --strict` (or the project's type checker). Fix any issues.
-8. Review against the audit checklist.
-9. Remove any water code.
-10. If the project has an AGENTS.md or CLAUDE.md, update it with any new architectural decisions, new verification commands, or changed conventions.
+8. Self-review against the audit checklist.
+9. **Spawn an independent review agent** (see Independent Code Review section above). Address all findings.
+10. Remove any water code.
+11. If the project has an AGENTS.md or CLAUDE.md, update it with any new architectural decisions, new verification commands, or changed conventions.
