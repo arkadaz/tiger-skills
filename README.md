@@ -1,44 +1,73 @@
 # tiger-skills
 
-Custom Claude Code skills for code quality and harness engineering.
+Claude Code skills for code quality and harness engineering. Follows the [Agent Skills](https://agentskills.io) standard.
 
 ## Skills
 
-### code-quality
-Enforces design principles (SRP, OCP, LSP, DRY, etc.), Pydantic types, logging, enums, and clean code rules during implementation and code review.
+| Skill | Description |
+|-------|-------------|
+| `code-quality` | Enforces design principles (SRP, OCP, LSP, DRY, etc.), Pydantic types, logging, enums, and clean code rules |
+| `harness-engineering` | Manages agent harness: AGENTS.md as router, PROGRESS.md, session discipline, WIP=1, three-layer verification, spec-before-code, Git discipline |
 
-### harness-engineering
-Manages the agent harness: AGENTS.md as router, PROGRESS.md, session discipline, WIP=1, three-layer verification, spec-before-code, business logic docs, Git discipline.
+## Structure
 
-## Install on a new PC
-
-```bash
-# Clone the repo
-git clone https://github.com/arkadaz/tiger-skills.git
-
-# Create the Claude skills directory if it doesn't exist
-mkdir -p ~/.claude/skills
-# On Windows: mkdir %USERPROFILE%\.claude\skills
-
-# Copy the skills
-cp -r tiger-skills/code-quality ~/.claude/skills/
-cp -r tiger-skills/harness-engineering ~/.claude/skills/
-# On Windows:
-# xcopy tiger-skills\code-quality %USERPROFILE%\.claude\skills\code-quality\ /E /I
-# xcopy tiger-skills\harness-engineering %USERPROFILE%\.claude\skills\harness-engineering\ /E /I
-
-# Restart Claude Code. The skills will appear in your available skills list.
+```
+tiger-skills/
+├── skills/
+│   ├── code-quality/
+│   │   └── SKILL.md
+│   └── harness-engineering/
+│       └── SKILL.md
+├── .claude-plugin/
+│   └── plugin.json
+└── README.md
 ```
 
-## Update on a new PC
+## Install
+
+### Method 1: Plugin Marketplace (recommended)
+
+In Claude Code:
+```
+/plugin marketplace add arkadaz/tiger-skills
+/plugin install tiger-skills@arkadaz
+```
+
+### Method 2: Manual Install
+
+**macOS/Linux:**
+```bash
+git clone https://github.com/arkadaz/tiger-skills.git
+mkdir -p ~/.claude/skills
+cp -r tiger-skills/skills/code-quality ~/.claude/skills/
+cp -r tiger-skills/skills/harness-engineering ~/.claude/skills/
+```
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/arkadaz/tiger-skills.git
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills"
+Copy-Item -Recurse tiger-skills\skills\code-quality "$env:USERPROFILE\.claude\skills\"
+Copy-Item -Recurse tiger-skills\skills\harness-engineering "$env:USERPROFILE\.claude\skills\"
+```
+
+### Method 3: Symlink (dev/contributing)
+
+```bash
+git clone https://github.com/arkadaz/tiger-skills.git
+mkdir -p ~/.claude/skills
+ln -s $(pwd)/tiger-skills/skills/code-quality ~/.claude/skills/
+ln -s $(pwd)/tiger-skills/skills/harness-engineering ~/.claude/skills/
+```
+
+## Update
 
 ```bash
 cd tiger-skills
 git pull
-cp -r code-quality ~/.claude/skills/
-cp -r harness-engineering ~/.claude/skills/
+# Restart Claude Code — skills reload automatically
 ```
 
-## Verify Installation
+## Verify
 
-Start Claude Code and type `/code-quality` or `/harness-engineering` — both should appear.
+Start Claude Code. Both `/code-quality` and `/harness-engineering` should appear in available commands.
