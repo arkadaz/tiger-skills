@@ -88,19 +88,73 @@ Last updated: <YYYY-MM-DD> by <session>
 - order.created (RabbitMQ) — Order created event consumer
 
 ## Order Creation Flow
+
+### Visual Overview (Mermaid)
+```mermaid
+sequenceDiagram
+    Client->>API: POST /api/orders {customer_name, email, items, address, promo_code?}
+    API->>Auth: Bearer token
+    Auth-->>API: user_id
+    API->>Service: CreateOrderRequest + user_id
+    Service->>Pricing: items[]
+    Pricing->>Promo: promo_code
+    Promo-->>Pricing: discount: Decimal
+    Pricing-->>Service: subtotal, discount, shipping, total
+    Service->>Repo: ValidatedOrder
+    Repo-->>Service: Order (+id: UUID, +created_at)
+    Service->>Notifier: email, order_id
+    Service-->>API: Order
+    API-->>Client: 201 {order_id, status, total}
 ```
-POST /api/orders {customer_name, email, items[{book_id, quantity}], shipping_address, promo_code?}
-  → api/orders.py:create_order()              [Pydantic → CreateOrderRequest, returns 201 or 422]
-    → middleware/auth.py:require_auth()       [Bearer token → user_id added to request context]
-    → services/order_service.py:create()      [CreateOrderRequest + user_id → ValidatedOrder]
-      → services/pricing.py:calculate(items)  [looks up book prices, computes subtotal: Decimal]
-        → services/promo.py:apply(code)       [promo_code → discount: Decimal | 0.0]
-          → docs/business/pricing.md          [rules: max 2 promos stackable, free shipping ≥$50]
-      → repositories/order_repo.py:save(order) [ValidatedOrder → INSERT → Order with UUID]
-      → services/notification.py:send(email, order_id)  [email confirmation, best-effort]
-    → api/orders.py:_to_response(order)       [Order → OrderResult {order_id, status, total}]
+
+### Data Fields Detail
 ```
-[Arrow format: caller → callee [what data passes in → what data comes out]. Show field names in {braces}.]
+POST /api/orders
+  → api/orders.py:create_order()
+    IN:  CreateOrderRequest {customer_name: str, email: EmailStr, items: [{book_id: str, quantity: int}], shipping_address: Address {street, city, state, zip}, promo_code: str | None}
+    OUT: 201 OrderResult {order_id: str, status: "confirmed", total: str}
+         422 {"detail": [{"loc": [...], "msg": "..."}]}
+         400 {"error": "promo_expired", "code": "SUMMER20"}
+
+    → middleware/auth.py:require_auth(token)
+      IN:  Bearer token from Authorization header
+      OUT: user_id: str (added to request context)
+
+    → services/order_service.py:create(request, user_id)
+      IN:  CreateOrderRequest + user_id: str
+      ADDS:    id: str (uuid4), status: OrderStatus.CONFIRMED, created_at: datetime (now)
+      COMPUTES: subtotal: Decimal (sum of item prices × quantities)
+                discount: Decimal (from promo service)
+                shipping: Decimal (from shipping rules)
+                total: Decimal (subtotal - discount + shipping)
+      PASSES:   ValidatedOrder {id, customer_name, email, items[{book_id, quantity, unit_price}], address, subtotal, discount, shipping, total, status, created_at}
+
+      → services/pricing.py:calculate(items)
+        IN:  items: [{book_id: str, quantity: int}]
+        DOES: looks up unit_price per book_id, computes subtotal
+        OUT: subtotal: Decimal, items_with_prices: [{book_id, quantity, unit_price}]
+
+      → services/promo.py:apply(code, subtotal)
+        IN:  code: str | None, subtotal: Decimal
+        DOES: validates code against business rules → docs/business/pricing.md
+        OUT: discount: Decimal (0.0 if no code or invalid)
+
+      → repositories/order_repo.py:save(order)
+        IN:  ValidatedOrder
+        STORES: orders(id, customer_name, email, subtotal, discount, shipping, total, status, created_at)
+                order_items(order_id, book_id, quantity, unit_price)
+        OUT: Order (same fields, confirmed persisted)
+
+      → services/notification.py:send(email, order_id)
+        IN:  email: str, order_id: str
+        DOES: sends confirmation email via SendGrid (best-effort, failure logged as WARNING)
+        OUT: None (fire-and-forget)
+
+    → api/orders.py:_to_response(order)
+      IN:  Order
+      MAPS: Order.id → OrderResult.order_id, Order.status → OrderResult.status, Order.total → str
+      OUT: OrderResult {order_id: str, status: str, total: str}
+```
 
 ## Key Decision Points
 [Where does the code branch? What conditions matter?]
@@ -156,9 +210,11 @@ Field map:
 
 1. **Read BEFORE implementing.** If you don't understand the flow, you'll break it.
 2. **Update AFTER implementing.** Every new endpoint, every new branch, every new external call — add it to the graph.
-3. **Show FIELDS in Data Transformations.** The most important section. For each data type, list its fields with types. Show what fields are added, removed, or transformed at each layer. This is how agents understand what data they have to work with at each step.
-4. **Show exact error response shapes** in Error Propagation — not just "404" but the actual JSON body.
-5. **One flow per use case.** Separate sections for create, read, update, delete, search — each with its own data transformation chain.
+3. **Dual format for every flow:** Mermaid sequence diagram (visual overview) + arrow-text with IN/OUT/ADDS/COMPUTES/STORES (field-level detail agents parse).
+4. **IN/OUT on every step.** Show exactly what fields enter and exit each function. Mark computed fields (COMPUTES), generated fields (ADDS), and stored schema (STORES).
+5. **Show exact error response shapes** — not just "404" but the actual JSON body `{"error": "order_not_found", "order_id": "xxx"}`.
+6. **One flow per use case.** Separate sections for create, read, update, delete with their own Mermaid + data detail.
+7. **Keep it current.** A stale flow graph is worse than no flow graph — it lies to the agent.
 3. **Use the arrow format consistently.** `caller → callee [description]` — agents can parse this.
 4. **Include business logic references.** Link to `docs/business/` files where rules are documented.
 5. **Keep it current.** A stale flow graph is worse than no flow graph — it lies to the agent.
