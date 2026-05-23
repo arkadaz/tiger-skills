@@ -328,3 +328,243 @@ Before writing ANY new code:
 4. If an existing function does 80%+ of what you need, extend or reuse it
 
 **Do NOT create:** a second `validate_email()`, a second `parse_date()`, a second `build_query()`, or a second constant definition. Duplication is worse than a mildly awkward reuse.
+
+## Project Structure
+
+Every Python project MUST follow this structure. The separation of concerns is enforced at the directory level — code in one layer must not cross boundaries into another.
+
+### Required Directory Layout
+
+Every Python project MUST follow a layered structure. The specific layer names adapt to the project type, but the separation principle is universal: code flows inward through layers, never outward, never skipping.
+
+**API / Backend:**
+```
+project/
+├── src/
+│   ├── api/              — HTTP route handlers, request/response Pydantic models
+│   ├── services/         — Business logic, use cases, orchestration
+│   ├── repositories/     — Database access, external API clients, file I/O
+│   ├── models/           — Domain types, enums, value objects, ORM models
+│   ├── core/             — config.py, database.py, logging.py, exceptions.py
+│   ├── middleware/       — Cross-cutting request/response processing
+│   └── utils/            — Zero-business-logic shared helpers
+├── tests/{unit,integration,e2e}/
+├── docs/{business,specs,reviews}/
+├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
+├── Makefile, pyproject.toml, .env.example
+```
+
+**CLI Tool:**
+```
+project/
+├── src/
+│   ├── commands/         — CLI command handlers (click/typer entry points)
+│   ├── services/         — Business logic, use cases
+│   ├── repositories/     — File I/O, external API clients, database access
+│   ├── models/           — Domain types, enums, value objects
+│   ├── core/             — config.py, logging.py
+│   └── utils/            — Zero-business-logic shared helpers
+├── tests/{unit,integration}/
+├── docs/{business,specs,reviews}/
+├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
+├── Makefile, pyproject.toml, .env.example
+```
+
+**Library / SDK:**
+```
+project/
+├── src/
+│   └── <package_name>/   — Public API surface (what users import)
+│       ├── __init__.py    — Re-exports public types
+│       ├── _internal/     — Private implementation (leading underscore = hidden)
+│       ├── models.py      — Public domain types, enums
+│       └── py.typed       — PEP 561 marker for type checkers
+├── tests/{unit,integration}/
+├── docs/{business,specs,reviews}/
+├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
+├── Makefile, pyproject.toml
+```
+
+**Data Pipeline / Worker:**
+```
+project/
+├── src/
+│   ├── pipelines/        — Pipeline definitions (extract → transform → load)
+│   ├── extractors/       — Data source readers (APIs, files, DBs)
+│   ├── transformers/     — Data transformation logic
+│   ├── loaders/          — Data destination writers
+│   ├── models/           — Domain types, enums, schemas
+│   ├── core/             — config.py, logging.py, connections.py
+│   └── utils/            — Zero-business-logic shared helpers
+├── tests/{unit,integration}/
+├── docs/{business,specs,reviews}/
+├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
+├── Makefile, pyproject.toml, .env.example
+```
+
+### Universal Rules (All Project Types)
+
+1. **Config is centralized.** `src/core/config.py` (pydantic-settings) is the ONLY file that reads env vars. Config values flow inward via constructor injection.
+2. **Layers are one-way.** Imports flow inward. Outer layers import from inner layers. Inner layers NEVER import from outer layers.
+3. **Domain code is isolated.** `models/` has ZERO imports from `api/`, `services/`, `repositories/`, `commands/`, `pipelines/`. It depends on `utils/` only.
+4. **Utils has zero business logic.** If a function knows about "orders" or "users," it does not belong in `utils/`.
+5. **Every directory is a package.** Every `src/` subdirectory has `__init__.py`.
+6. **Tests mirror source.** `tests/unit/services/test_auth_service.py` for `src/services/auth_service.py`.
+7. **Docs are mandatory.** `docs/` with business rules, specs, GRAPH.md, and codebase-map.md. Not optional.
+
+### Layer Rules (API/Backend Example)
+
+| Layer | Allowed Imports | Forbidden Imports |
+|-------|----------------|-------------------|
+| **api/** | services/, models/, core/, utils/ | repositories/ (go through services) |
+| **services/** | repositories/, models/, core/, utils/ | api/ (services don't know about HTTP) |
+| **repositories/** | models/, core/, utils/ | api/, services/ |
+| **models/** | utils/ only | api/, services/, repositories/, core/ |
+| **core/** | utils/ only | everything else |
+| **utils/** | nothing from src/ | everything else |
+
+**The dependency rule (all project types):** Dependencies flow inward. The outermost layer (api/commands/pipelines) depends on the inner layers (services/extractors). The innermost layer (models/) depends on nothing. No layer skips inward. No layer reaches outward.
+
+**Why this matters (any project type):**
+- Swap the entry point (FastAPI → Flask → CLI) without touching business logic
+- Swap the data layer (PostgreSQL → MongoDB → flat files) without touching business logic
+- Test business logic without any I/O
+- New developers (and agents) know exactly where to find code immediately
+
+### What Goes Where — Universal
+
+| If you're writing... | It goes in... |
+|---------------------|---------------|
+| Entry point (HTTP route, CLI command, pipeline step) | api/, commands/, pipelines/ |
+| I/O contract (Pydantic request/response model, CLI args schema) | Same file as the entry point |
+| Business rule ("an order over $50 gets free shipping") | services/ |
+| Orchestration ("create order: validate → price → save → notify") | services/ |
+| Data access (database query, API call, file read/write) | repositories/ |
+| Domain model (User, Order, Product) | models/ |
+| Enum (OrderStatus, UserRole, Priority) | models/ |
+| Value object (Money, Email, Address) | models/ |
+| Config (env vars, settings, feature flags) | core/config.py ONLY |
+| Database connection (engine, session, pool) | core/database.py ONLY |
+| Logging setup | core/logging.py ONLY |
+| Exception handlers (domain error → HTTP response) | core/exceptions.py |
+| Shared error types (domain exceptions) | models/ or core/exceptions.py |
+| Cross-cutting HTTP processing (auth, CORS, timing) | middleware/ |
+| Pure helper (date format, string manipulation, math) | utils/ |
+
+### Anti-Pattern — Wrong Layout
+
+```
+# DON'T DO THIS:
+project/
+├── app.py           # everything in one file
+├── models.py        # all models dumped together regardless of domain
+├── utils.py         # "the drawer where everything goes"
+├── helpers.py       # same problem, different name
+└── constants.py     # magic values without domain context
+```
+
+### Init Files
+
+Every directory under `src/` MUST have an `__init__.py` (even if empty) to make it a proper Python package. Every directory under `tests/` SHOULD have an `__init__.py`.
+
+### Config Management
+
+Every project MUST have a single source of truth for configuration. Never scatter `os.environ` calls or hardcoded values across the codebase.
+
+**Correct (pydantic-settings):**
+```python
+# src/core/config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # App
+    app_name: str = "book-store-api"
+    debug: bool = False
+    port: int = 8000
+
+    # Database
+    database_url: str = "postgresql+asyncpg://localhost:5432/bookstore"
+
+    # Auth
+    jwt_secret: str  # required — no default, must be set in .env
+    jwt_expiry_minutes: int = 60
+    password_min_length: int = 8
+
+    # External services
+    sendgrid_api_key: str = ""
+    stripe_secret_key: str = ""
+    redis_url: str = "redis://localhost:6379/0"
+
+
+# Single instance — imported ONCE at app startup, injected everywhere else
+settings = Settings()
+```
+
+**Config injection pattern — never import settings globally in business logic:**
+```python
+# src/services/password_service.py
+class PasswordService:
+    def __init__(self, min_length: int) -> None:  # config injected, not imported
+        self._min_length = min_length
+
+    def validate_strength(self, password: str) -> PasswordValidationResult:
+        if len(password) < self._min_length:  # uses injected value
+            ...
+
+# src/main.py — wiring at composition root
+from src.core.config import settings
+from src.services.password_service import PasswordService
+
+password_service = PasswordService(min_length=settings.password_min_length)
+```
+
+**Wrong (scattered config):**
+```python
+# DON'T: os.environ calls scattered everywhere
+db_url = os.environ.get("DATABASE_URL", "postgresql://localhost/db")  # in services/auth.py
+jwt_secret = os.environ["JWT_SECRET"]  # in api/auth.py
+api_key = os.environ.get("SENDGRID_KEY")  # in services/email.py
+# No single source of truth, no validation, no typing
+```
+
+**Required files for config:**
+- `src/core/config.py` — Settings model (pydantic-settings)
+- `src/core/__init__.py` — package init
+- `.env.example` — all required vars documented, no real secrets committed
+- `.env` — real values (in .gitignore — NEVER committed)
+
+### Core Module
+
+The `src/core/` directory holds application-wide infrastructure:
+
+```
+src/core/
+├── __init__.py
+├── config.py       — pydantic-settings Settings model
+├── database.py     — SQLAlchemy engine + session factory (if using DB)
+├── logging.py      — logging configuration (structlog setup, level, format)
+└── exceptions.py   — shared exception handlers (FastAPI exception handlers)
+```
+
+**Rules for src/core/:**
+- `config.py` is the ONLY file that reads environment variables
+- All other modules receive config values via constructor injection
+- `database.py` owns the DB connection lifecycle
+- `logging.py` configures logging ONCE at startup
+- `exceptions.py` maps domain exceptions to HTTP responses
+
+### New Project Bootstrap
+
+When starting a new Python project, create this structure BEFORE writing any business code:
+
+```bash
+mkdir -p src/{api,services,repositories,models,middleware,utils}
+mkdir -p tests/{unit,integration,e2e}
+mkdir -p docs/{business,specs,reviews}
+touch src/{api,services,repositories,models,middleware,utils}/__init__.py
+touch tests/{unit,integration,e2e}/__init__.py
+```
+

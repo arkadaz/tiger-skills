@@ -23,7 +23,7 @@ Load these as needed based on the task:
 |-----------|-------------|
 | [references/design-principles.md](references/design-principles.md) | When reviewing or writing code — all 13 principles with violation signals and fixes |
 | [references/design-patterns.md](references/design-patterns.md) | When architecture patterns are needed — 13 patterns with when to apply |
-| [references/python-rules.md](references/python-rules.md) | Always — Pydantic, logging, enums, linting, no magic try/except, explore-before-implement |
+| [references/python-rules.md](references/python-rules.md) | Always — Pydantic, logging, enums, linting, project structure, no magic try/except, explore-before-implement |
 | [references/review-agent.md](references/review-agent.md) | After implementing non-trivial code — spawn an independent review agent |
 
 ## Quick Start
