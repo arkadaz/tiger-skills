@@ -6,8 +6,8 @@ Claude Code skills for code quality and harness engineering. Follows the [Agent 
 
 | Skill | Description |
 |-------|-------------|
-| `code-quality` | Enforces design principles (SRP, OCP, LSP, DRY, etc.), Pydantic types, logging, enums, and clean code rules |
-| `harness-engineering` | Manages agent harness: AGENTS.md as router, PROGRESS.md, session discipline, WIP=1, three-layer verification, spec-before-code, Git discipline |
+| `code-quality` | Enforces design principles (SRP, OCP, LSP, DRY, 13 total), independent review agent, Pydantic types at boundaries, logging, enums for known value sets, lint+type-check required, no water code, no magic try/except, explore-before-implement |
+| `harness-engineering` | Manages agent harness: AGENTS.md as router, PROGRESS.md + DECISIONS.md, WIP=1, parallel agent dispatch, three-layer verification, spec-before-code, business logic docs, codebase map, session clock-in/out, Git discipline |
 
 ## Structure
 
