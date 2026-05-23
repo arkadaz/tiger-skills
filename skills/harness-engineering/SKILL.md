@@ -212,6 +212,54 @@ Every feature MUST have the triple structure. Missing any one field = incomplete
 - Evidence saved (test output, curl result, screenshot)
 - PROGRESS.md updated
 
+### Parallel Agents for Independent Tasks
+
+WIP=1 means one task per agent. But when the feature list contains multiple tasks that have NO shared state and NO sequential dependencies, spawn parallel subagents — one per task. This is the only exception to sequential execution.
+
+**When to parallelize:**
+- Tasks touch completely separate files with no overlap
+- Task A's output is NOT required as input for Task B
+- Tasks can be verified independently
+- Each task is well-specified enough for an agent to complete solo
+
+**When NOT to parallelize:**
+- Tasks share files (merge conflicts, race conditions)
+- Task B depends on Task A being finished first
+- The codebase is unfamiliar and agents need to explore first
+- One task's design decisions affect the other
+
+**How to spawn parallel agents:**
+
+1. Check PROGRESS.md for `not_started` tasks that qualify as independent
+2. Mark all selected tasks as `active` simultaneously
+3. Spawn one agent per task using the Agent tool with `run_in_background: true`
+4. Each agent follows the standard flow: clock-in → spec → implement → verify → update docs → clock-out
+5. Each agent works in its own context window — they cannot see each other's work mid-flight
+6. When all agents complete, run `make check` on the merged result
+7. Update PROGRESS.md with all results
+
+**Critical rules for parallel work:**
+- Each agent MUST commit its work before the others merge. No agent leaves uncommitted changes.
+- If two agents touch the same file, the second to commit handles the merge conflict
+- If any agent fails, stop the parallel batch and diagnose before spawning more
+- After all parallel agents finish, run the full verification pipeline on the merged codebase
+- Update `docs/codebase-map.md` after the merge to reflect all changes
+
+**Example — valid parallel tasks:**
+```
+F04: Add user preferences endpoint   (src/api/preferences.py)
+F05: Add email verification worker   (src/workers/email.py)
+F06: Add health check endpoint       (src/api/health.py)
+```
+These touch different files, have no dependencies, and can be verified independently.
+
+**Example — sequential only:**
+```
+F04: Add order database model       (src/models/order.py)
+F05: Add order creation endpoint     (src/api/orders.py) — depends on F04
+```
+F05 needs F04's model to exist first. These MUST run sequentially.
+
 ## 4. Verification Pipeline
 
 ### Three-Layer Termination Check
