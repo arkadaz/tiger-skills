@@ -1,13 +1,13 @@
 # tiger-skills
 
-Claude Code skills for code quality and harness engineering. Follows the [Agent Skills](https://agentskills.io) standard.
+Claude Code skills for code quality and harness engineering. The two skills work as one system: **harness-engineering** is the outer loop (process: what to do, when) and **code-quality** is the inner loop (craft: how to write the code). Each explicitly cross-references the other at handoff points. Follows the [Agent Skills](https://agentskills.io) standard.
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| `code-quality` | Enforces design principles (SRP, OCP, LSP, DRY, 13 total), independent review agent, Pydantic types at boundaries, logging, enums for known value sets, lint+type-check required, no water code, no magic try/except, explore-before-implement |
-| `harness-engineering` | Manages agent harness: AGENTS.md as router, PROGRESS.md + DECISIONS.md, WIP=1, parallel agent dispatch, three-layer verification, spec-before-code, business logic docs, codebase map, session clock-in/out, Git discipline |
+| `code-quality` | Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY, etc.) plus language-specific rules for **Python** and **Rust**. Independent review agent, typed boundaries, structured logging, enums over magic strings, no water code. |
+| `harness-engineering` | Outer loop — session discipline (clock-in/out), spec-before-code, WIP=1, three-layer verification pipeline, parallel agent dispatch, AGENTS.md as router, PROGRESS.md + DECISIONS.md, GRAPH.md code flow, diagnostic loop. |
 
 ## Structure
 
@@ -15,9 +15,26 @@ Claude Code skills for code quality and harness engineering. Follows the [Agent 
 tiger-skills/
 ├── skills/
 │   ├── code-quality/
-│   │   └── SKILL.md
+│   │   ├── SKILL.md
+│   │   └── references/
+│   │       ├── design-principles.md    — 13 principles with violation signals
+│   │       ├── design-patterns.md      — Pattern selection guide + cheat sheet
+│   │       ├── review-agent.md         — Independent code review flow
+│   │       ├── python/
+│   │       │   ├── rules.md            — Python: Pydantic, logging, enums, structure
+│   │       │   └── examples.md         — Python: 13 principles + 13 patterns in code
+│   │       └── rust/
+│   │           ├── rules.md            — Rust: serde, tracing, enums, cargo
+│   │           └── examples.md         — Rust: 13 principles + 13 patterns in code
 │   └── harness-engineering/
-│       └── SKILL.md
+│       ├── SKILL.md
+│       └── references/
+│           ├── repo-system.md          — AGENTS.md template, codebase map, cold-start test
+│           ├── session-discipline.md   — Clock-in/out routines, PROGRESS.md, DECISIONS.md
+│           ├── task-management.md      — WIP=1, feature state machine, parallel agents
+│           ├── verification.md         — 3-layer pipeline, definition of done
+│           ├── doc-first.md            — Spec-before-code, business docs, GRAPH.md
+│           └── workflow.md             — 14-step implementation flow, diagnostic loop
 ├── .claude-plugin/
 │   └── plugin.json
 └── README.md
