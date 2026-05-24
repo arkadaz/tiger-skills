@@ -32,32 +32,65 @@ Detect the project language from file extensions, Cargo.toml/pyproject.toml, or 
 
 ## Comprehension Gate — READ BEFORE WRITING CODE
 
-**Before writing, modifying, or reviewing any code, the agent MUST fully read and understand ALL applicable rules.** Skimming the checklist is not reading. "I get the idea" is not understanding. The reference files exist because the rules cannot be summarized in a checklist — the agent must read them.
+**Before writing, modifying, or reviewing any code, the agent MUST fully read and understand ALL applicable rules AND discover all existing types in the codebase.** Skimming the checklist is not reading. "I get the idea" is not understanding. The reference files exist because the rules cannot be summarized in a checklist — the agent must read them.
 
 ### Mandatory Reading Sequence
 
 Execute in strict order. Do not skip any step. Do not write code until all steps complete. **If you think you already know the rules from a previous session, you're wrong — read them again. Rules evolve, and memory degrades.**
 
-1. **Read design principles** — [references/design-principles.md](references/design-principles.md). Every principle. Every violation signal. Every fix. All 13. Do not skim the table — read the full text for each principle. Understanding WHY a principle exists is what prevents you from violating it.
-2. **Read language rules** — [references/python/rules.md](references/python/rules.md) or [references/rust/rules.md](references/rust/rules.md). Naming conventions (no leading-underscore on ANY name), Pydantic/serde at boundaries, fully parameterized generics (no bare dict/list/set/tuple), enums for all fixed choices, structured logging, flat functions (no nested def), empty `__init__.py`, config injection, one-way imports, no water.
-3. **Read language examples** — [references/python/examples.md](references/python/examples.md) or [references/rust/examples.md](references/rust/examples.md). See each principle and pattern in real code. The examples show correct implementation — copy the pattern, not just the concept.
-4. **If designing new components/architecture:** Read [references/design-patterns.md](references/design-patterns.md). Pattern selection guide, when to use which pattern, the cheat sheet.
+1. **Discover project types (Codebase Type Discovery)** — BEFORE reading any reference file, find and read ALL existing type definitions in the project. This is the single most important step. Agents that skip this write `cfg: Any` when `AppConfig` exists 3 files away.
+
+   **Execute these searches IN ORDER:**
+   ```
+   a. Glob for model/type files:  **/*.py (or **/*.rs) — focus on models/, types/, schemas/, core/ directories
+   b. Grep for type definitions:  "class.*BaseModel|class.*TypedDict|@dataclass|class.*Enum|NewType|TypeAlias|type .*=" 
+   c. Grep for config types:      "class.*Config|class.*Settings|class.*Options"
+   d. Grep for driver/client types: "class.*Driver|class.*Client|class.*Connection|class.*Session"
+   e. Read EVERY file that matches — not just the class name, the FULL file with all fields and methods
+   ```
+
+   **Build a Type Inventory** — after reading, you MUST be able to answer:
+   - What is the config type? (e.g., `AppConfig`, `Settings`, `PipelineConfig`)
+   - What are the driver/client types? (e.g., `Neo4jDriver`, `AsyncDriver`, `HttpClient`)
+   - What domain models exist? (e.g., `Checkpoint`, `EntityRow`, `UserRecord`)
+   - What enums exist? (e.g., `OrderStatus`, `AgentKey`, `PipelinePhase`)
+   - What type aliases exist? (e.g., `JsonValue`, `UserId`)
+
+   **Rule:** If a type exists in the codebase for a concept, you MUST use it. Writing `Any`, `object`, or a generic stand-in when a real type exists is a **BLOCKING violation** — not a style issue, a correctness bug. The type exists. Use it.
+
+2. **Read all project documentation** — Read every `.md` file that provides context about the codebase:
+   - `AGENTS.md` / `CLAUDE.md` — project conventions, hard constraints, architecture
+   - `PROGRESS.md` — what's done, what's in progress, known issues
+   - `DECISIONS.md` — locked architectural choices
+   - `docs/GRAPH.md` — code flow connections
+   - `docs/codebase-map.md` — file roles and dependencies
+   - `docs/business/*.md` — domain rules
+   - `docs/specs/*.md` — feature specifications (at least the relevant one)
+
+   **Why:** These files contain context that prevents you from re-inventing existing patterns, contradicting locked decisions, or misunderstanding domain rules. An agent that doesn't read them will build the wrong thing.
+
+3. **Read design principles** — [references/design-principles.md](references/design-principles.md). Every principle. Every violation signal. Every fix. All 13. Do not skim the table — read the full text for each principle. Understanding WHY a principle exists is what prevents you from violating it.
+4. **Read language rules** — [references/python/rules.md](references/python/rules.md) or [references/rust/rules.md](references/rust/rules.md). Naming conventions (no leading-underscore on ANY name), Pydantic/serde at boundaries, fully parameterized generics (no bare dict/list/set/tuple), enums for all fixed choices, structured logging, flat functions (no nested def), empty `__init__.py`, config injection, one-way imports, no water.
+5. **Read language examples** — [references/python/examples.md](references/python/examples.md) or [references/rust/examples.md](references/rust/examples.md). See each principle and pattern in real code. The examples show correct implementation — copy the pattern, not just the concept.
+6. **If designing new components/architecture:** Read [references/design-patterns.md](references/design-patterns.md). Pattern selection guide, when to use which pattern, the cheat sheet.
 
 ### Comprehension Self-Check
 
-Before writing ANY code, the agent must answer YES to ALL five questions:
+Before writing ANY code, the agent must answer YES to ALL seven questions:
 
+- [ ] Can I list every type in this project's Type Inventory? (config types, driver types, domain models, enums, type aliases)
+- [ ] For the code I'm about to write, do I know the EXACT type for every parameter? (not `Any`, not `object` — the real type)
 - [ ] Can I name all 13 design principles and what violation each prevents?
 - [ ] Can I recognize at least one violation signal for each principle?
-- [ ] Do I know all 10 tooling rules (types, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
+- [ ] Do I know all 11 tooling rules (types, DI, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
 - [ ] Do I know what code I'm about to write and which rules are most relevant to it?
 - [ ] If I encountered a violation while reviewing, do I know the correct fix pattern?
 
-**If ANY answer is NO:** Re-read the relevant reference file. Do not write code until all five are YES.
+**If ANY answer is NO:** Re-read the relevant reference file or re-run the type discovery. Do not write code until all seven are YES.
 
 ### Gate Rule
 
-**Do not write, modify, or review a single line of code until the mandatory reading sequence is complete AND the comprehension self-check passes all five items.** The agent's first response after loading this skill must include: "Read [N] reference files. Comprehension check: [PASS/FAIL]." Only then may code work begin.
+**Do not write, modify, or review a single line of code until the mandatory reading sequence is complete AND the comprehension self-check passes all seven items.** The agent's first response after loading this skill must include: "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: [PASS/FAIL]." Only then may code work begin.
 
 ### Quick Reference
 
@@ -75,16 +108,25 @@ Once the comprehension gate passes, use these as reminders while implementing:
 
 ## Audit Checklist (Quick Reference)
 
-When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 11 tooling items:
+When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 12 tooling items:
 
-1. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (replace with: TypedDict/Pydantic/dataclass for data, Callable/Protocol for callables, NewType for primitives, Enum/Literal for fixed sets)
-2. DI — external dependencies (driver, client, connection, session) constructor-injected, never passed as function parameters
-3. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
-4. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
-5. Logging — structured logging, no print()/println!()
-6. No bare except — specific exceptions only
-7. Lint clean — project linter passes
-8. Type check clean — project type checker passes
-9. No water — every line earns its place
-10. Flat functions — no nested `def` inside `def`; every function at module level or class method
-11. Init files — `__init__.py` present in every package directory, always empty
+1. **Type discovery done** — agent read all existing types in the codebase BEFORE writing code. If `AppConfig` exists and the code says `cfg: Any`, the agent skipped type discovery — BLOCKING violation.
+2. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (replace with: TypedDict/Pydantic/dataclass for data, Callable/Protocol for callables, NewType for primitives, Enum/Literal for fixed sets). **`Any` when a real type exists in the codebase = BLOCKING, not just a style issue.**
+3. DI — external dependencies (driver, client, connection, session) constructor-injected, never passed as function parameters
+4. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
+5. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
+6. Logging — structured logging, no print()/println!()
+7. No bare except — specific exceptions only
+8. Lint clean — project linter passes
+9. Type check clean — project type checker passes
+10. No water — every line earns its place
+11. Flat functions — no nested `def` inside `def`; every function at module level or class method
+12. Init files — `__init__.py` present in every package directory, always empty
+
+### `Any` Severity Escalation
+
+| Situation | Severity | Action |
+|-----------|----------|--------|
+| `Any` used, no matching type exists anywhere in project | MAJOR | Create the proper type (Pydantic/dataclass/TypedDict/Enum) |
+| `Any` used, matching type EXISTS in project (e.g., `cfg: Any` when `AppConfig` exists) | **BLOCKING** | Use the existing type. This means type discovery was skipped. |
+| `Any` used in truly generic context (JSON parser, cache) | MINOR | Document why `Any` is unavoidable, use `JsonValue` union if possible |

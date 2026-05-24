@@ -203,23 +203,45 @@ The writing-plans skill handles:
 
 This is the most skill-heavy phase. Three skills work together, with code-quality rules governing everything.
 
-#### BEFORE invoking execution — code-quality comprehension gate
+#### BEFORE invoking execution — codebase discovery + code-quality comprehension gate
 
-**Load [code-quality](../code-quality/SKILL.md) and pass its comprehension gate BEFORE writing any code.** This is mandatory:
+**Load [code-quality](../code-quality/SKILL.md) and pass its comprehension gate BEFORE writing any code.** This is mandatory. The comprehension gate now includes **Codebase Type Discovery** — the agent must find and read ALL existing types before writing a single line.
+
+**Step A — Codebase Type Discovery (MANDATORY, DO NOT SKIP):**
+
+The #1 agent failure is writing `cfg: Any` when `AppConfig` exists 3 files away. This step prevents it.
+
+1. **Glob/Grep for all type definitions** — models, configs, drivers, enums, type aliases. Search patterns:
+   - `class.*BaseModel|class.*TypedDict|@dataclass|class.*Enum|NewType|TypeAlias`
+   - `class.*Config|class.*Settings|class.*Options`
+   - `class.*Driver|class.*Client|class.*Connection|class.*Session`
+2. **Read EVERY matched file** — not just the class name. Read the full file with all fields and methods.
+3. **Build a Type Inventory** — you must know: config types, driver/client types, domain models, enums, type aliases.
+4. **For every parameter you're about to write** — verify the type exists. If it does, use it. If it doesn't, CREATE it. Never use `Any`.
+
+**Step B — Read all project documentation:**
+
+Read every `.md` that provides context: `AGENTS.md`, `PROGRESS.md`, `DECISIONS.md`, `docs/GRAPH.md`, `docs/codebase-map.md`, `docs/business/*.md`, and the relevant spec. These files prevent you from contradicting locked decisions, re-inventing existing patterns, or misunderstanding domain rules.
+
+**Step C — Read code-quality reference files:**
 
 1. **Read design principles** — [code-quality/references/design-principles.md](../code-quality/references/design-principles.md). All 13 principles.
 2. **Read language rules** — [code-quality/references/python/rules.md](../code-quality/references/python/rules.md) or [code-quality/references/rust/rules.md](../code-quality/references/rust/rules.md). Naming, types, Pydantic/serde, enums, logging, flat functions, etc.
 3. **Read language examples** — [code-quality/references/python/examples.md](../code-quality/references/python/examples.md) or [code-quality/references/rust/examples.md](../code-quality/references/rust/examples.md). See patterns in real code.
 4. **If designing new components:** Read [code-quality/references/design-patterns.md](../code-quality/references/design-patterns.md).
 
-**Pass the comprehension self-check** (all 5 must be YES):
+**Pass the comprehension self-check** (all 7 must be YES):
+- [ ] Can I list every type in this project's Type Inventory? (config types, driver types, domain models, enums, type aliases)
+- [ ] For the code I'm about to write, do I know the EXACT type for every parameter? (not `Any`, not `object` — the real type)
 - [ ] Can I name all 13 design principles and what violation each prevents?
 - [ ] Can I recognize at least one violation signal for each principle?
-- [ ] Do I know all tooling rules (types, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
+- [ ] Do I know all 11 tooling rules (types, DI, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
 - [ ] Do I know what code I'm about to write and which rules are most relevant?
 - [ ] If I encountered a violation while reviewing, do I know the correct fix pattern?
 
-**If ANY answer is NO:** Re-read the reference. Do not write code.
+**If ANY answer is NO:** Re-read the reference or re-run type discovery. Do not write code.
+
+**Announce:** "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: [PASS/FAIL]."
 
 #### INVOKE execution skill — with TDD and debugging layered in
 
@@ -410,7 +432,7 @@ PLAN
     | AFTER:  update PROGRESS.md (planned), verify plan ↔ GRAPH.md alignment
     |
 IMPLEMENT
-    | BEFORE: pass code-quality comprehension gate (read all 13 principles + language rules)
+    | BEFORE: codebase type discovery → read all .md docs → code-quality comprehension gate
     | INVOKE: superpowers:subagent-driven-development OR executing-plans
     |         + superpowers:test-driven-development (Red-Green-Refactor)
     |         + superpowers:systematic-debugging (on failure)
@@ -465,7 +487,7 @@ SESSION END (harness)
 | 2. CLARIFY | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS, business docs |
 | 3. SPEC | (only if brainstorming skipped) | — | PROGRESS |
 | 4. PLAN | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) |
-| 5. IMPLEMENT | Code-quality comprehension gate | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map, DECISIONS |
+| 5. IMPLEMENT | Type discovery → read all docs → code-quality gate (7 checks) | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map, DECISIONS |
 | 6. VERIFY | — | `verification-before-completion` + 3-layer pipeline + code-quality review agent | PROGRESS (passing + evidence) |
 | 7. TRACK | — | — | Full auto-track checklist |
 | 8. SESSION END | Clock-out, 8-item exit checklist | — | — |

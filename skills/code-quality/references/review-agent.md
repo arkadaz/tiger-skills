@@ -85,12 +85,15 @@ Every review must follow this exact template:
 
 ## What the Review Agent Checks
 
-The review agent must check all items from the [audit checklist](../SKILL.md#audit-checklist-quick-reference): 13 design principles + 6 tooling items = 19 checks total.
+The review agent must check all items from the [audit checklist](../SKILL.md#audit-checklist-quick-reference): 13 design principles + 12 tooling items = 25 checks total.
+
+**CRITICAL — Type Discovery Check:** Before reviewing, the review agent MUST also run its own codebase type discovery (Grep for all type definitions in the project). When reviewing, if the agent sees `cfg: Any` or `driver: Any`, it must search whether a real type exists (e.g., `AppConfig`, `Neo4jDriver`). If a real type exists and was not used, this is a **BLOCKING** violation — not MAJOR, BLOCKING. The implementation agent skipped type discovery.
 
 ## Common Review Findings
 
 These are the most common issues review agents catch that implementation agents miss:
 
+- **`Any` used when a real type exists in the codebase** — e.g., `cfg: Any` when `AppConfig` is defined in `src/core/config.py`. **BLOCKING.** Search the codebase before accepting any `Any`. (Type Discovery)
 - Returning `None` from a function that callers expect to always return a value (LSP / Surprise)
 - Using `print()` in new code instead of `logging` (Logging)
 - Catching `Exception` broadly in error handling (No bare except)

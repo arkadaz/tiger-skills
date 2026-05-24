@@ -49,6 +49,50 @@ def make_checkpoint(cfg: Config, ticker: str) -> Checkpoint:
 
 **Linting:** `ruff` rule `PLR0911` flags functions with too many nested definitions. Enable it.
 
+## Codebase Type Discovery — Use What Exists
+
+**Before writing ANY function signature, search the codebase for existing types.** The #1 agent failure is writing `cfg: Any` or `driver: Any` when the project already has `AppConfig` and `Neo4jDriver` defined. This is not a style issue — it's a correctness bug that breaks type safety across the entire call chain.
+
+**Mandatory search before writing a function:**
+
+```python
+# BEFORE writing: def make_checkpoint(cfg, ticker: str) -> Checkpoint:
+# ASK: What type is cfg? Search the codebase:
+#   Grep: "class.*Config|class.*Settings" → finds AppConfig in src/core/config.py
+#   Read src/core/config.py → AppConfig has fields: kg_state_dir, neo4j_uri, ...
+# THEN write: def make_checkpoint(cfg: AppConfig, ticker: str) -> Checkpoint:
+```
+
+**Common types agents miss (search for ALL of these before writing code):**
+
+| Parameter pattern | Search for | Example match |
+|-------------------|-----------|---------------|
+| `cfg`, `config`, `settings` | `class.*Config\|class.*Settings` | `AppConfig`, `PipelineConfig`, `Settings` |
+| `driver`, `db`, `conn` | `class.*Driver\|class.*Client\|AsyncDriver` | `Neo4jDriver`, `AsyncDriver`, `DatabaseClient` |
+| `session`, `sess` | `class.*Session` | `AsyncSession`, `Neo4jSession` |
+| `checkpoint`, `cp` | `class.*Checkpoint` | `Checkpoint`, `PipelineCheckpoint` |
+| `result`, `response` | `class.*Result\|class.*Response` | `QueryResult`, `ApiResponse` |
+| `request`, `req` | `class.*Request` | `CreateOrderRequest`, `SearchQuery` |
+
+**The rule is absolute:**
+```python
+# WRONG — AppConfig exists in this project but agent used Any
+def make_committee_checkpoint(cfg: Any, ticker: str) -> Checkpoint:
+    cp = Checkpoint(ticker.upper(), "committee_checkpoint.json", AGENT_KEYS, str(cfg.kg_state_dir))
+    cp.load()
+    return cp
+
+# CORRECT — agent found AppConfig by searching the codebase
+def make_committee_checkpoint(cfg: AppConfig, ticker: str) -> Checkpoint:
+    cp = Checkpoint(ticker.upper(), "committee_checkpoint.json", AGENT_KEYS, str(cfg.kg_state_dir))
+    cp.load()
+    return cp
+```
+
+**Why `Any` is dangerous here:** `cfg: Any` means mypy cannot check that `cfg.kg_state_dir` exists. A typo like `cfg.kg_state_dirr` compiles silently and crashes at runtime. With `cfg: AppConfig`, mypy catches the typo immediately. Every `Any` is a hole in the type safety net.
+
+**If you cannot find a type:** That means one needs to be CREATED, not that `Any` is acceptable. Create the Pydantic model, dataclass, or TypedDict, then use it.
+
 ## No Bare Generics
 
 Every `dict`, `list`, `set`, `tuple` in a type annotation MUST be parameterized. Bare generics erase the type information that mypy, Pydantic, and human readers depend on.
