@@ -7,6 +7,12 @@ description: Enforce code quality when writing, reviewing, refactoring, or audit
 
 Enforces design principles from *Software Design for Python Programmers* by Ronald Mak, plus language-specific rules for types, validation, logging, and clean code. Supports **Python** and **Rust**.
 
+## Relationship to harness-engineering
+
+This skill is the **inner loop** — applied during implementation. Load [harness-engineering](../harness-engineering/SKILL.md) for the **outer loop** (session discipline, spec-before-code, verification pipeline). The two skills hand off at specific points:
+- `→ apply code-quality` — at workflow steps 6-10 (implement, verify, review)
+- `→ follow harness verification` — after implementing, run the 3-layer pipeline
+
 ## Language Detection
 
 Detect the project language from file extensions, Cargo.toml/pyproject.toml, or user context:
@@ -16,11 +22,11 @@ Detect the project language from file extensions, Cargo.toml/pyproject.toml, or 
 
 ## Five Non-Negotiables (Language-Agnostic)
 
-1. **Explore before implement.** Search the codebase for existing code before writing new.
-2. **Types first.** Use the strongest type system available. Validate at boundaries. Never untyped data flowing through business logic.
-3. **Lint and type-check every change.** Run the project's linter and type checker after every step. Zero errors tolerated.
-4. **Logs always.** Structured logging. Never `print()` / `println!()` for operational output.
-5. **No water.** No dead code, no redundant comments, no unused variables. Every line earns its place.
+1. **Explore before implement.**
+2. **Types first.** Never untyped data flowing through business logic.
+3. **Lint and type-check every change.** Zero errors tolerated.
+4. **Logs always.** Never `print()` / `println!()` for operational output.
+5. **No water.** Every line earns its place.
 
 ## Reference Files
 
@@ -45,23 +51,11 @@ Load these as needed based on the task:
 
 ## Audit Checklist (Quick Reference)
 
-When reviewing code, every item must pass:
-1. Types — Pydantic at boundaries, typed signatures
-2. SRP — one reason to change per class/function
-3. Encapsulation — varying behavior isolated
-4. DRY — no duplicated code
-5. OCP — new features via new classes, not edits
-6. Interface — depends on abstractions, not concretes
-7. LSP — subclass substitutes superclass
-8. Composition — HAS-A over deep IS-A
-9. Surprise — function names match behavior
-10. Lazy — expensive work deferred
-11. Invariants — no invalid object states
-12. Logging — structured logging, no print()
-13. No bare except — specific exceptions only
-14. Lint clean — ruff check passes
-15. Type check clean — mypy --strict passes
-16. Enums — known value sets are enums
-17. No water — every line earns its place
-18. Patterns — appropriate design patterns used
-19. AGENTS.md updated — new conventions documented
+When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 6 tooling items:
+
+1. Types — Pydantic/serde at boundaries, typed signatures
+2. Logging — structured logging, no print()/println!()
+3. No bare except — specific exceptions only
+4. Lint clean — project linter passes
+5. Type check clean — project type checker passes
+6. No water — every line earns its place
