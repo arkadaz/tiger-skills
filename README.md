@@ -20,8 +20,9 @@ Enforces design principles and language-specific rules during implementation. **
 - **Python** — Pydantic at boundaries, `mypy --strict`, `ruff`, structured logging, enums, config injection
 - **Rust** — serde at boundaries, `clippy`, `cargo`, tracing, enums, config injection
 
-**Enforced Rules (10 tooling items):**
-- Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`)
+**Enforced Rules (11 tooling items):**
+- Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`); 5-case type fix: TypedDict/Pydantic/dataclass for data, Callable/Protocol for callables, NewType for primitives, Enum/Literal for fixed sets, recursive alias for unknown JSON
+- DI — external dependencies constructor-injected, never passed as function parameters
 - Enums — all fixed choice sets are enums, including factory/registry keys
 - Naming — no leading-underscore on ANY name (functions, methods, variables, attributes)
 - Logging — structured logging only (no `print()`/`println!()`)
@@ -32,7 +33,7 @@ Enforces design principles and language-specific rules during implementation. **
 - Flat functions — no nested `def` inside `def`, every function at module level or class method
 - Init files — `__init__.py` present in every package directory, always empty
 
-**Independent Review Agent:** After implementing, a separate agent audits the diff against all 23 audit items (13 principles + 10 tooling rules).
+**Independent Review Agent:** After implementing, a separate agent audits the diff against all 24 audit items (13 principles + 11 tooling rules).
 
 ### harness-engineering (Outer Loop)
 
@@ -108,7 +109,7 @@ Fires after EVERY phase, EVERY commit — not just "at the end." Updates all 8 h
 tiger-skills/
 ├── skills/
 │   ├── code-quality/
-│   │   ├── SKILL.md                   — Router: 5 non-negotiables, 9-item audit checklist
+│   │   ├── SKILL.md                   — Router: 5 non-negotiables, 11-item audit checklist
 │   │   └── references/
 │   │       ├── design-principles.md   — 13 principles with violation signals and fixes
 │   │       ├── design-patterns.md     — 13 patterns with selection guide
@@ -202,8 +203,8 @@ harness-engineering: SPEC (technical spec, self-review)
     ↓  └→ AUTO-TRACK
 harness-engineering: PLAN (bite-sized tasks, checkpoints)
     ↓  └→ AUTO-TRACK
-    IMPLEMENT ──→ code-quality: comprehension gate → 13 principles + 10 tooling rules
-                  code-quality: review agent (23-item audit)
+    IMPLEMENT ──→ code-quality: comprehension gate → 13 principles + 11 tooling rules
+                  code-quality: review agent (24-item audit)
     ↓  └→ AUTO-TRACK (after every commit)
 harness-engineering: VERIFY (Iron Law, 3-layer pipeline, completion gate)
     ↓  └→ AUTO-TRACK (evidence recorded, feature → passing)

@@ -8,12 +8,12 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Two skills that work as one system. code-quality (inner loop): 13 design principles + 11 tooling rules with comprehension gate, DI enforcement, no Any/object types, no nested functions. harness-engineering (outer loop): self-contained 7-phase conductor with bootstrap gate, business discovery, auto-track 8 harness files, Iron Law verification, subagent-driven development.",
+      "description": "Two skills that work as one system. code-quality (inner loop): 13 design principles + 11 tooling rules with comprehension gate, DI enforcement, 5-case type fix (TypedDict/Pydantic/dataclass/Callable/Protocol/NewType/Enum/Literal), no nested functions. harness-engineering (outer loop): self-contained 7-phase conductor with bootstrap gate, business discovery, auto-track 8 harness files, Iron Law verification, subagent-driven development.",
       "author": {
         "name": "arkadaz"
       },
       "category": "development",
-      "source": "./",
+      "source": "https://github.com/arkadaz/tiger-skills.git",
       "homepage": "https://github.com/arkadaz/tiger-skills"
     }
   ]

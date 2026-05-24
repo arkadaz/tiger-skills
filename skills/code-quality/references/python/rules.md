@@ -83,23 +83,120 @@ response: PaginatedResponse[UserSummary]
 
 **Rule:** If you write a bare `dict`, `list`, `set`, or `tuple` without `[...]`, it's a violation. No exceptions. `mypy --strict` enforces this — the skill enforces it at review time too.
 
-**No `Any` or `object` as innermost type parameter:** `list[dict[str, Any]]` and `list[dict[str, object]]` are just bare generics in disguise. `Any` and `object` tell you nothing about what the data actually is. When you see `dict[str, Any]` or `dict[str, object]` in a return type or parameter type, it MUST be replaced with a domain type:
+**No `Any` or `object` as innermost type parameter:** `list[dict[str, Any]]` and `list[dict[str, object]]` are just bare generics in disguise. `Any` and `object` tell you nothing about what the data actually is. When you see `dict[str, Any]` or `dict[str, object]` in a return type or parameter type, it MUST be replaced with a type that carries meaning.
+
+Pick the fix that matches what the values actually are:
+
+### Case 1: Data records (DB rows, API responses, JSON payloads)
+
+The values are structured data with known keys. Use **TypedDict**, **Pydantic**, or **dataclass**:
 
 ```python
-# Wrong — Any/object as inner type: tells you nothing
+# Wrong
 async def find_nodes(driver, label: str) -> list[dict[str, object]]: ...
 async def query(db, sql: str) -> list[dict[str, Any]]: ...
-def process(data: dict[str, object]) -> dict[str, Any]: ...
 
 # Correct — domain types carry meaning
 async def find_nodes(driver, label: str) -> list[EntityRow]: ...
 async def query(db, sql: str) -> list[UserRecord]: ...
-def process(data: RawPayload) -> ProcessedResult: ...
 
-# EntityRow, UserRecord, RawPayload, ProcessedResult are TypedDict, Pydantic, or dataclass
+# EntityRow, UserRecord are TypedDict, Pydantic BaseModel, or @dataclass
 ```
 
-**If you write `Any` or `object` as the inner type of a generic container, it's a violation.** Create a domain type. The type checker can't help here — the skill enforces this at review time.
+**When to pick which:** Use `TypedDict` for lightweight read-only results (zero runtime cost). Use Pydantic when you need validation at the boundary. Use `@dataclass` when you need mutable data with methods but no validation.
+
+### Case 2: Callables (dispatch tables, registries, handler maps, strategy dicts)
+
+The values are functions or methods. Use **`Callable`** or a **`Protocol`**:
+
+```python
+# Wrong — object tells you nothing about what you can do with the value
+@property
+def RESOLVER_REGISTRY(self) -> dict[str, object]:
+    return {"Company": self.resolve_company, "Product": self.resolve_scoped}
+
+# Correct — Callable for simple cases
+from collections.abc import Callable
+
+@property
+def RESOLVER_REGISTRY(self) -> dict[str, Callable[[str], EntityRow]]:
+    return {"Company": self.resolve_company, "Product": self.resolve_scoped}
+
+# Correct — Protocol when the signature has semantic meaning
+from typing import Protocol
+
+class Resolver(Protocol):
+    def __call__(self, name: str) -> EntityRow: ...
+
+@property
+def RESOLVER_REGISTRY(self) -> dict[str, Resolver]:
+    return {"Company": self.resolve_company, "Product": self.resolve_scoped}
+```
+
+**When to pick which:** Use `Callable[[Args], Return]` when the signature is simple and the role is obvious. Use a `Protocol` when the callable has a meaningful name that documents its purpose (e.g., `Resolver`, `Handler`, `Validator`, `Transformer`).
+
+### Case 3: Primitives with semantic meaning (User ID, price, count)
+
+The value is a `str` or `int`, but a raw `str`/`int` carries no domain meaning. Use **`NewType`**:
+
+```python
+# Wrong — any string will do, even a product ID passed where a user ID belongs
+def get_user(user_id: str) -> User: ...
+def activate(user_id: str) -> None: ...
+
+# Correct — NewType prevents mixing up different kinds of strings
+from typing import NewType
+
+UserId = NewType("UserId", str)
+ProductId = NewType("ProductId", str)
+PriceCents = NewType("PriceCents", int)
+
+def get_user(user_id: UserId) -> User: ...
+def activate(user_id: UserId) -> None: ...
+
+# Usage: get_user(UserId("abc123")) — type checker catches passing raw str
+```
+
+### Case 4: Fixed set of values (status, category, mode, role)
+
+The value can only be one of N known choices. Use **`Enum`** or **`Literal`**:
+
+```python
+# Wrong — any string, no exhaustiveness checking
+def process(status: str) -> None: ...
+
+# Correct — Enum for runtime safety + exhaustiveness
+class OrderStatus(Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    SHIPPED = "shipped"
+
+def process(status: OrderStatus) -> None: ...
+
+# Correct — Literal for simple compile-time-only checks
+from typing import Literal
+
+def set_mode(mode: Literal["read", "write", "admin"]) -> None: ...
+```
+
+**When to pick which:** Use `Enum` when the values appear in business logic, DB schemas, or APIs (exhaustiveness, iteration, serialization). Use `Literal` only for narrow, local choices that don't escape the function (e.g., a flag argument to a private helper).
+
+### Case 5: Truly generic containers (heterogeneous caches, parsed-but-unknown JSON)
+
+Rare. If you genuinely don't know the shape, use the narrowest `object`-free type possible:
+
+```python
+# Acceptable — the value really is "any JSON-serializable thing"
+JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+
+def parse(raw: str) -> JsonValue: ...
+```
+
+If none of the above fit, the design is likely wrong — there is a type you should define. If you're unsure, ask.
+
+---
+
+**If you write `Any` or `object` as the inner type of a generic container, it's a violation.** Pick the case above that matches what the values actually are. The type checker can't enforce this — the skill enforces it at review time.
 
 ## Dependency Injection — No Pass-Through Dependencies
 

@@ -75,7 +75,7 @@ Once the comprehension gate passes, use these as reminders while implementing:
 
 When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 11 tooling items:
 
-1. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (use domain types)
+1. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (replace with: TypedDict/Pydantic/dataclass for data, Callable/Protocol for callables, NewType for primitives, Enum/Literal for fixed sets)
 2. DI — external dependencies (driver, client, connection, session) constructor-injected, never passed as function parameters
 3. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
 4. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
