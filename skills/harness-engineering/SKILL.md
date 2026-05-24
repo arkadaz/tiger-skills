@@ -24,7 +24,7 @@ A harness has five subsystems. All five must be present:
 ## Relationship to code-quality
 
 This skill is the **outer loop** — process and workflow. Load [code-quality](../code-quality/SKILL.md) for the **inner loop** — how to write the code itself. Handoff points:
-- `→ apply code-quality` — at workflow step 6 (implement) and step 10 (review)
+- `→ apply code-quality` — at workflow steps 6-10 (implement, verify, review)
 - `→ follow harness verification` — after implementing, run the 3-layer verification pipeline
 
 ## Reference Files

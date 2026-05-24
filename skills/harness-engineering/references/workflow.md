@@ -9,11 +9,11 @@ The full 14-step flow that every feature follows. Do not skip steps. Do not reor
 3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
 4. **Explore codebase** — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob.
 5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Present to user for approval if non-trivial. Do NOT write code until spec is approved.
-6. **Implement** — write the code. `-> apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.).
+6. **Implement** — write the code. `→ apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.).
 7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
 8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
 9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
-10. **Spawn review agent** — per code-quality skill, independent agent audits the diff.
+10. **Spawn review agent** — `→ apply code-quality`: per [review-agent.md](../../code-quality/references/review-agent.md), independent agent audits the diff.
 11. **Address review findings** — fix every MAJOR and BLOCKING finding. Re-run verification after fixes.
 12. **Record evidence** — save verification output, update feature state to `passing`.
 13. **Update docs** — update the spec with actual outcome, update `docs/GRAPH.md` with new/changed flows, update `docs/business/*.md` if rules changed, update `docs/codebase-map.md` if files changed, update AGENTS.md if conventions changed.
