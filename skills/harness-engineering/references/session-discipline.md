@@ -4,17 +4,7 @@ Every session must begin with a clock-in and end with a clock-out. There is no "
 
 ## Why This Matters
 
-Without session discipline:
-- A fresh session spends 30–50% of time re-discovering what the last session did (Anthropic data)
-- Progress state decays across sessions — features marked "almost done" are actually broken
-- Architectural decisions get unmade because the next session doesn't know WHY a choice was made
-- Code quality drifts because each session applies slightly different conventions
-
-With session discipline:
-- New session is productive within 3 minutes
-- Progress state is machine-verifiable, not based on memory
-- Decisions stick because the rationale is recorded
-- Conventions stay consistent because AGENTS.md is actively maintained
+Without session discipline, a fresh session spends 30-50% of time re-discovering state. With it, a new session is productive within 3 minutes — PROGRESS.md is machine-verifiable, DECISIONS.md preserves rationale, and AGENTS.md keeps conventions consistent.
 
 ## Clock-In (Session Start)
 
@@ -39,10 +29,7 @@ If you don't read DECISIONS.md, you risk re-litigating settled decisions or unkn
 
 ### Step 3: Run make check
 
-Confirm the repo is in a consistent state:
-- Lint passes
-- Type check passes
-- Tests pass (ALL of them, not just the ones related to your task)
+Confirm the repo is in a consistent state. See [verification.md](verification.md) for the 3-layer pipeline. The same checks that code-quality's [non-negotiable #3](../../code-quality/SKILL.md#five-non-negotiables-language-agnostic) enforces.
 
 ### Step 4: Handle Failures
 
