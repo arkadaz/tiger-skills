@@ -8,8 +8,9 @@ The full 14-step flow that every feature follows. Do not skip steps. Do not reor
 2. **Clarify** — if ANY aspect of the task is ambiguous (scope, I/O, files to touch, verification criteria), ask the user before proceeding. A 30-second clarification prevents a 30-minute wrong implementation.
 3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
 4. **Explore codebase** — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob.
-5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Present to user for approval if non-trivial. Do NOT write code until spec is approved.
-6. **Implement** — write the code. `→ apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.).
+5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Run the spec self-review checklist (below). Present to user for approval if non-trivial. Do NOT write code until spec is approved.
+5b. **Write plan** (if ≥3 files or ≥2 steps) — create `docs/plans/YYYY-MM-DD-<topic>.md`. Run the plan self-review checklist (below). Present to user for approval. Each task must be bite-sized — see [task-management.md](task-management.md) § "Bite-Sized Tasks".
+6. **Implement** — write the code. Follow TDD: failing test first, minimal implementation, verify, refactor. See [tdd.md](tdd.md). `→ apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.). If a bug arises during implementation, apply [debugging.md](debugging.md) — root cause first, never guess.
 7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
 8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
 9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
@@ -29,6 +30,28 @@ See [session-discipline.md](session-discipline.md) clock-in sequence. Minimum: P
 ## What to Update After Implementing
 
 See [doc-first.md](doc-first.md) after-implementation checklist. Minimum: GRAPH.md -> codebase-map.md -> PROGRESS.md -> AGENTS.md.
+
+## Self-Review Checklists
+
+Run these inline checks before presenting specs and plans to the user. Fix issues immediately — no need to re-review after fixing.
+
+### Spec Self-Review (Step 5)
+
+After writing the spec, before presenting to user:
+
+1. **Placeholder scan:** Any "TBD", "TODO", incomplete sections, or vague requirements? Fix them.
+2. **Internal consistency:** Do any sections contradict each other? Does the architecture match the feature descriptions?
+3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?
+4. **Ambiguity check:** Could any requirement be interpreted two different ways? If so, pick one and make it explicit.
+
+### Plan Self-Review (Step 5b)
+
+After writing the plan, before presenting to user:
+
+1. **Spec coverage:** Skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps.
+2. **Placeholder scan:** Search the plan for "TBD", "TODO", "add appropriate handling", "similar to Task N", or any step that describes what to do without showing how (code blocks required for code steps).
+3. **Type consistency:** Do the types, method signatures, and property names used in later tasks match what was defined in earlier tasks? A function called `clear_layers()` in Task 3 but `clear_full_layers()` in Task 7 is a bug.
+4. **Bite-sized check:** Is every task completable and verifiable independently? Could an agent finish any single task and have `make check` pass?
 
 ## Diagnostic Loop (when something fails)
 

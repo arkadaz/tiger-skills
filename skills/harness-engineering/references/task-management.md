@@ -204,6 +204,63 @@ You are implementing feature [ID]: [name].
 
 **Never assume the subagent knows anything.** A prompt that says "implement F03 as discussed" will fail. A prompt that includes the full spec, file list, and verification command will succeed.
 
+### Continuous Execution
+
+Do NOT pause to check in with the user between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are:
+
+- BLOCKED status you cannot resolve
+- Ambiguity that genuinely prevents progress
+- All tasks complete
+
+"Should I continue?" prompts and mid-task progress summaries waste the user's time. They asked you to execute the plan — execute it.
+
+### Subagent Escalation Protocol
+
+It is ALWAYS OK for a subagent to stop and say "this is too hard for me." Bad work is worse than no work.
+
+**Subagents MUST escalate when:**
+- The task requires architectural decisions with multiple valid approaches
+- They need to understand code beyond what was provided and can't find clarity
+- They feel uncertain about whether their approach is correct
+- The task involves restructuring existing code in ways the plan didn't anticipate
+- They've been reading file after file trying to understand the system without progress
+
+**How to escalate:** Report with status NEEDS_CONTEXT or BLOCKED. Describe specifically what they're stuck on, what they've tried, and what kind of help they need.
+
+**Parent response to escalation:**
+1. If context problem → provide more context, re-dispatch
+2. If task requires more reasoning → re-dispatch with a more capable model
+3. If task is too large → break into smaller pieces
+4. If plan itself is wrong → escalate to the user
+
+**Never** ignore an escalation or force the same model to retry without changes.
+
+### Implementer Self-Review
+
+Every subagent MUST self-review before reporting. This checklist is mandatory:
+
+**Completeness:**
+- Did I fully implement everything in the spec?
+- Did I miss any requirements?
+- Are there edge cases I didn't handle?
+
+**Quality:**
+- Are names clear and accurate (match what things do, not how they work)?
+- Is the code clean and maintainable?
+- Does it follow project conventions?
+
+**Discipline:**
+- Did I avoid overbuilding (YAGNI)?
+- Did I only build what was requested?
+- Did I follow existing patterns in the codebase?
+
+**Testing:**
+- Do tests verify behavior (not mock behavior)?
+- Did I follow TDD if required? See [tdd.md](tdd.md).
+- Are tests comprehensive?
+
+If issues found during self-review, fix them BEFORE reporting. Self-review does NOT replace the two-stage review — both are needed.
+
 ### Subagent Status Protocol
 
 Every subagent MUST report its final status using exactly one of these four codes. No other status is valid.
@@ -258,12 +315,16 @@ Match model capability to task complexity:
 After a subagent reports DONE or DONE_WITH_CONCERNS, the parent session runs a TWO-STAGE review before accepting:
 
 **Stage 1 — Spec Compliance Review:**
+
+**CRITICAL: Do NOT trust the implementer's report.** The implementer may have finished quickly. Their report may be incomplete, inaccurate, or optimistic. The spec reviewer MUST verify everything independently by reading the actual code:
+
 ```
-Does the implementation match the spec?
+Does the implementation match the spec? Verify by reading code, not by trusting the report.
 - [ ] All behaviors from the spec are implemented (happy path AND error cases)
 - [ ] All specified types/fields/validation present
 - [ ] No extra behaviors added beyond spec (no scope creep)
 - [ ] Verification command from spec was run and passed
+- [ ] Implementer's claims match actual code (don't take their word for it)
 ```
 
 **Stage 2 — Code Quality Review:**

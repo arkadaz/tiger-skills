@@ -35,10 +35,12 @@ Load these as needed based on the task:
 |-----------|-------------|
 | [references/repo-system.md](references/repo-system.md) | Setting up a project, writing AGENTS.md, organizing docs |
 | [references/session-discipline.md](references/session-discipline.md) | Every session start and end — clock-in/out routines |
-| [references/task-management.md](references/task-management.md) | Breaking down work, tracking features, parallel agents |
-| [references/verification.md](references/verification.md) | Defining done, running verification, writing error messages |
+| [references/task-management.md](references/task-management.md) | Breaking down work, tracking features, parallel agents, subagent protocol |
+| [references/verification.md](references/verification.md) | Iron Law, completion gate, rationalization prevention, 3-layer pipeline |
 | [references/doc-first.md](references/doc-first.md) | Before implementing — specs, business docs, codebase map |
-| [references/workflow.md](references/workflow.md) | The 13-step implementation flow, anti-patterns, diagnostic loop |
+| [references/workflow.md](references/workflow.md) | 14-step flow, self-review checklists, anti-patterns, diagnostic loop |
+| [references/tdd.md](references/tdd.md) | During implementation — Red-Green-Refactor, testing anti-patterns |
+| [references/debugging.md](references/debugging.md) | When bugs or failures occur — 4-phase systematic debugging, defense-in-depth |
 
 ## Bootstrap Gate — DO THIS FIRST
 
@@ -130,7 +132,7 @@ For simpler tasks (1-2 files, single step): the spec IS the plan. Skip to Phase 
 
 Follow [references/workflow.md](references/workflow.md) 14-step implementation flow. WIP=1 is non-negotiable — finish or block the current feature before starting another.
 
-At steps 6-10, load [code-quality](../code-quality/SKILL.md) and follow all rules. Apply the diagnostic loop on any failure — never guess, never blindly retry.
+At steps 6-10, load [code-quality](../code-quality/SKILL.md) and follow all rules. Follow TDD: failing test first, minimal implementation, verify — see [references/tdd.md](references/tdd.md). Apply [references/debugging.md](references/debugging.md) on any failure — root cause first, never guess, never blindly retry.
 
 **Bite-sized tasks:** Every task must be atomic — completeable, verifiable, and committable in one pass. No placeholders (`pass`, `todo!()`, `raise NotImplementedError`). No stubs. Every function is complete or doesn't exist yet. See [references/task-management.md](references/task-management.md) § "Bite-Sized Tasks".
 

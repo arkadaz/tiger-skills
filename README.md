@@ -7,7 +7,7 @@ Claude Code skills for code quality and harness engineering. The two skills work
 | Skill | Description |
 |-------|-------------|
 | `code-quality` | Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY, etc.) plus language-specific rules for **Python** and **Rust**. Independent review agent, typed boundaries (no bare `dict`/`list`/`set`/`tuple`), structured logging, enums for all fixed choices (including factory/registry keys), empty `__init__.py` policy, no leading-underscore naming, no water code. |
-| `harness-engineering` | Outer loop — 7-phase conductor protocol, Iron Law verification (never claim done without fresh evidence), rationalization prevention, bite-sized tasks (no placeholders/stubs), subagent-driven development with status protocol + model selection, two-stage review (spec compliance + code quality), session discipline, WIP=1, diagnostic loop, parallel agent dispatch. |
+| `harness-engineering` | Outer loop — 7-phase conductor protocol, Iron Law verification (never claim done without fresh evidence), rationalization prevention, bite-sized tasks (no placeholders/stubs), subagent-driven development with status protocol + model selection, two-stage review (spec compliance + code quality), TDD (Red-Green-Refactor), systematic debugging (4-phase root cause + defense-in-depth), spec/plan self-review checklists, continuous execution, session discipline, WIP=1, diagnostic loop, parallel agent dispatch. |
 
 ## Structure
 
@@ -34,7 +34,9 @@ tiger-skills/
 │           ├── task-management.md      — WIP=1, bite-sized tasks, subagent protocol, model selection, two-stage review
 │           ├── verification.md         — Iron Law, 3-layer pipeline, rationalization prevention, completion gate
 │           ├── doc-first.md            — Spec-before-code, business docs, GRAPH.md
-│           └── workflow.md             — 14-step implementation flow, diagnostic loop
+│           ├── workflow.md             — 14-step flow, self-review checklists, diagnostic loop
+│           ├── tdd.md                  — Red-Green-Refactor, testing anti-patterns, TDD rationalizations
+│           └── debugging.md            — 4-phase systematic debugging, root cause tracing, defense-in-depth
 ├── .claude-plugin/
 │   └── plugin.json
 └── README.md
