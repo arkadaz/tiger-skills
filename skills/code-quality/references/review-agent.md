@@ -99,6 +99,8 @@ These are the most common issues review agents catch that implementation agents 
 - New function that duplicates an existing one in a different module (DRY / Explore)
 - Missing type hint on a new public function (Types)
 - Bare `dict`/`list`/`set`/`tuple` without type parameters — e.g., `brief: dict` instead of `brief: dict[str, str]` (Types)
+- `Any` or `object` as inner type parameter — e.g., `list[dict[str, Any]]` instead of `list[EntityRow]` (Types)
+- External dependency passed as function parameter (driver, client, connection, session) instead of constructor-injected (DI)
 - Leading-underscore on ANY name (`_xxx`): variables, attributes, functions, methods (Naming)
 - Nested functions (`def` inside `def`) instead of flat module-level functions (Flat Functions)
 - Magic strings as registry/factory keys instead of enums — e.g., `"email"` instead of `NotificationMethod.EMAIL` (Enums)

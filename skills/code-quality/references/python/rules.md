@@ -83,7 +83,70 @@ response: PaginatedResponse[UserSummary]
 
 **Rule:** If you write a bare `dict`, `list`, `set`, or `tuple` without `[...]`, it's a violation. No exceptions. `mypy --strict` enforces this — the skill enforces it at review time too.
 
-## Pydantic for All I/O Boundaries
+**No `Any` or `object` as innermost type parameter:** `list[dict[str, Any]]` and `list[dict[str, object]]` are just bare generics in disguise. `Any` and `object` tell you nothing about what the data actually is. When you see `dict[str, Any]` or `dict[str, object]` in a return type or parameter type, it MUST be replaced with a domain type:
+
+```python
+# Wrong — Any/object as inner type: tells you nothing
+async def find_nodes(driver, label: str) -> list[dict[str, object]]: ...
+async def query(db, sql: str) -> list[dict[str, Any]]: ...
+def process(data: dict[str, object]) -> dict[str, Any]: ...
+
+# Correct — domain types carry meaning
+async def find_nodes(driver, label: str) -> list[EntityRow]: ...
+async def query(db, sql: str) -> list[UserRecord]: ...
+def process(data: RawPayload) -> ProcessedResult: ...
+
+# EntityRow, UserRecord, RawPayload, ProcessedResult are TypedDict, Pydantic, or dataclass
+```
+
+**If you write `Any` or `object` as the inner type of a generic container, it's a violation.** Create a domain type. The type checker can't help here — the skill enforces this at review time.
+
+## Dependency Injection — No Pass-Through Dependencies
+
+**Every external dependency MUST be constructor-injected. Never pass a database driver, API client, message queue connection, or any I/O dependency as a function parameter.** Passing dependencies through function parameters couples every function in the call chain to the dependency, even if that function doesn't use it directly.
+
+```python
+# Wrong — driver passed through every function: tight coupling, hard to test
+async def find_scoped_cross_company(driver, database: str, label: str, canonical: str) -> list[EntityRow]:
+    async with driver.session(database=database) as session:
+        ...
+
+async def resolve_product(driver, database: str, name: str) -> dict:
+    node = await find_scoped_cross_company(driver, database, "Product", name)
+    ...
+
+# Correct — driver injected via constructor: each class owns its dependency
+class Neo4jProductRepository:
+    def __init__(self, driver: neo4j.AsyncDriver, database: str) -> None:
+        self.driver = driver
+        self.database = database
+
+    async def find_scoped_cross_company(self, label: str, canonical: str) -> list[EntityRow]:
+        async with self.driver.session(database=self.database) as session:
+            ...
+
+class ProductResolver:
+    def __init__(self, repo: Neo4jProductRepository) -> None:
+        self.repo = repo
+
+    async def resolve(self, name: str) -> dict:
+        node = await self.repo.find_scoped_cross_company("Product", name)
+        ...
+```
+
+**What counts as an external dependency:**
+- Database drivers and connections (Neo4j, PostgreSQL, MongoDB, Redis)
+- HTTP clients and API wrappers (httpx, requests, boto3, stripe)
+- Message queue producers/consumers (RabbitMQ, Kafka, SQS)
+- File system access (if non-trivial — `open()` for a single file is OK)
+- External service clients (email, SMS, push notifications)
+- Configuration objects (pass specific values, not the whole Settings)
+
+**The test:** Can you unit-test this function without mocking? If the function takes a `driver` parameter, you must mock `driver` to test it. If the function is a method on a class with `driver` injected, you pass a real test driver to the constructor ONCE, and all methods use it.
+
+**Rule:** A function parameter that is an external dependency is a violation. Inject it via `__init__` instead. If you see `driver`, `client`, `connection`, `session`, `queue`, `bucket` as a function parameter — it should be a constructor parameter.
+
+**Exception:** Utility functions and pure functions that operate on data only (no I/O) can take anything as parameters. The rule applies to functions that PERFORM I/O using the dependency.
 
 Every function receiving data from outside the process MUST use Pydantic models. This applies to:
 - API request/response bodies (FastAPI, Flask, Django views)

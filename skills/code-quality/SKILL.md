@@ -73,15 +73,16 @@ Once the comprehension gate passes, use these as reminders while implementing:
 
 ## Audit Checklist (Quick Reference)
 
-When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 9 tooling items:
+When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 11 tooling items:
 
-1. Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`)
-2. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
-3. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
-4. Logging — structured logging, no print()/println!()
-5. No bare except — specific exceptions only
-6. Lint clean — project linter passes
-7. Type check clean — project type checker passes
-8. No water — every line earns its place
-9. Flat functions — no nested `def` inside `def`; every function at module level or class method
-10. Init files — `__init__.py` present in every package directory, always empty
+1. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (use domain types)
+2. DI — external dependencies (driver, client, connection, session) constructor-injected, never passed as function parameters
+3. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
+4. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
+5. Logging — structured logging, no print()/println!()
+6. No bare except — specific exceptions only
+7. Lint clean — project linter passes
+8. Type check clean — project type checker passes
+9. No water — every line earns its place
+10. Flat functions — no nested `def` inside `def`; every function at module level or class method
+11. Init files — `__init__.py` present in every package directory, always empty
