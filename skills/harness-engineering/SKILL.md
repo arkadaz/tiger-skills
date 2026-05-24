@@ -40,11 +40,34 @@ Load these as needed based on the task:
 | [references/doc-first.md](references/doc-first.md) | Before implementing — specs, business docs, codebase map |
 | [references/workflow.md](references/workflow.md) | The 13-step implementation flow, anti-patterns, diagnostic loop |
 
+## Bootstrap Gate — DO THIS FIRST
+
+**Before answering the user, before reading any reference, before ANY other action — check whether harness files exist.** A project without these files has no harness. Creating them is the agent's first and only job.
+
+Execute these checks immediately. For each file that is missing, CREATE it using the template from the reference. Do NOT just read the reference — CREATE the file:
+
+| # | Check | If Missing — CREATE From Template In |
+|---|-------|--------------------------------------|
+| 1 | `AGENTS.md` or `CLAUDE.md` | [references/repo-system.md](references/repo-system.md) § "Minimal Template" |
+| 2 | `PROGRESS.md` | [references/session-discipline.md](references/session-discipline.md) § "PROGRESS.md — The Agent's Memory" |
+| 3 | `DECISIONS.md` | [references/session-discipline.md](references/session-discipline.md) § "DECISIONS.md — The Agent's Rationale" |
+| 4 | `docs/GRAPH.md` | [references/doc-first.md](references/doc-first.md) § "Code Flow Graph (GRAPH.md)" |
+| 5 | `docs/codebase-map.md` | [references/repo-system.md](references/repo-system.md) § "Codebase Knowledge Map" |
+| 6 | `Makefile` | [references/workflow.md](references/workflow.md) § "Init Acceptance Checklist" — create with targets: setup, test, lint, check, dev |
+| 7 | `docs/business/` | Create the directory (empty, ready for business rule docs) |
+| 8 | `docs/specs/` | Create the directory (empty, ready for per-feature specs) |
+| 9 | `.env.example` | Create with all required env vars documented (no real values) |
+
+**Gate rule:** If ≥1 files are missing, the agent's entire response is: report which files are missing, create them all, then report done. Do NOT take any other action (no implementing features, no fixing bugs, no answering other questions) until the bootstrap gate passes.
+
+**Gate passes when:** All 9 checks above exist on disk. Only then proceed to Quick Start.
+
 ## Quick Start
 
-1. If setting up a new project: read [references/repo-system.md](references/repo-system.md) first
-2. Every session: read [references/session-discipline.md](references/session-discipline.md)
-3. Before implementing: read [references/doc-first.md](references/doc-first.md) — includes GRAPH.md for code flow understanding
-4. During implementation: follow [references/workflow.md](references/workflow.md)
-5. Before declaring done: read [references/verification.md](references/verification.md)
-6. When tracking work: read [references/task-management.md](references/task-management.md)
+Once the bootstrap gate passes, follow this execution order:
+
+1. **Clock in:** Read PROGRESS.md → DECISIONS.md → docs/codebase-map.md → docs/GRAPH.md. Run `make check`. Understand current state before touching anything. Follow [references/session-discipline.md](references/session-discipline.md).
+2. **Spec before code:** Write spec to `docs/specs/YYYY-MM-DD-<topic>.md`. Get approval for non-trivial changes. Follow [references/doc-first.md](references/doc-first.md).
+3. **Implement with discipline:** Follow the 14-step workflow in [references/workflow.md](references/workflow.md). WIP=1. Never skip steps. Load [code-quality](../code-quality/SKILL.md) for code standards.
+4. **Verify before declaring done:** Run the 3-layer verification pipeline (static → runtime → system). Evidence before assertions. Follow [references/verification.md](references/verification.md).
+5. **Track everything:** Update PROGRESS.md, DECISIONS.md, GRAPH.md, and codebase-map.md as you go. Feature state machine: not_started → active → passing (with evidence) or blocked. Follow [references/task-management.md](references/task-management.md).
