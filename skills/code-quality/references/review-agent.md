@@ -39,27 +39,13 @@ Implementation Agent          Review Agent
 
 ## How to Spawn the Review Agent
 
-Use the Agent tool in Claude Code:
+Use the Agent tool with this prompt:
 
-```
-You are a code review agent. Read the code-quality skill at
-<path-to-skills>/code-quality/SKILL.md and its references/ directory.
-
-Audit these files against all 19 audit checklist items:
-- src/orders/service.py
-- src/orders/models.py
-- src/orders/api.py
-
-For each violation:
-- Cite the file path and line number
-- Name the specific audit item violated
-- Explain what's wrong
-- Suggest how to fix it
-
-Save your findings to docs/reviews/2026-05-24-order-service-review.md
-
-Do NOT modify any code. Report findings only.
-```
+> You are a code review agent. Read code-quality/SKILL.md and its references/ directory.
+> Audit the following files against the 19-item audit checklist:
+> - [list files]
+> For each violation: cite file:line, name the audit item, explain what's wrong, suggest a fix.
+> Save findings to `docs/reviews/YYYY-MM-DD-<topic>-review.md`. Do NOT modify code.
 
 ## Review Report Structure
 
@@ -99,27 +85,7 @@ Every review must follow this exact template:
 
 ## What the Review Agent Checks
 
-The review agent must check ALL 19 audit items:
-
-1. **Types** — Pydantic at boundaries? Typed signatures on all functions?
-2. **SRP** — Each class/function has exactly one reason to change?
-3. **Encapsulation** — Varying behavior isolated? No change leaks?
-4. **DRY** — No duplicated code blocks?
-5. **OCP** — New features via new classes, not edits? No long if-elif chains?
-6. **Interfaces** — Dependencies on abstractions, not concrete classes?
-7. **LSP** — Subclasses fully substitute superclasses?
-8. **Composition** — HAS-A over deep IS-A? No unnecessary inheritance?
-9. **Surprise** — Function names match actual behavior? No hidden side effects?
-10. **Lazy** — Expensive work deferred until needed? Caching where appropriate?
-11. **Invariants** — Objects cannot be constructed in invalid states? Setters validate?
-12. **Logging** — Structured logging at entry/exit/branches? No print()?
-13. **No bare except** — Every try/except specific and justified?
-14. **Lint clean** — ruff check (or project linter) passes?
-15. **Type check clean** — mypy --strict (or project checker) passes?
-16. **Enums** — Known value sets are enums, not magic strings?
-17. **No water** — Every line earns its place? No dead code or redundant comments?
-18. **Patterns** — Architecture problems solved with appropriate design patterns?
-19. **AGENTS.md** — New conventions or commands documented?
+The review agent must check all items from the [audit checklist](../SKILL.md#audit-checklist-quick-reference): 13 design principles + 6 tooling items = 19 checks total.
 
 ## Common Review Findings
 
