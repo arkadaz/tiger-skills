@@ -5,17 +5,12 @@ Concrete Python examples for each design principle and pattern. Load with [desig
 ## SRP
 
 ```python
-# VIOLATION — one class does validation, pricing, persistence, notification
 class OrderProcessor:
-    def __init__(self):
-        self.db = connect_db()
-        self.email_client = SmtpClient()
     def process(self, data):
         total = sum(item["price"] * item["qty"] for item in data["items"])
         self.db.execute("INSERT INTO orders ...")
         self.email_client.send(data["email"], f"Total: {total}")
 
-# FIX — split into single-responsibility classes
 class OrderValidator:
     def validate(self, data: dict) -> ValidatedOrder: ...
 class PricingCalculator:
@@ -26,19 +21,12 @@ class OrderNotifier:
     def send_confirmation(self, order: Order) -> None: ...
 class CreateOrderUseCase:
     def __init__(self, validator, calculator, repo, notifier): ...
-    def execute(self, request): ...  # orchestrates, one responsibility
+    def execute(self, request): ...
 ```
 
 ## OCP
 
 ```python
-# VIOLATION — if-elif chain, edit existing class for each new format
-class ReportExporter:
-    def export(self, data, format_type):
-        if format_type == "pdf": return self._to_pdf(data)
-        elif format_type == "csv": return self._to_csv(data)
-
-# FIX — trait + registry, new format = new class + one register()
 class ReportExporter(ABC):
     @abstractmethod
     def export(self, data: ReportData) -> bytes: ...
@@ -53,13 +41,6 @@ class ExportRegistry:
 ## Composition over Inheritance
 
 ```python
-# VIOLATION — deep inheritance, 4 levels
-class Vehicle: ...
-class Car(Vehicle): ...     # level 1
-class ElectricCar(Car): ... # level 2
-class SelfDrivingCar(ElectricCar): ... # level 3 — what about self-driving gas car?
-
-# FIX — composition, behaviors are swappable
 class Engine(Protocol):
     def sound(self) -> str: ...
 class Driver(Protocol):
@@ -77,7 +58,6 @@ class NotifierFactory:
     def register(self, method: str, factory: Callable[[], Notifier]): ...
     def create(self, method: str) -> Notifier: ...
 
-# Registration at composition root:
 factory = NotifierFactory()
 factory.register("email", lambda: EmailNotifier(config.smtp_host))
 factory.register("slack", lambda: SlackNotifier(config.slack_webhook))
@@ -94,17 +74,15 @@ class BulkDiscountPricing(PricingStrategy): ...
 class SeasonalPricing(PricingStrategy): ...
 
 class OrderService:
-    def __init__(self, pricing: PricingStrategy): ...  # inject, swap at runtime
+    def __init__(self, pricing: PricingStrategy): ...
 ```
 
 ## Adapter Pattern
 
 ```python
-# External library has incompatible interface
 class ThirdPartyLogger:
     def write_entry(self, severity: int, text: str): ...
 
-# Adapter translates
 class ThirdPartyLoggerAdapter:
     def __init__(self, adaptee: ThirdPartyLogger): self._adaptee = adaptee
     def info(self, msg: str): self._adaptee.write_entry(1, msg)
@@ -156,20 +134,18 @@ class Enhancement(Ticket):
 
 class VIPSeating(Enhancement):
     def __init__(self, ticket): super().__init__(ticket, "VIP", Money(20))
-
-# Usage: ticket = VIPSeating(DrinkCoupon(BaseTicket()))
 ```
 
 ## Template Method
 
 ```python
 class GameReport(ABC):
-    def generate(self):  # template — fixed order
+    def generate(self):
         self._print_header(); self._acquire_data(); self._analyze_data()
         self._print_body(); self._print_footer()
-    def _print_header(self): ...   # common
+    def _print_header(self): ...
     @abstractmethod
-    def _acquire_data(self): pass  # varies per subclass
+    def _acquire_data(self): pass
 ```
 
 ## Iterator
@@ -193,9 +169,9 @@ def print_all(it: Iterator):
 class Provision(ABC):
     @abstractmethod
     def cost(self) -> Money: ...
-class Item(Provision):  # Leaf
+class Item(Provision):
     def cost(self): return self._price
-class Group(Provision):  # Composite
+class Group(Provision):
     def cost(self): return sum(item.cost() for item in self._items)
 ```
 
@@ -222,7 +198,6 @@ class MacFactory(UIFactory):
     def create_button(self): return MacButton()
 class WindowsFactory(UIFactory):
     def create_button(self): return WindowsButton()
-# One factory = one family. No cross-family mixing.
 ```
 
 ## Facade
