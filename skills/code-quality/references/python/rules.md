@@ -72,20 +72,6 @@ def create_order(request: CreateBookOrderRequest) -> OrderResult:
     ...
 ```
 
-**Wrong (no Pydantic):**
-```python
-def create_order(data: dict) -> dict:
-    # Is "email" present? Is it a string? Is it a valid email? Unknown.
-    email = data.get("email", "")
-    # Is "items" present? Is it a list? Does each item have a "book_id"?
-    items = data.get("items", [])
-    if not items:
-        raise ValueError("No items")  # error message missing all context
-    for item in items:
-        qty = item.get("quantity", 0)  # silently defaulting garbage
-        ...
-```
-
 **At which layer:** The boundary is the outermost layer that touches external data. In FastAPI, the framework does this automatically when you annotate with Pydantic. In a script reading JSON, it's the first function after `json.load()`. In a message consumer, it's the first function after deserializing the message body.
 
 ## No Magic Try/Except
@@ -120,28 +106,6 @@ except DatabaseConnectionError:
     result = db.execute(query)
 ```
 
-**Forbidden (magic, vague, swallowing):**
-```python
-# Silently swallowing everything — never do this
-try:
-    process(data)
-except:
-    pass
-
-# Catching Exception because you don't know what might fail
-try:
-    value = data["key"]
-    parsed = int(value)
-except Exception:
-    parsed = 0  # what failed? why? the failure is now invisible
-
-# Catching to paper over a missing type definition
-try:
-    email = request["email"]
-except KeyError:  # use Pydantic instead — it tells you ALL missing fields at once
-    email = ""
-```
-
 **Alternatives to try/except:**
 - Instead of `try: d["key"] except KeyError`: use `d.get("key")` or Pydantic model
 - Instead of `try: int(s) except ValueError`: validate before conversion, or use Pydantic
@@ -158,30 +122,6 @@ Use Python's `logging` module. Never `print()`.
 - **Entry:** function name + key input values (never log secrets, passwords, or tokens)
 - **Exit:** function name + result summary + elapsed time if >1 second
 - **Every state-changing branch:** what changed, why, and under what conditions
-
-**Log levels and when to use each:**
-```python
-import logging
-logger = logging.getLogger(__name__)
-
-# DEBUG: internal state, detailed values — useful when troubleshooting
-logger.debug("Calculating subtotal", extra={"items": len(order.items)})
-logger.debug("Item price", extra={"sku": item.sku, "price": item.price, "qty": item.qty})
-
-# INFO: completed operations, milestones — normal operational visibility
-logger.info("Order created", extra={"order_id": result.id, "total": str(result.total)})
-logger.info("Batch processed", extra={"records": count, "duration_s": elapsed})
-
-# WARNING: recoverable issues, degraded operation — something's wrong but we're handling it
-logger.warning("Cache miss, falling back to primary", extra={"key": cache_key})
-logger.warning("Retry exhausted, proceeding without enrichment", extra={"attempts": n})
-
-# ERROR: operation failed, process continues — needs attention
-logger.error("Payment declined", extra={"order_id": oid, "reason": reason})
-
-# CRITICAL: process cannot continue — wake someone up
-logger.critical("Database unreachable, shutting down consumer", exc_info=True)
-```
 
 **Correct (structured logging with extra context):**
 ```python
@@ -208,12 +148,6 @@ def process_order(order_id: str) -> OrderResult:
     logger.info("Order processed",
                 extra={"order_id": order_id, "status": result.status, "elapsed_s": round(elapsed, 3)})
     return result
-```
-
-**Never:**
-```python
-print(f"Processing {order_id}")           # cannot be filtered, leveled, or formatted
-print(f"Error: {e}")                      # goes to stdout, not stderr; no structured context
 ```
 
 ## Enum for Known Value Sets
@@ -263,20 +197,6 @@ def status_description(status: OrderStatus) -> str:
         # Type checker warns if any case is missing — no default needed
 ```
 
-**Wrong (magic strings):**
-```python
-def categorize_age(age: int) -> str:
-    if age < 18:
-        return "minor"    # typo "minro" would compile and fail silently
-    if age < 65:
-        return "adult"    # these strings are scattered across the codebase
-    return "senior"
-
-# Caller:
-if categorize_age(age) == "adlut":  # typo — always False, never caught
-    ...
-```
-
 **Also applies to function parameters:**
 ```python
 # Wrong
@@ -317,18 +237,6 @@ Every line MUST carry its weight. Delete ruthlessly.
 - Empty `__init__`, empty `pass` blocks, TODO comments from 3 months ago
 - `assert False, "unreachable"` — if it's unreachable, type-checker should prove it
 
-**Before (water):**
-```python
-def calculate_total(items):
-    total = 0
-    # iterate over all items
-    for item in items:
-        # add the price to total
-        total = total + item.price  # price is in dollars
-    # return the computed total
-    return total
-```
-
 **After (no water):**
 ```python
 def calculate_total(items: list[Item]) -> Money:
@@ -356,14 +264,7 @@ Every Python project MUST follow a layered structure. The specific layer names a
 **API / Backend:**
 ```
 project/
-├── src/
-│   ├── api/              — HTTP route handlers, request/response Pydantic models
-│   ├── services/         — Business logic, use cases, orchestration
-│   ├── repositories/     — Database access, external API clients, file I/O
-│   ├── models/           — Domain types, enums, value objects, ORM models
-│   ├── core/             — config.py, database.py, logging.py, exceptions.py
-│   ├── middleware/       — Cross-cutting request/response processing
-│   └── utils/            — Zero-business-logic shared helpers
+├── src/{api,services,repositories,models,core,middleware,utils}/
 ├── tests/{unit,integration,e2e}/
 ├── docs/{business,specs,reviews}/
 ├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
@@ -373,13 +274,7 @@ project/
 **CLI Tool:**
 ```
 project/
-├── src/
-│   ├── commands/         — CLI command handlers (click/typer entry points)
-│   ├── services/         — Business logic, use cases
-│   ├── repositories/     — File I/O, external API clients, database access
-│   ├── models/           — Domain types, enums, value objects
-│   ├── core/             — config.py, logging.py
-│   └── utils/            — Zero-business-logic shared helpers
+├── src/{commands,services,repositories,models,core,utils}/
 ├── tests/{unit,integration}/
 ├── docs/{business,specs,reviews}/
 ├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
@@ -389,12 +284,8 @@ project/
 **Library / SDK:**
 ```
 project/
-├── src/
-│   └── <package_name>/   — Public API surface (what users import)
-│       ├── __init__.py    — Re-exports public types
-│       ├── _internal/     — Private implementation (leading underscore = hidden)
-│       ├── models.py      — Public domain types, enums
-│       └── py.typed       — PEP 561 marker for type checkers
+├── src/<package_name>/{_internal,models}/
+├── src/<package_name>/__init__.py, py.typed
 ├── tests/{unit,integration}/
 ├── docs/{business,specs,reviews}/
 ├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
@@ -404,14 +295,7 @@ project/
 **Data Pipeline / Worker:**
 ```
 project/
-├── src/
-│   ├── pipelines/        — Pipeline definitions (extract → transform → load)
-│   ├── extractors/       — Data source readers (APIs, files, DBs)
-│   ├── transformers/     — Data transformation logic
-│   ├── loaders/          — Data destination writers
-│   ├── models/           — Domain types, enums, schemas
-│   ├── core/             — config.py, logging.py, connections.py
-│   └── utils/            — Zero-business-logic shared helpers
+├── src/{pipelines,extractors,transformers,loaders,models,core,utils}/
 ├── tests/{unit,integration}/
 ├── docs/{business,specs,reviews}/
 ├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
@@ -535,15 +419,6 @@ from src.core.config import settings
 from src.services.password_service import PasswordService
 
 password_service = PasswordService(min_length=settings.password_min_length)
-```
-
-**Wrong (scattered config):**
-```python
-# DON'T: os.environ calls scattered everywhere
-db_url = os.environ.get("DATABASE_URL", "postgresql://localhost/db")  # in services/auth.py
-jwt_secret = os.environ["JWT_SECRET"]  # in api/auth.py
-api_key = os.environ.get("SENDGRID_KEY")  # in services/email.py
-# No single source of truth, no validation, no typing
 ```
 
 **Required files for config:**
