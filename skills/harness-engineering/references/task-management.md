@@ -6,23 +6,6 @@ Work on exactly one feature at a time. Never activate a new task while another i
 
 **Why this matters (the math):** Little's Law — L = λ × W. More work-in-progress (L) → longer lead time per task (W) → higher failure probability. Anthropic's controlled experiments: agents using "small next step" strategy showed **37% higher completion rate** than those given broad prompts. Lines-of-code generated is weakly negatively correlated with feature completion — more code means fewer finished features.
 
-**How WIP=1 works in practice:**
-```
-Session start:
-  PROGRESS.md → In Progress: [ ] Pagination feature (85%, edge case failing)
-  → Continue pagination. Do NOT start "user avatar upload" yet.
-
-Session middle:
-  Pagination fixed, verified, committed.
-  PROGRESS.md → In Progress: (none active)
-  → Now pick the next not_started feature from Next Steps.
-  → Mark it active. Begin.
-
-Session end:
-  Pagination is done. But also "just quickly refactored the query builder."
-  → VIOLATION. The refactoring should have been its own feature.
-```
-
 **Enforcement check before starting any work:**
 1. Open PROGRESS.md
 2. Look at "In Progress" section
@@ -146,21 +129,3 @@ All five must be YES to parallelize. Any NO = run sequentially.
 3. **If any agent fails,** STOP the entire batch. Diagnose. Fix. Then decide whether to re-spawn or continue sequentially.
 4. **After merge, full verification.** `make check` on the merged codebase — not just per-agent verification.
 5. **One agent handles the merge + doc updates.** After all parallel agents finish, one agent (the main session) merges, verifies, and updates GRAPH.md, codebase-map.md, and PROGRESS.md.
-
-### Valid Parallel Group (DO THIS)
-
-```
-F04: Add user preferences endpoint   → src/api/preferences.py     (new file)
-F05: Add email verification worker   → src/workers/verify_email.py (new file)
-F06: Add health check endpoint       → src/api/health.py           (new file)
-```
-Three new files, zero shared dependencies, independently verifiable. Perfect for parallel.
-
-### Must Be Sequential (DON'T parallelize)
-
-```
-F04: Add Order ORM model            → src/models/order.py          (new file)
-F05: Add order creation endpoint    → src/api/orders.py            (depends on F04's model)
-F06: Add order notification worker  → src/workers/notify_order.py  (depends on F05's endpoint)
-```
-Each depends on the previous. Must run sequentially.
