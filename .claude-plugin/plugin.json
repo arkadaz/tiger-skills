@@ -1,17 +1,17 @@
 {
   "name": "tiger-skills",
-  "description": "Code quality and harness engineering skills for Claude Code. code-quality enforces design principles, Pydantic types, and clean code. harness-engineering manages agent workflow: AGENTS.md, session discipline, verification pipeline, and spec-before-code.",
-  "version": "1.0.0",
+  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. code-quality enforces 13 design principles + Python/Rust rules. harness-engineering manages the full agent workflow from session discipline through verification. Each skill cross-references the other at defined handoff points.",
+  "version": "1.1.0",
   "author": "arkadaz",
   "repository": "https://github.com/arkadaz/tiger-skills",
   "skills": [
     {
       "name": "code-quality",
-      "description": "Enforce code quality when writing, reviewing, or auditing code. Covers design principles (SRP, OCP, LSP, DRY, etc.), Pydantic types, logging, enums, and clean code rules."
+      "description": "Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY), language-specific rules for Python and Rust, independent review agent, typed boundaries, structured logging, enums over magic strings, and no-water code. Cross-references harness-engineering for verification pipeline."
     },
     {
       "name": "harness-engineering",
-      "description": "Build and maintain the harness around AI coding agents — AGENTS.md, PROGRESS.md, session discipline, WIP=1, three-layer verification, spec-before-code, and Git discipline."
+      "description": "Outer loop — session discipline (clock-in/out), spec-before-code, WIP=1, three-layer verification pipeline, parallel agent dispatch, AGENTS.md as router, PROGRESS.md + DECISIONS.md, GRAPH.md code flow, diagnostic loop, and Git discipline. Cross-references code-quality at implementation steps."
     }
   ]
 }
