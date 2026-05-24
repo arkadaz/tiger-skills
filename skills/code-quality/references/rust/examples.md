@@ -5,14 +5,6 @@ Concrete Rust examples for each design principle and pattern. Load with [design-
 ## SRP
 
 ```rust
-// VIOLATION — one struct doing everything
-impl OrderProcessor {
-    fn process(&self, data: serde_json::Value) -> Result<(), Box<dyn Error>> {
-        // validate + calculate + save + notify all in one method
-    }
-}
-
-// FIX — one struct per responsibility
 struct OrderValidator;
 impl OrderValidator { fn validate(&self, req: CreateOrderRequest) -> Result<ValidatedOrder, AppError> { todo!() } }
 
@@ -25,7 +17,6 @@ impl OrderRepository { async fn save(&self, order: &Order) -> Result<Uuid, sqlx:
 struct EmailNotifier { client: reqwest::Client }
 impl EmailNotifier { async fn send(&self, email: &EmailAddress, id: Uuid) -> Result<(), AppError> { todo!() } }
 
-// Orchestrator — single job: wire steps together
 struct CreateOrderUseCase<R: OrderRepository, N: EmailNotifier> { repo: R, notifier: N, pricing: PricingCalculator, validator: OrderValidator }
 impl<R: OrderRepository, N: EmailNotifier> CreateOrderUseCase<R, N> {
     async fn execute(&self, req: CreateOrderRequest) -> Result<OrderResponse, AppError> {
@@ -42,16 +33,6 @@ impl<R: OrderRepository, N: EmailNotifier> CreateOrderUseCase<R, N> {
 ## OCP
 
 ```rust
-// VIOLATION — match on string, edit function for each new format
-fn export(data: &ReportData, format: &str) -> Vec<u8> {
-    match format {
-        "pdf" => export_pdf(data),
-        "csv" => export_csv(data),
-        _ => panic!("unknown"),
-    }
-}
-
-// FIX — trait + registry, new format = new impl + one insert()
 trait ReportExporter: Send + Sync {
     fn export(&self, data: &ReportData) -> Vec<u8>;
 }
@@ -71,7 +52,6 @@ impl ExportRegistry {
 ## Composition over Inheritance
 
 ```rust
-// Rust has no class inheritance — composition is the only option
 trait Engine: Send + Sync { fn sound(&self) -> &'static str; }
 struct GasEngine;
 impl Engine for GasEngine { fn sound(&self) -> &'static str { "vroom" } }
@@ -103,7 +83,6 @@ impl NotifierFactory {
         self.registry.get(method).expect("unknown method")()
     }
 }
-// Registration at startup — main.rs or composition root
 ```
 
 ## Strategy Pattern
@@ -118,16 +97,13 @@ struct BulkDiscountPricing;
 impl PricingStrategy for BulkDiscountPricing { fn calculate(&self, items: &[Item]) -> Money { todo!() } }
 
 struct OrderService<P: PricingStrategy> { pricing: P }
-// Inject at construction; swap at runtime via Box<dyn PricingStrategy>
 ```
 
 ## Adapter Pattern
 
 ```rust
-// External crate has incompatible interface
 mod third_party { pub struct Logger; impl Logger { pub fn write_entry(&self, severity: i32, text: &str) {} } }
 
-// Adapter translates
 struct LoggerAdapter { inner: third_party::Logger }
 impl LoggerAdapter {
     fn info(&self, msg: &str) { self.inner.write_entry(1, msg) }
@@ -151,9 +127,6 @@ impl Subject {
 ## State Pattern
 
 ```rust
-enum TicketState { Ready, Validating, TicketSold, SoldOut }
-
-// Or as trait objects for complex state behavior:
 trait State: Send + Sync { fn insert_card(self: Box<Self>) -> Box<dyn State>; }
 struct Ready;
 impl State for Ready { fn insert_card(self: Box<Self>) -> Box<dyn State> { Box::new(Validating) } }
@@ -163,7 +136,7 @@ impl State for Validating { fn insert_card(self: Box<Self>) -> Box<dyn State> { 
 struct TicketMachine { state: Box<dyn State> }
 impl TicketMachine {
     fn insert_card(&mut self) {
-        let old = std::mem::replace(&mut self.state, Box::new(Ready)); // placeholder
+        let old = std::mem::replace(&mut self.state, Box::new(Ready));
         self.state = old.insert_card();
     }
 }
@@ -195,11 +168,9 @@ impl<T: Ticket> Ticket for DrinkCoupon<T> {
 
 ```rust
 trait GameReport {
-    fn acquire_data(&self) -> GameData;  // varies per impl
+    fn acquire_data(&self) -> GameData;
     fn analyze(&self, data: &GameData) -> Analysis;
     fn print_body(&self, analysis: &Analysis);
-
-    // Template — fixed order
     fn generate(&self) {
         let data = self.acquire_data();
         let analysis = self.analyze(&data);
@@ -223,7 +194,6 @@ impl<T: Clone> Iterator for ListIterator<T> {
         } else { None }
     }
 }
-// All std collections implement Iterator — use .iter(), .into_iter()
 ```
 
 ## Composite
@@ -260,7 +230,6 @@ struct MacFactory;
 impl UiFactory for MacFactory { fn create_button(&self) -> Box<dyn Button> { Box::new(MacButton) } fn create_checkbox(&self) -> Box<dyn Checkbox> { Box::new(MacCheckbox) } }
 struct WindowsFactory;
 impl UiFactory for WindowsFactory { fn create_button(&self) -> Box<dyn Button> { Box::new(WinButton) } fn create_checkbox(&self) -> Box<dyn Checkbox> { Box::new(WinCheckbox) } }
-// One factory guarantees one family — no mixing Mac buttons with Windows checkboxes
 ```
 
 ## Facade
