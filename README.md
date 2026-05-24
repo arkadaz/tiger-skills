@@ -6,8 +6,8 @@ Claude Code skills for code quality and harness engineering. The two skills work
 
 | Skill | Description |
 |-------|-------------|
-| `code-quality` | Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY, etc.) plus language-specific rules for **Python** and **Rust**. Independent review agent, typed boundaries, structured logging, enums over magic strings, no water code. |
-| `harness-engineering` | Outer loop — session discipline (clock-in/out), spec-before-code, WIP=1, three-layer verification pipeline, parallel agent dispatch, AGENTS.md as router, PROGRESS.md + DECISIONS.md, GRAPH.md code flow, diagnostic loop. |
+| `code-quality` | Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY, etc.) plus language-specific rules for **Python** and **Rust**. Independent review agent, typed boundaries (no bare `dict`/`list`/`set`/`tuple`), structured logging, enums for all fixed choices (including factory/registry keys), empty `__init__.py` policy, no leading-underscore naming, no water code. |
+| `harness-engineering` | Outer loop — 7-phase conductor protocol, Iron Law verification (never claim done without fresh evidence), rationalization prevention, bite-sized tasks (no placeholders/stubs), subagent-driven development with status protocol + model selection, two-stage review (spec compliance + code quality), session discipline, WIP=1, diagnostic loop, parallel agent dispatch. |
 
 ## Structure
 
@@ -31,8 +31,8 @@ tiger-skills/
 │       └── references/
 │           ├── repo-system.md          — AGENTS.md template, codebase map, cold-start test
 │           ├── session-discipline.md   — Clock-in/out routines, PROGRESS.md, DECISIONS.md
-│           ├── task-management.md      — WIP=1, feature state machine, parallel agents
-│           ├── verification.md         — 3-layer pipeline, definition of done
+│           ├── task-management.md      — WIP=1, bite-sized tasks, subagent protocol, model selection, two-stage review
+│           ├── verification.md         — Iron Law, 3-layer pipeline, rationalization prevention, completion gate
 │           ├── doc-first.md            — Spec-before-code, business docs, GRAPH.md
 │           └── workflow.md             — 14-step implementation flow, diagnostic loop
 ├── .claude-plugin/
