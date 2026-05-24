@@ -12,9 +12,7 @@ Every feature must pass three verification layers. Skipping any required layer =
 
 ### Layer 1: Static Analysis
 
-**What:** Linter finds code style issues, potential bugs, and complexity problems. Type checker verifies that types are used correctly across the codebase.
-
-**Why first:** Static analysis is instant (seconds) and catches a large class of bugs before any code runs. Fixing a type error at runtime is orders of magnitude more expensive than at lint time.
+Lint + type check. Every change. See code-quality [non-negotiable #3](../../code-quality/SKILL.md#five-non-negotiables-language-agnostic) for the standard.
 
 **Failure pattern:**
 ```
@@ -25,9 +23,7 @@ Fix each error from top to bottom. Top errors often cause cascading errors below
 
 ### Layer 2: Runtime Tests
 
-**What:** Unit tests (single function/class in isolation) + integration tests (multiple components together, but with test databases/stubs).
-
-**Why second:** Tests verify behavior. But if types are wrong, tests often fail with confusing errors. Fix types first, then run tests.
+Unit + integration tests. Every change. See code-quality [review-agent.md](../../code-quality/references/review-agent.md) for independent verification.
 
 **Failure pattern:**
 ```
@@ -39,14 +35,15 @@ The discount wasn't applied. Check promo code logic, then fix and re-run.
 
 **What:** End-to-end tests that exercise the full stack — real HTTP requests, real database (test instance), real external service stubs.
 
-**When required:** Any change that:
-- Modifies an API endpoint signature or behavior
-- Changes database schema or queries
-- Touches authentication/authorization
-- Affects message queue producers or consumers
-- Changes how external services are called
+**When required / When optional:**
 
-**When optional:** Pure refactoring (no behavior change), documentation-only changes, test-only changes.
+| When required | When optional |
+|---------------|---------------|
+| API endpoint signature or behavior changes | Pure refactoring (no behavior change) |
+| Database schema or query changes | Documentation-only changes |
+| Authentication/authorization changes | Test-only changes |
+| Message queue producer or consumer changes | |
+| Changes to how external services are called | |
 
 ### Sequence Is Mandatory
 
