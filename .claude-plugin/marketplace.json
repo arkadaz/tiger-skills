@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "arkadaz",
+  "description": "tiger-skills: code-quality (inner loop) and harness-engineering (outer loop) — two skills that work as one system",
+  "owner": {
+    "name": "arkadaz"
+  },
+  "plugins": [
+    {
+      "name": "tiger-skills",
+      "description": "Two skills that work as one system. code-quality (inner loop): 13 design principles + 11 tooling rules with comprehension gate, DI enforcement, no Any/object types, no nested functions. harness-engineering (outer loop): self-contained 7-phase conductor with bootstrap gate, business discovery, auto-track 8 harness files, Iron Law verification, subagent-driven development.",
+      "author": {
+        "name": "arkadaz"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/arkadaz/tiger-skills"
+    }
+  ]
+}
