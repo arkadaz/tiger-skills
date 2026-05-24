@@ -68,23 +68,11 @@ Execute these checks immediately. For each file that is missing, CREATE it using
 
 Once the bootstrap gate passes, **every user task** flows through these seven phases in strict order. Never skip a phase. Never reorder. Never jump to implementation.
 
-### Phase 1: CLARIFY — Delegate to Brainstorming
+### Phase 1: CLARIFY — Business Discovery, Approaches, Technical Confirmation
 
-**Invoke `superpowers:brainstorming` via the Skill tool.** Do NOT run business discovery inline. The brainstorming skill handles: project context exploration, business discovery (purpose/users/success criteria), scope decomposition, 2-3 approaches with trade-offs, design presentation with incremental approval, spec writing, spec self-review, and user review gate.
+**Before writing code, before writing a spec, before ANY technical action — understand the business.** Every task starts with WHY. Technical decisions without business context are guesses. Do not assume purpose, users, or constraints.
 
-**Before invoking:** Run the bootstrap gate (if not already done). Note current PROGRESS.md state.
-
-**After brainstorming completes (design doc saved and user-approved):**
-1. Verify the design doc exists at the path brainstorming saved it to
-2. Copy or reference it in `docs/specs/` if brainstorming saved it elsewhere
-3. Update PROGRESS.md — record that clarification is complete, link the design doc
-4. Proceed to Phase 2
-
-**Gate:** Design doc exists on disk, user has approved, PROGRESS.md updated.
-
-#### 1a. Fallback Business Discovery — Only If Brainstorming Unavailable
-
-If `superpowers:brainstorming` cannot be loaded, conduct business discovery manually. Ask questions one at a time.
+#### 1a. Business Discovery — Ask WHY, One Question at a Time
 
 Ask questions one at a time. Never batch multiple questions in one message. Each answer informs the next question. Use AskUserQuestion for multiple-choice when possible.
 
@@ -168,19 +156,17 @@ The spec must cover: what (user perspective), scope (in/out), I/O (types/fields/
 
 **Gate:** For non-trivial work, present the spec to the user and get explicit approval. Do NOT write code until the spec is approved.
 
-### Phase 4: PLAN — Delegate to Writing-Plans
+### Phase 4: PLAN — Design Before Execution
 
-**Invoke `superpowers:writing-plans` via the Skill tool.** This skill creates a detailed, step-by-step implementation plan with checkpoints, dependencies, and verification gates. Do NOT write an implementation plan inline.
+For any task touching ≥3 files or involving ≥2 distinct steps: write an implementation plan. Save to `docs/plans/YYYY-MM-DD-<topic>.md`.
 
-**After writing-plans completes (plan saved and approved):**
-1. Verify the plan exists at `docs/plans/YYYY-MM-DD-<topic>.md`
-2. Update PROGRESS.md — link the plan, mark feature as ready for implementation
-3. Proceed to Phase 5
+Plan structure:
+- Step-by-step implementation order (each step: what files, what changes, why this order)
+- Dependencies between steps
+- Verification checkpoint after each step
+- Rollback approach if a step fails
 
 For simpler tasks (1-2 files, single step): the spec IS the plan. Skip to Phase 5.
-
-**Fallback — only if writing-plans unavailable:**
-Write plan manually. Save to `docs/plans/YYYY-MM-DD-<topic>.md`. Structure: step-by-step order (files, changes, why this order), dependencies, verification per step, rollback approach.
 
 **Gate:** Plan exists on disk, user has approved, PROGRESS.md updated.
 
@@ -215,11 +201,9 @@ At steps 6-10, load [code-quality](../code-quality/SKILL.md) and follow all rule
 
 For single-task features: implement directly in the main session. No need to spawn.
 
-### Phase 6: VERIFY — Delegate to Verification-Before-Completion
+### Phase 6: VERIFY — The Iron Law
 
-**Invoke `superpowers:verification-before-completion` via the Skill tool.** This skill enforces: run verification commands, confirm output, evidence before assertions. Do NOT claim "done" without fresh verification evidence.
-
-**Fallback — Iron Law (if verification-before-completion unavailable):**
+**The Iron Law: Never claim completion without fresh verification evidence from THIS session.**
 
 Run the 3-layer verification pipeline from [references/verification.md](references/verification.md):
 1. **Static:** lint + type check — zero errors
@@ -253,17 +237,17 @@ Before the session ends, update ALL of these:
 ```
 User Request
     ↓
-CLARIFY ──→ Skill: superpowers:brainstorming
+CLARIFY ←── Business discovery, 2-3 approaches, technical specifics
     ↓
 EXPLORE ←── Read codebase, create missing harness files
     ↓
 SPEC   ←── Technical spec, self-review, get approval
     ↓
-PLAN   ──→ Skill: superpowers:writing-plans
+PLAN   ←── Bite-sized tasks, checkpoints, dependencies
     ↓
-IMPLEMENT → Skill: code-quality + subagent dispatch
-    ↓         (failures → Skill: superpowers:systematic-debugging)
-VERIFY  ──→ Skill: superpowers:verification-before-completion
+IMPLEMENT → code-quality + TDD + subagent dispatch
+    ↓
+VERIFY  ←── Iron Law: 3-layer pipeline, completion gate
     ↓
 TRACK  ←── Update all harness files
     ↓
@@ -272,12 +256,12 @@ TRACK  ←── Update all harness files
 
 ## Quick Reference
 
-| Phase | Delegates To | Gate |
+| Phase | What Happens | Gate |
 |-------|-------------|------|
-| 1. CLARIFY | `superpowers:brainstorming` | Design doc saved, user approved |
-| 2. EXPLORE | (harness) | Can answer: what exists, how it connects |
-| 3. SPEC | (harness) | Spec self-reviewed, user approved |
-| 4. PLAN | `superpowers:writing-plans` | Plan saved, user approved |
-| 5. IMPLEMENT | `code-quality` + subagents (+ `systematic-debugging` on failure) | Two-stage review passes |
-| 6. VERIFY | `superpowers:verification-before-completion` | Fresh evidence recorded THIS session |
-| 7. TRACK | (harness) | All files saved, committed |
+| 1. CLARIFY | Business discovery, 2-3 approaches, technical confirmation | User confirms |
+| 2. EXPLORE | Read codebase map, graph, business docs, existing code | Can answer: what exists, how it connects |
+| 3. SPEC | Write spec, self-review, get approval | User approves |
+| 4. PLAN | Bite-sized tasks, checkpoints, dependencies | User approves |
+| 5. IMPLEMENT | TDD + code-quality rules + subagent parallel execution | Two-stage review passes |
+| 6. VERIFY | Iron Law: 3-layer pipeline, completion gate | Fresh evidence THIS session |
+| 7. TRACK | Update PROGRESS, DECISIONS, GRAPH, codebase-map, AGENTS | All files committed |
