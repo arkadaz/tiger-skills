@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. code-quality enforces 13 design principles + Python/Rust rules. harness-engineering manages the full agent workflow from session discipline through verification. Each skill cross-references the other at defined handoff points.",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "author": "arkadaz",
   "repository": "https://github.com/arkadaz/tiger-skills",
   "skills": [
@@ -11,7 +11,7 @@
     },
     {
       "name": "harness-engineering",
-      "description": "Outer loop — session discipline (clock-in/out), spec-before-code, WIP=1, three-layer verification pipeline, parallel agent dispatch, AGENTS.md as router, PROGRESS.md + DECISIONS.md, GRAPH.md code flow, diagnostic loop, and Git discipline. Cross-references code-quality at implementation steps."
+      "description": "Outer loop conductor — bootstrap gate (create all harness .md files), 7-phase protocol (clarify→explore→spec→plan→implement→verify→track), session discipline (clock-in/out), WIP=1, three-layer verification pipeline, AGENTS.md as router, PROGRESS.md + DECISIONS.md + GRAPH.md state tracking, diagnostic loop, and parallel agent dispatch. Cross-references code-quality at implementation steps."
     }
   ]
 }
