@@ -21,6 +21,12 @@ A harness has five subsystems. All five must be present:
 
 **The diagnostic loop:** Every failure must be attributed to one of five layers — spec / context / environment / verification / state. Fix that layer. Never fail the same way twice.
 
+## Relationship to code-quality
+
+This skill is the **outer loop** — process and workflow. Load [code-quality](../code-quality/SKILL.md) for the **inner loop** — how to write the code itself. Handoff points:
+- `→ apply code-quality` — at workflow step 6 (implement) and step 10 (review)
+- `→ follow harness verification` — after implementing, run the 3-layer verification pipeline
+
 ## Reference Files
 
 Load these as needed based on the task:
