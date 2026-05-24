@@ -22,7 +22,8 @@ Enforces design principles and language-specific rules during implementation.
 - No bare generics (`dict`/`list`/`set`/`tuple` must have type parameters)
 - All fixed choice sets must be enums (including factory/registry keys)
 - `__init__.py` must be empty (no re-exports, no `__all__`, no code)
-- No leading-underscore naming (`self.xxx`, not `self._xxx`)
+- No leading-underscore on ANY name (functions, methods, variables, attributes)
+- Flat functions — no nested `def` inside `def`, every function at module level
 - Structured logging only (no `print()`/`println!()`)
 - No bare `except` / `catch` (specific exceptions only)
 - Every line earns its place (no water code)
