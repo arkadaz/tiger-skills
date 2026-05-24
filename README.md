@@ -8,7 +8,9 @@ Follows the [Agent Skills](https://agentskills.io) standard.
 
 ### code-quality (Inner Loop)
 
-Enforces design principles and language-specific rules during implementation.
+Enforces design principles and language-specific rules during implementation. **Comprehension gate blocks code until all rules are read and understood.**
+
+**Comprehension Gate:** Before writing ANY code, the agent must read all 13 design principles + all language rules + all language examples, then pass a 5-item self-check. Skimming is not reading. "I get the idea" is not understanding.
 
 **Design Principles (13):** SRP, OCP, LSP, DRY, Interface Segregation, Composition over Inheritance, Encapsulation, Least Surprise, Lazy Evaluation, Invariant Protection, and more — each with violation signals and fixes.
 
@@ -18,74 +20,83 @@ Enforces design principles and language-specific rules during implementation.
 - **Python** — Pydantic at boundaries, `mypy --strict`, `ruff`, structured logging, enums, config injection
 - **Rust** — serde at boundaries, `clippy`, `cargo`, tracing, enums, config injection
 
-**Enforced Rules:**
-- No bare generics (`dict`/`list`/`set`/`tuple` must have type parameters)
-- All fixed choice sets must be enums (including factory/registry keys)
-- `__init__.py` must be empty (no re-exports, no `__all__`, no code)
-- No leading-underscore on ANY name (functions, methods, variables, attributes)
-- Flat functions — no nested `def` inside `def`, every function at module level
-- Structured logging only (no `print()`/`println!()`)
-- No bare `except` / `catch` (specific exceptions only)
-- Every line earns its place (no water code)
+**Enforced Rules (10 tooling items):**
+- Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`)
+- Enums — all fixed choice sets are enums, including factory/registry keys
+- Naming — no leading-underscore on ANY name (functions, methods, variables, attributes)
+- Logging — structured logging only (no `print()`/`println!()`)
+- No bare except — specific exceptions only
+- Lint clean — project linter passes
+- Type check clean — project type checker passes
+- No water — every line earns its place
+- Flat functions — no nested `def` inside `def`, every function at module level or class method
+- Init files — `__init__.py` present in every package directory, always empty
 
-**Independent Review Agent:** After implementing, a separate agent audits the diff against all 19 audit items (13 principles + 6 tooling rules).
+**Independent Review Agent:** After implementing, a separate agent audits the diff against all 23 audit items (13 principles + 10 tooling rules).
 
 ### harness-engineering (Outer Loop)
 
-Manages the full agent workflow from session start to session end.
+Self-contained conductor — manages the full agent workflow from business discovery to tracked completion. No external dependencies.
 
 **7-Phase Conductor Protocol:**
 
 | Phase | What Happens | Gate |
 |-------|-------------|------|
-| 1. CLARIFY | Ask questions until scope/criteria are certain | User confirms |
-| 2. EXPLORE | Read codebase map, graph, business docs, existing code | Can answer: what exists, how it connects |
-| 3. SPEC | Write spec, self-review, get user approval | User approves |
-| 4. PLAN | Write plan with bite-sized tasks, self-review, get approval | User approves |
-| 5. IMPLEMENT | TDD, code-quality rules, subagent-driven parallel execution | Two-stage review passes |
-| 6. VERIFY | Iron Law — 3-layer pipeline, completion gate | Fresh evidence recorded |
-| 7. TRACK | Update PROGRESS, DECISIONS, GRAPH, codebase-map, AGENTS | All files committed |
+| 1. CLARIFY | Business discovery (WHY), 2-3 approaches with trade-offs, technical confirmation | User confirms |
+| 2. EXPLORE | Read codebase map, graph, business docs, existing code; create missing harness files | Can answer: what exists, how it connects |
+| 3. SPEC | Write spec, self-review (placeholders/consistency/scope/ambiguity), get approval | User approves |
+| 4. PLAN | Bite-sized tasks, checkpoints, dependencies | User approves |
+| 5. IMPLEMENT | TDD + code-quality rules + subagent parallel execution | Two-stage review passes |
+| 6. VERIFY | Iron Law: 3-layer pipeline, 5-point completion gate, rationalization prevention | Fresh evidence THIS session |
+| 7. TRACK | Auto-update ALL 8 harness files after every phase, every commit | All files current |
 
-**Iron Law Verification:**
+**Business Discovery (Phase 1):**
+- Asks WHY: purpose, users, success criteria, constraints — one question at a time
+- Scope gate: decomposes large requests into independent subsystems
+- Always proposes 2-3 approaches with trade-offs (YAGNI ruthlessly)
+- Technical confirmation: I/Os, files to touch, verification criteria
+
+**Auto-Track (Phase 7):**
+Fires after EVERY phase, EVERY commit — not just "at the end." Updates all 8 harness files:
+- `PROGRESS.md` — feature state, progress %, known issues, next steps
+- `DECISIONS.md` — every architectural choice with rationale
+- `docs/GRAPH.md` — every code flow with IN/OUT/ADDS/COMPUTES field-level detail
+- `docs/codebase-map.md` — every file create/delete/rename with dependency graph
+- `docs/business/<domain>.md` — every business rule with implementation reference
+- `AGENTS.md` — every new convention, command, constraint, or topic doc
+- Spec doc — any difference between spec and what was built
+- Plan doc — every task completed/blocked
+
+**Iron Law Verification (Phase 6):**
 - Never claim done without fresh evidence from THIS session
 - 5-point completion gate (all must be TRUE)
 - Rationalization prevention table (9 common rationalizations)
 - Red flag words table (10 weasel words that signal skipped verification)
 
-**Subagent-Driven Development:**
+**Subagent-Driven Development (Phase 5):**
 - Self-contained prompt template (subagent gets full spec, not a reference)
 - Status protocol: DONE / DONE\_WITH\_CONCERNS / NEEDS\_CONTEXT / BLOCKED
 - Model selection by complexity (opus for design, sonnet for patterns, haiku for trivial)
 - Two-stage review: spec compliance first, then code quality
-- "Do not trust the report" — spec reviewer verifies by reading code
 - Escalation protocol (when to stop and say "too hard")
-- Continuous execution (don't pause between tasks)
 
 **TDD (Red-Green-Refactor):**
 - No production code without failing test first
-- Testing anti-patterns (mock behavior, test-only methods, incomplete mocks)
-- 11 common rationalizations table
+- Testing anti-patterns + 11 common rationalizations table
 
 **Systematic Debugging:**
-- 4-phase process: root cause → pattern analysis → hypothesis → implementation
+- 4-phase: root cause → pattern → hypothesis → implementation
 - Defense-in-depth validation (4 layers)
-- Condition-based waiting (replace arbitrary timeouts)
 - 3-fix limit before questioning architecture
 
 **Bite-Sized Tasks:**
 - Every task = one commit, independently verifiable
-- No placeholders ever (`pass`, `todo!()`, `raise NotImplementedError` = forbidden)
+- No placeholders ever (`pass`, `todo!()`, `raise NotImplementedError`)
 - Decomposition guide by task type
-
-**Self-Review Checklists:**
-- Spec self-review (placeholders, consistency, scope, ambiguity)
-- Plan self-review (spec coverage, placeholder scan, type consistency)
-- Implementer self-review (completeness, quality, discipline, testing)
 
 **Session Management:**
 - Bootstrap gate (9 checks — auto-creates missing harness files)
 - Clock-in/out routines
-- PROGRESS.md, DECISIONS.md, GRAPH.md state tracking
 - WIP=1 (one feature at a time)
 - Feature state machine (not\_started → active → passing / blocked)
 - 14-step implementation workflow
@@ -183,16 +194,24 @@ Start Claude Code. Both `/code-quality` and `/harness-engineering` should appear
 ```
 User Request
     ↓
-harness-engineering: CLARIFY → EXPLORE → SPEC → PLAN
+harness-engineering: CLARIFY (business discovery, 2-3 approaches)
+    ↓  └→ AUTO-TRACK
+harness-engineering: EXPLORE (codebase, create missing harness files)
     ↓
-    IMPLEMENT ──→ code-quality: types, SRP, OCP, enums, logging, patterns
-                  code-quality: review agent (19-item audit)
-    ↓
-harness-engineering: VERIFY (Iron Law) → TRACK
+harness-engineering: SPEC (technical spec, self-review)
+    ↓  └→ AUTO-TRACK
+harness-engineering: PLAN (bite-sized tasks, checkpoints)
+    ↓  └→ AUTO-TRACK
+    IMPLEMENT ──→ code-quality: comprehension gate → 13 principles + 10 tooling rules
+                  code-quality: review agent (23-item audit)
+    ↓  └→ AUTO-TRACK (after every commit)
+harness-engineering: VERIFY (Iron Law, 3-layer pipeline, completion gate)
+    ↓  └→ AUTO-TRACK (evidence recorded, feature → passing)
+harness-engineering: TRACK (final sweep: all 8 harness files current)
     ↓
 Done
 ```
 
 Handoff points:
-- `→ apply code-quality` — at workflow steps 6-10 (implement, verify, review)
-- `→ follow harness verification` — after implementing, run 3-layer pipeline
+- `→ apply code-quality` — at IMPLEMENT phase: comprehension gate, principles, rules, review agent
+- `→ auto-track` — after every phase and every commit: PROGRESS, DECISIONS, GRAPH, codebase-map, business docs, AGENTS, spec, plan
