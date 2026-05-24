@@ -59,14 +59,6 @@ pub fn create_book(req: CreateBookRequest) -> Result<BookResponse, AppError> {
 }
 ```
 
-**Wrong (raw strings in business logic):**
-```rust
-pub fn create_book(data: serde_json::Value) -> Result<(), Box<dyn Error>> {
-    let isbn = data["isbn"].as_str().unwrap_or("");  // who knows what this contains?
-    let year = data["year"].as_u64().unwrap_or(0);     // silently defaults garbage
-    // ...
-}
-```
 
 ## Serde for Serialization Boundaries
 
@@ -114,16 +106,6 @@ impl OrderStatus {
 }
 ```
 
-**Wrong (magic strings):**
-```rust
-fn describe_status(status: &str) -> &str {
-    match status {
-        "pending" => "Awaiting",    // typo "pendng" silently falls to default
-        "confirmed" => "Confirmed",
-        _ => "Unknown"
-    }
-}
-```
 
 ## Logging with Tracing
 
@@ -155,11 +137,6 @@ pub async fn create_order(
 }
 ```
 
-**Never:**
-```rust
-println!("Order created: {}", order.id);  // no level, no structure, no async context
-eprintln!("Error: {}", e);                 // not structured, not filterable
-```
 
 ## Trait-Based Abstraction (Code to Interface)
 
@@ -185,12 +162,6 @@ pub struct OrderService<R: OrderRepository, E: EmailService> {
 // In production: inject PostgresOrderRepository
 ```
 
-**Wrong (concrete dependency):**
-```rust
-pub struct OrderService {
-    repo: PostgresOrderRepository,  // cannot test without real database
-}
-```
 
 ## Cargo Check and Clippy
 
@@ -217,10 +188,6 @@ Rust-specific water to delete:
 let config = Config::from_env().expect("Config must be valid at startup");
 ```
 
-**Wrong (silent unwrap):**
-```rust
-let config = Config::from_env().unwrap();  // panics with no context
-```
 
 ## Error Handling — No Magic Catch-Alls
 
@@ -257,12 +224,6 @@ match order_service.create(req).await {
 }
 ```
 
-**Wrong (boxed dyn Error catch-all):**
-```rust
-fn process(data: &str) -> Result<(), Box<dyn std::error::Error>> {
-    // caller gets a black box — no way to handle specific errors
-}
-```
 
 ## Rust Project Structure
 
