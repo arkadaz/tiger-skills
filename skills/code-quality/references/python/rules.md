@@ -13,10 +13,43 @@ All configuration keys, module-level constants, and enum members MUST use proper
 | Enum members | `SCREAMING_SNAKE_CASE` | `OrderStatus.PENDING_CONFIRMATION` |
 | Class names | `PascalCase` | `CreateOrderRequest`, `EmailNotifier` |
 | Functions/methods | `snake_case` | `def calculate_total(self) -> Money:` |
-| Variables | `snake_case` | `user_count = len(users)` |
-| Private members | `_leading_underscore` | `self._password_hash` |
+| Variables/attributes | `snake_case` | `user_count = len(users)`, `self.password_hash` |
 
-**Never:** `camelCase` in Python, config keys in lowercase, magic strings where enums exist.
+**Never:** `camelCase` in Python, config keys in lowercase, magic strings where enums exist, leading-underscore variables (`_xxx`). Python's privacy model is by convention and module structure, not by `_` prefix. Use plain `snake_case` for all attributes — `self.observers`, not `self._observers`.
+
+## No Bare Generics
+
+Every `dict`, `list`, `set`, `tuple` in a type annotation MUST be parameterized. Bare generics erase the type information that mypy, Pydantic, and human readers depend on.
+
+**Always parameterize:**
+```python
+# Wrong — bare generics tell you nothing about contents
+brief: dict
+items: list
+tags: set
+coordinates: tuple
+config: dict
+
+# Correct — parameterized generics are self-documenting
+brief: dict[str, str | int]
+items: list[OrderItem]
+tags: set[str]
+coordinates: tuple[float, float]
+config: dict[str, Any]
+```
+
+**For complex structures, use domain types instead of nested generics:**
+```python
+# Wrong — nested bare or complex generics
+users: list[dict]
+response: dict[str, list[dict[str, Any]]]
+
+# Correct — domain types replace nested generics
+users: list[UserSummary]
+response: PaginatedResponse[UserSummary]
+```
+
+**Rule:** If you write a bare `dict`, `list`, `set`, or `tuple` without `[...]`, it's a violation. No exceptions. `mypy --strict` enforces this — the skill enforces it at review time too.
 
 ## Pydantic for All I/O Boundaries
 
@@ -285,7 +318,7 @@ project/
 ```
 project/
 ├── src/<package_name>/{_internal,models}/
-├── src/<package_name>/__init__.py, py.typed
+├── src/<package_name>/__init__.py (empty), py.typed
 ├── tests/{unit,integration}/
 ├── docs/{business,specs,reviews}/
 ├── AGENTS.md, PROGRESS.md, GRAPH.md, codebase-map.md
@@ -308,7 +341,7 @@ project/
 2. **Layers are one-way.** Imports flow inward. Outer layers import from inner layers. Inner layers NEVER import from outer layers.
 3. **Domain code is isolated.** `models/` has ZERO imports from `api/`, `services/`, `repositories/`, `commands/`, `pipelines/`. It depends on `utils/` only.
 4. **Utils has zero business logic.** If a function knows about "orders" or "users," it does not belong in `utils/`.
-5. **Every directory is a package.** Every `src/` subdirectory has `__init__.py`.
+5. **Every directory is a package.** Every `src/` subdirectory has `__init__.py`. **`__init__.py` must be empty** — no re-exports, no `__all__`, no code. Imports use the full module path.
 6. **Tests mirror source.** `tests/unit/services/test_auth_service.py` for `src/services/auth_service.py`.
 7. **Docs are mandatory.** `docs/` with business rules, specs, GRAPH.md, and codebase-map.md. Not optional.
 
@@ -365,7 +398,7 @@ project/
 
 ### Init Files
 
-Every directory under `src/` MUST have an `__init__.py` (even if empty) to make it a proper Python package. Every directory under `tests/` SHOULD have an `__init__.py`.
+Every directory under `src/` and `tests/` MUST have an `__init__.py`. Every `__init__.py` MUST be empty — no imports, no re-exports, no `__all__`, no code. Use full module paths for imports: `from src.services.order_service import OrderService`, not `from src.services import OrderService`.
 
 ### Config Management
 
@@ -408,10 +441,10 @@ settings = Settings()
 # src/services/password_service.py
 class PasswordService:
     def __init__(self, min_length: int) -> None:  # config injected, not imported
-        self._min_length = min_length
+        self.min_length = min_length
 
     def validate_strength(self, password: str) -> PasswordValidationResult:
-        if len(password) < self._min_length:  # uses injected value
+        if len(password) < self.min_length:  # uses injected value
             ...
 
 # src/main.py — wiring at composition root
@@ -423,7 +456,7 @@ password_service = PasswordService(min_length=settings.password_min_length)
 
 **Required files for config:**
 - `src/core/config.py` — Settings model (pydantic-settings)
-- `src/core/__init__.py` — package init
+- `src/core/__init__.py` — empty (package marker only)
 - `.env.example` — all required vars documented, no real secrets committed
 - `.env` — real values (in .gitignore — NEVER committed)
 

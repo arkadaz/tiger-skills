@@ -23,7 +23,7 @@ Detect the project language from file extensions, Cargo.toml/pyproject.toml, or 
 ## Five Non-Negotiables (Language-Agnostic)
 
 1. **Explore before implement.**
-2. **Types first.** Never untyped data flowing through business logic.
+2. **Types first.** Every type annotation fully parameterized. No bare `dict`/`list`/`set`/`tuple`. Never untyped data flowing through business logic.
 3. **Lint and type-check every change.** Zero errors tolerated.
 4. **Logs always.** Never `print()` / `println!()` for operational output.
 5. **No water.** Every line earns its place.
@@ -51,11 +51,14 @@ Load these as needed based on the task:
 
 ## Audit Checklist (Quick Reference)
 
-When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 6 tooling items:
+When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 9 tooling items:
 
-1. Types — Pydantic/serde at boundaries, typed signatures
-2. Logging — structured logging, no print()/println!()
-3. No bare except — specific exceptions only
-4. Lint clean — project linter passes
-5. Type check clean — project type checker passes
-6. No water — every line earns its place
+1. Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`)
+2. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
+3. Naming — no leading-underscore attributes (`self.xxx`, not `self._xxx`); `__init__.py` must be empty
+4. Logging — structured logging, no print()/println!()
+5. No bare except — specific exceptions only
+6. Lint clean — project linter passes
+7. Type check clean — project type checker passes
+8. No water — every line earns its place
+9. Init files — `__init__.py` present in every package directory, always empty

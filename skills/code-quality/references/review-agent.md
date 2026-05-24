@@ -98,6 +98,10 @@ These are the most common issues review agents catch that implementation agents 
 - Magic string `"pending"` instead of `OrderStatus.PENDING` (Enums)
 - New function that duplicates an existing one in a different module (DRY / Explore)
 - Missing type hint on a new public function (Types)
+- Bare `dict`/`list`/`set`/`tuple` without type parameters — e.g., `brief: dict` instead of `brief: dict[str, str]` (Types)
+- Leading-underscore attributes (`self._xxx`) instead of plain `self.xxx` (Naming)
+- Magic strings as registry/factory keys instead of enums — e.g., `"email"` instead of `NotificationMethod.EMAIL` (Enums)
+- Code in `__init__.py` — re-exports, `__all__`, logic (must be empty)
 - Forgetting to update `docs/codebase-map.md` after creating new files (AGENTS.md)
 - Constructor directly instantiating dependencies instead of accepting injected interfaces (Interface / Composition)
 

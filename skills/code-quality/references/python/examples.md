@@ -5,14 +5,8 @@ Concrete Python examples for each design principle and pattern. Load with [desig
 ## SRP
 
 ```python
-class OrderProcessor:
-    def process(self, data):
-        total = sum(item["price"] * item["qty"] for item in data["items"])
-        self.db.execute("INSERT INTO orders ...")
-        self.email_client.send(data["email"], f"Total: {total}")
-
 class OrderValidator:
-    def validate(self, data: dict) -> ValidatedOrder: ...
+    def validate(self, request: CreateOrderRequest) -> ValidatedOrder: ...
 class PricingCalculator:
     def calculate(self, items: list[OrderItem]) -> Money: ...
 class OrderRepository:
@@ -20,22 +14,27 @@ class OrderRepository:
 class OrderNotifier:
     def send_confirmation(self, order: Order) -> None: ...
 class CreateOrderUseCase:
-    def __init__(self, validator, calculator, repo, notifier): ...
-    def execute(self, request): ...
+    def __init__(self, validator: OrderValidator, calculator: PricingCalculator,
+                 repo: OrderRepository, notifier: OrderNotifier) -> None: ...
+    def execute(self, request: CreateOrderRequest) -> OrderResult: ...
 ```
 
 ## OCP
 
 ```python
+class ExportFormat(Enum):
+    PDF = "pdf"
+    CSV = "csv"
+
 class ReportExporter(ABC):
     @abstractmethod
     def export(self, data: ReportData) -> bytes: ...
 class PdfExporter(ReportExporter): ...
 class CsvExporter(ReportExporter): ...
 class ExportRegistry:
-    def __init__(self): self._exporters: dict[str, ReportExporter] = {}
-    def register(self, fmt: str, exporter: ReportExporter): ...
-    def export(self, fmt: str, data: ReportData) -> bytes: ...
+    def __init__(self) -> None: self.exporters: dict[ExportFormat, ReportExporter] = {}
+    def register(self, fmt: ExportFormat, exporter: ReportExporter) -> None: ...
+    def export(self, fmt: ExportFormat, data: ReportData) -> bytes: ...
 ```
 
 ## Composition over Inheritance
@@ -46,21 +45,25 @@ class Engine(Protocol):
 class Driver(Protocol):
     def operate(self) -> str: ...
 class Car:
-    def __init__(self, engine: Engine, driver: Driver): ...
-    def move(self) -> str: return f"{self._driver.operate()} {self._engine.sound()}"
+    def __init__(self, engine: Engine, driver: Driver) -> None: ...
+    def move(self) -> str: return f"{self.driver.operate()} {self.engine.sound()}"
 ```
 
 ## Factory
 
 ```python
+class NotificationMethod(Enum):
+    EMAIL = "email"
+    SLACK = "slack"
+
 class NotifierFactory:
-    def __init__(self): self._registry: dict[str, Callable[[], Notifier]] = {}
-    def register(self, method: str, factory: Callable[[], Notifier]): ...
-    def create(self, method: str) -> Notifier: ...
+    def __init__(self) -> None: self.registry: dict[NotificationMethod, Callable[[], Notifier]] = {}
+    def register(self, method: NotificationMethod, factory: Callable[[], Notifier]) -> None: ...
+    def create(self, method: NotificationMethod) -> Notifier: ...
 
 factory = NotifierFactory()
-factory.register("email", lambda: EmailNotifier(config.smtp_host))
-factory.register("slack", lambda: SlackNotifier(config.slack_webhook))
+factory.register(NotificationMethod.EMAIL, lambda: EmailNotifier(config.smtp_host))
+factory.register(NotificationMethod.SLACK, lambda: SlackNotifier(config.slack_webhook))
 ```
 
 ## Strategy Pattern
@@ -74,41 +77,41 @@ class BulkDiscountPricing(PricingStrategy): ...
 class SeasonalPricing(PricingStrategy): ...
 
 class OrderService:
-    def __init__(self, pricing: PricingStrategy): ...
+    def __init__(self, pricing: PricingStrategy) -> None: ...
 ```
 
 ## Adapter Pattern
 
 ```python
 class ThirdPartyLogger:
-    def write_entry(self, severity: int, text: str): ...
+    def write_entry(self, severity: int, text: str) -> None: ...
 
 class ThirdPartyLoggerAdapter:
-    def __init__(self, adaptee: ThirdPartyLogger): self._adaptee = adaptee
-    def info(self, msg: str): self._adaptee.write_entry(1, msg)
-    def error(self, msg: str): self._adaptee.write_entry(4, msg)
+    def __init__(self, adaptee: ThirdPartyLogger) -> None: self.adaptee = adaptee
+    def info(self, msg: str) -> None: self.adaptee.write_entry(1, msg)
+    def error(self, msg: str) -> None: self.adaptee.write_entry(4, msg)
 ```
 
 ## Observer Pattern
 
 ```python
 class Subject:
-    def __init__(self): self._observers: list[Observer] = []
-    def attach(self, obs): self._observers.append(obs)
-    def _notify(self, data):
-        for obs in self._observers: obs.update(data)
+    def __init__(self) -> None: self.observers: list[Observer] = []
+    def attach(self, obs: Observer) -> None: self.observers.append(obs)
+    def notify(self, event: Event) -> None:
+        for obs in self.observers: obs.update(event)
 
 class Observer(ABC):
     @abstractmethod
-    def update(self, data): ...
+    def update(self, event: Event) -> None: ...
 ```
 
 ## State Pattern
 
 ```python
 class TicketMachine:
-    def __init__(self): self._state: State = Ready()
-    def insert_card(self): self._state = self._state.insert_card()
+    def __init__(self) -> None: self.state: State = Ready()
+    def insert_card(self) -> None: self.state = self.state.insert_card()
 
 class State(ABC):
     @abstractmethod
@@ -125,42 +128,43 @@ class Ticket(ABC):
     def cost(self) -> Money: ...
 
 class BaseTicket(Ticket):
-    def cost(self): return Money(30)
+    def cost(self) -> Money: return Money(30)
 
 class Enhancement(Ticket):
-    def __init__(self, ticket: Ticket, name: str, price: Money):
-        self._ticket = ticket; self._price = price
-    def cost(self): return self._price + self._ticket.cost()
+    def __init__(self, ticket: Ticket, name: str, price: Money) -> None:
+        self.ticket = ticket; self.price = price
+    def cost(self) -> Money: return self.price + self.ticket.cost()
 
 class VIPSeating(Enhancement):
-    def __init__(self, ticket): super().__init__(ticket, "VIP", Money(20))
+    def __init__(self, ticket: Ticket) -> None: super().__init__(ticket, "VIP", Money(20))
 ```
 
 ## Template Method
 
 ```python
 class GameReport(ABC):
-    def generate(self):
-        self._print_header(); self._acquire_data(); self._analyze_data()
-        self._print_body(); self._print_footer()
-    def _print_header(self): ...
+    def generate(self) -> None:
+        self.print_header(); self.acquire_data(); self.analyze_data()
+        self.print_body(); self.print_footer()
+    def print_header(self) -> None: ...
     @abstractmethod
-    def _acquire_data(self): pass
+    def acquire_data(self) -> GameData: ...
 ```
 
 ## Iterator
 
 ```python
-class Iterator(ABC):
+class Iterator(ABC, Generic[T]):
     @abstractmethod
-    def next(self) -> object: ...
+    def next(self) -> T: ...
     @abstractmethod
     def has_next(self) -> bool: ...
-class ListIterator(Iterator): ...
-class DictIterator(Iterator): ...
+class ListIterator(Iterator[T]): ...
 
-def print_all(it: Iterator):
-    while it.has_next(): print(it.next())
+def process_all(it: Iterator[T]) -> None:
+    while it.has_next():
+        item = it.next()
+        logger.info("Processing item", extra={"item": item})
 ```
 
 ## Composite
@@ -170,22 +174,22 @@ class Provision(ABC):
     @abstractmethod
     def cost(self) -> Money: ...
 class Item(Provision):
-    def cost(self): return self._price
+    def cost(self) -> Money: return self.price
 class Group(Provision):
-    def cost(self): return sum(item.cost() for item in self._items)
+    def cost(self) -> Money: return sum(item.cost() for item in self.items)
 ```
 
 ## Singleton
 
 ```python
 class ExecutivePass:
-    _instance: "ExecutivePass | None" = None
+    instance: "ExecutivePass | None" = None
     @classmethod
     def obtain(cls, holder: str) -> "ExecutivePass":
-        if cls._instance is None: cls._instance = super().__new__(cls)
-        return cls._instance
-    def __new__(cls): raise NotImplementedError("Use obtain()")
-    def __copy__(self): raise NotImplementedError
+        if cls.instance is None: cls.instance = super().__new__(cls)
+        return cls.instance
+    def __new__(cls) -> None: raise NotImplementedError("Use obtain()")
+    def __copy__(self) -> None: raise NotImplementedError
 ```
 
 ## Abstract Factory
@@ -195,22 +199,22 @@ class UIFactory(ABC):
     @abstractmethod
     def create_button(self) -> Button: ...
 class MacFactory(UIFactory):
-    def create_button(self): return MacButton()
+    def create_button(self) -> Button: return MacButton()
 class WindowsFactory(UIFactory):
-    def create_button(self): return WindowsButton()
+    def create_button(self) -> Button: return WindowsButton()
 ```
 
 ## Facade
 
 ```python
 class PaymentFacade:
-    def __init__(self):
-        self._validator = CardValidator(); self._gateway = PaymentGateway()
-        self._fraud = FraudDetector(); self._receipt = ReceiptGenerator()
-    def charge(self, card, amount) -> PaymentResult:
-        self._validator.validate(card)
-        txn = self._gateway.process(card, amount)
-        return PaymentResult(txn, self._receipt.generate(txn))
+    def __init__(self) -> None:
+        self.validator = CardValidator(); self.gateway = PaymentGateway()
+        self.fraud = FraudDetector(); self.receipt = ReceiptGenerator()
+    def charge(self, card: Card, amount: Money) -> PaymentResult:
+        self.validator.validate(card)
+        txn = self.gateway.process(card, amount)
+        return PaymentResult(txn, self.receipt.generate(txn))
 ```
 
 ## Visitor
@@ -218,12 +222,13 @@ class PaymentFacade:
 ```python
 class Node(ABC):
     @abstractmethod
-    def accept(self, visitor: "Visitor"): ...
+    def accept(self, visitor: "Visitor") -> None: ...
 class Intramural(Node):
-    def accept(self, visitor): visitor.visit_intramural(self)
+    def accept(self, visitor: Visitor) -> None: visitor.visit_intramural(self)
 class Visitor(ABC):
     @abstractmethod
-    def visit_intramural(self, node): ...
+    def visit_intramural(self, node: Intramural) -> None: ...
 class ScoresReport(Visitor):
-    def visit_intramural(self, node): print("SCORES REPORT")
+    def visit_intramural(self, node: Intramural) -> None:
+        logger.info("Scores report", extra={"node": node})
 ```
