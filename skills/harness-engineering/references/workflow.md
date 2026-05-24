@@ -9,7 +9,7 @@ The full 14-step flow that every feature follows. Do not skip steps. Do not reor
 3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
 4. **Explore codebase** — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob.
 5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Present to user for approval if non-trivial. Do NOT write code until spec is approved.
-6. **Implement** — write the code, following code-quality skill rules (Pydantic, logging, enums, types, no water, SRP, etc.).
+6. **Implement** — write the code. `-> apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.).
 7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
 8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
 9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
@@ -21,34 +21,11 @@ The full 14-step flow that every feature follows. Do not skip steps. Do not reor
 
 ## What to Read Before Implementing
 
-The agent MUST read these files (in this order) before writing any code:
-
-| Order | File | Why |
-|-------|------|-----|
-| 1 | `PROGRESS.md` | Current state — what's done, what's in progress, known issues |
-| 2 | `DECISIONS.md` | Past architectural decisions and their rationale |
-| 3 | `docs/codebase-map.md` | Directory overview, key files, dependencies |
-| 4 | `docs/GRAPH.md` | Code flow — how things connect, entry points, data transformations |
-| 5 | `docs/business/<domain>.md` | Business rules for the domain being modified |
-| 6 | `AGENTS.md` | Hard constraints, verification commands, conventions |
-
-**Why GRAPH.md is critical:** Without understanding the code flow, the agent will:
-- Break existing call chains by modifying a function's contract
-- Add duplicate code because it doesn't know a similar flow already exists
-- Misunderstand how data transforms through layers
-- Put business logic in the wrong layer
+See [session-discipline.md](session-discipline.md) clock-in sequence. Minimum: PROGRESS.md -> DECISIONS.md -> codebase-map.md -> GRAPH.md -> business docs -> AGENTS.md.
 
 ## What to Update After Implementing
 
-The agent MUST update these files after every non-trivial change:
-
-| Order | File | What to Update |
-|-------|------|---------------|
-| 1 | `docs/GRAPH.md` | New flows, changed flows, new branches, new error paths |
-| 2 | `docs/codebase-map.md` | New files, renamed files, deleted files |
-| 3 | `docs/business/<domain>.md` | New or changed business rules |
-| 4 | `PROGRESS.md` | Feature marked passing, known issues updated |
-| 5 | `AGENTS.md` | New conventions, commands, or constraints |
+See [doc-first.md](doc-first.md) after-implementation checklist. Minimum: GRAPH.md -> codebase-map.md -> PROGRESS.md -> AGENTS.md.
 
 ## Diagnostic Loop (when something fails)
 
