@@ -55,10 +55,11 @@ When reviewing code, check all 13 [design principles](references/design-principl
 
 1. Types — Pydantic/serde at boundaries, fully parameterized generics (no bare `dict`/`list`/`set`/`tuple`)
 2. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
-3. Naming — no leading-underscore attributes (`self.xxx`, not `self._xxx`); `__init__.py` must be empty
+3. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
 4. Logging — structured logging, no print()/println!()
 5. No bare except — specific exceptions only
 6. Lint clean — project linter passes
 7. Type check clean — project type checker passes
 8. No water — every line earns its place
-9. Init files — `__init__.py` present in every package directory, always empty
+9. Flat functions — no nested `def` inside `def`; every function at module level or class method
+10. Init files — `__init__.py` present in every package directory, always empty

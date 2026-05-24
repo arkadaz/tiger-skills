@@ -15,7 +15,39 @@ All configuration keys, module-level constants, and enum members MUST use proper
 | Functions/methods | `snake_case` | `def calculate_total(self) -> Money:` |
 | Variables/attributes | `snake_case` | `user_count = len(users)`, `self.password_hash` |
 
-**Never:** `camelCase` in Python, config keys in lowercase, magic strings where enums exist, leading-underscore variables (`_xxx`). Python's privacy model is by convention and module structure, not by `_` prefix. Use plain `snake_case` for all attributes — `self.observers`, not `self._observers`.
+**Never:** `camelCase` in Python, config keys in lowercase, magic strings where enums exist, **leading-underscore on ANY name** (`_xxx`). Python's privacy model is by convention and module structure, not by `_` prefix. This applies to ALL names — variables, attributes, functions, methods, module-level definitions. No `_` prefix anywhere: `self.observers`, not `self._observers`. `def make_checkpoint(cfg, ticker)`, not `def _make_checkpoint(cfg, ticker)`. If it's module-internal, it's still named normally — Python modules are namespaces, the module boundary IS the privacy.
+
+## Flat Functions — No Nested Definitions
+
+**Never define a function inside another function.** Nested functions (closures, inner functions, `def` inside `def`) make code harder to read, harder to test, and harder to reuse. Every function must be defined at module level or as a method on a class.
+
+```python
+# Wrong — nested function: hard to read, impossible to test in isolation
+def process_checkpoints(cfg: Config, tickers: list[str]) -> list[Checkpoint]:
+    def make_checkpoint(ticker: str) -> Checkpoint:  # nested + leading underscore
+        data = fetch_data(ticker)
+        return Checkpoint(ticker=ticker, data=data)
+    return [make_checkpoint(t) for t in tickers]
+
+# Correct — flat: every function at module level, independently testable
+def process_checkpoints(cfg: Config, tickers: list[str]) -> list[Checkpoint]:
+    return [make_checkpoint(cfg, t) for t in tickers]
+
+def make_checkpoint(cfg: Config, ticker: str) -> Checkpoint:
+    data = fetch_data(ticker)
+    return Checkpoint(ticker=ticker, data=data)
+```
+
+**Why this matters:**
+- Nested functions can't be unit-tested directly — you must test them through the outer function
+- They capture variables from the outer scope implicitly (closures), creating invisible coupling
+- They bloat the outer function's line count, making it harder to understand at a glance
+- They encourage sloppy naming (`def inner()`, `def helper()`, `def _do_thing()`) because "it's only used here"
+- Extracting to module level forces you to name the function clearly and pass dependencies explicitly
+
+**The fix:** Extract every nested function to module level. If it needs data from the outer scope, pass it as a parameter. If the outer scope has 5+ variables that the nested function needs, that's a signal to create a dataclass or Pydantic model to group them.
+
+**Linting:** `ruff` rule `PLR0911` flags functions with too many nested definitions. Enable it.
 
 ## No Bare Generics
 
