@@ -132,25 +132,34 @@ Follow [references/workflow.md](references/workflow.md) 14-step implementation f
 
 At steps 6-10, load [code-quality](../code-quality/SKILL.md) and follow all rules. Apply the diagnostic loop on any failure — never guess, never blindly retry.
 
+**Bite-sized tasks:** Every task must be atomic — completeable, verifiable, and committable in one pass. No placeholders (`pass`, `todo!()`, `raise NotImplementedError`). No stubs. Every function is complete or doesn't exist yet. See [references/task-management.md](references/task-management.md) § "Bite-Sized Tasks".
+
 **Subagent-driven development:** When the plan has ≥2 independent tasks (separate files, no shared state, no sequential dependencies), dispatch parallel subagents. Follow [references/task-management.md](references/task-management.md) § "Parallel Agents for Independent Tasks" for the full checklist and rules:
 
 1. Verify all five parallel-checklist questions are YES
 2. Write specs for each task (if not already done)
 3. Mark all tasks active simultaneously
-4. Spawn one background agent per task (`run_in_background: true`)
-5. Each agent follows the 14-step flow independently
-6. When all complete: merge, run `make check` on merged result, update all harness docs
+4. Write self-contained prompts per [references/task-management.md](references/task-management.md) § "Subagent Prompt Template" — include full spec, file list, verification command
+5. Select model per task complexity — opus for design-heavy, sonnet for pattern-following, haiku for trivial
+6. Spawn one background agent per task (`run_in_background: true`)
+7. Each agent follows the 14-step flow independently
+8. Each agent reports status using the Subagent Status Protocol (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED)
+9. When all complete: merge, run two-stage review (spec compliance + code quality), run `make check` on merged result, update all harness docs
 
 **Critical rules for subagent execution:**
 - Each agent commits before merging — no uncommitted changes left behind
 - If two agents touch the same file, the second to merge handles the conflict
+- If any agent reports NEEDS_CONTEXT or BLOCKED, provide context and re-spawn — do not guess
 - If any agent fails, STOP the entire batch. Diagnose. Fix. Then decide whether to re-spawn or continue sequentially.
 - After merge, full verification on the merged codebase — not just per-agent verification
+- Two-stage review on merged result: spec compliance first, then code quality
 - One agent (the main session) handles the merge + doc updates
 
 For single-task features: implement directly in the main session. No need to spawn.
 
-### Phase 6: VERIFY — Evidence Before Assertions
+### Phase 6: VERIFY — The Iron Law
+
+**The Iron Law: Never claim completion without fresh verification evidence from THIS session.**
 
 Run the 3-layer verification pipeline from [references/verification.md](references/verification.md):
 1. **Static:** lint + type check — zero errors
@@ -159,7 +168,14 @@ Run the 3-layer verification pipeline from [references/verification.md](referenc
 
 Sequence is mandatory. Do not proceed to layer 2 if layer 1 fails. Record verification evidence.
 
-**Never claim "done" without verification output proving it.** "Looks right" is not verification.
+**The Completion Gate** (from [references/verification.md](references/verification.md)):
+1. Layer 1 ran THIS session, AFTER last code change → paste output
+2. Layer 2 ran THIS session, AFTER last code change → paste output
+3. Layer 3 ran THIS session (if required) → paste output
+4. Every output shows ZERO failures
+5. Evidence is recorded in verification file
+
+**If ANY gate item is FALSE, you are NOT done.** Do not say "done." Do not say "almost done." Do not say "done pending X." See [references/verification.md](references/verification.md) § "Rationalization Prevention" for the full list of rationalizations agents use to skip this gate.
 
 ### Phase 7: TRACK — Update State Every Session
 
@@ -185,9 +201,9 @@ SPEC   ←── Write spec, get approval ───────→ (revise if re
     ↓
 PLAN   ←── Write plan, get approval ───────→ (revise if rejected)
     ↓
-IMPLEMENT → WIP=1, follow 14-step workflow
+IMPLEMENT → Bite-sized tasks, subagents, two-stage review
     ↓
-VERIFY  ←── 3-layer pipeline ──────────────→ (fix if any layer fails)
+VERIFY  ←── Iron Law: fresh evidence or not done ──→ (fix if any gate fails)
     ↓
 TRACK  ←── Update all harness files
     ↓
@@ -202,6 +218,6 @@ TRACK  ←── Update all harness files
 | 2. EXPLORE | Read codebase map, graph, business docs, existing code | Can answer: what exists, how it connects |
 | 3. SPEC | Write spec doc, get approval | User approves spec |
 | 4. PLAN | Write step-by-step plan (if ≥3 files or ≥2 steps) | User approves plan |
-| 5. IMPLEMENT | Write code, WIP=1, 14-step flow, code-quality rules, parallel subagents for independent tasks | Code compiles, self-review done |
-| 6. VERIFY | 3-layer pipeline (static → runtime → system) | All layers pass, evidence recorded |
+| 5. IMPLEMENT | Bite-sized tasks (no placeholders), WIP=1, 14-step flow, code-quality rules, subagent-driven parallel execution with status protocol + model selection | Code compiles, two-stage review done (spec + quality) |
+| 6. VERIFY | Iron Law — 3-layer pipeline (static → runtime → system), completion gate, rationalization prevention | All gate items TRUE, fresh evidence recorded THIS session |
 | 7. TRACK | Update PROGRESS, DECISIONS, GRAPH, codebase-map, AGENTS | All files saved, committed |

@@ -84,6 +84,58 @@ not_started  →  active  →  passing
 4. Review agent approved (if non-trivial change)
 5. Evidence recorded (test output, curl result, screenshot)
 
+## Bite-Sized Tasks
+
+Every task must be small enough to complete, verify, and commit in one uninterrupted pass. If a task feels big, break it down until each piece is atomic.
+
+### Rules
+
+1. **Each task = one commit.** If a task requires multiple commits, it's multiple tasks.
+2. **No placeholders. No TODOs. No stubs.** Every task produces complete, working code. `pass`, `todo!()`, `# TODO: implement`, `raise NotImplementedError` — all forbidden in committed code.
+3. **Each task is independently verifiable.** After completing task N, `make check` passes. You do not need task N+1 to verify task N.
+4. **Each task has a clear "done" signal.** Before starting, you know exactly what "done" looks like — a specific test passing, a specific curl returning 200, a specific lint output showing 0 errors.
+
+### Breaking Down Tasks
+
+When writing a plan, apply these decomposition rules:
+
+| If the task involves... | Break it into... |
+|------------------------|-----------------|
+| A new module with 3+ classes | One task per class + one integration task |
+| A new API endpoint | (1) model/schema, (2) service logic, (3) route handler, (4) tests |
+| A database migration + code change | (1) migration, (2) model update, (3) service update, (4) API update |
+| A refactoring across N files | One task per file if independent, or group by coupling |
+| A bug fix | (1) reproduce with failing test, (2) fix, (3) verify no regressions |
+
+### The Placeholder Ban
+
+This deserves emphasis because it is the #1 cause of "almost done" features that are actually broken.
+
+**Forbidden in committed code:**
+```python
+# Python
+def calculate_total(items: list[Item]) -> Money:
+    pass  # FORBIDDEN — placeholder
+
+def validate(self) -> None:
+    raise NotImplementedError  # FORBIDDEN — stub
+
+# TODO: add error handling  # FORBIDDEN — deferred work
+```
+
+```rust
+// Rust
+fn calculate_total(items: &[Item]) -> Money {
+    todo!()  // FORBIDDEN — placeholder
+}
+
+fn validate(&self) -> Result<()> {
+    unimplemented!()  // FORBIDDEN — stub
+}
+```
+
+**Every function you write must be complete.** If you can't complete it in this task, it belongs in a later task. Do not write the signature now and the body later.
+
 ## Parallel Agents for Independent Tasks
 
 The only valid exception to WIP=1. Spawn parallel agents when multiple tasks share NO state and have NO sequential dependencies.
@@ -122,6 +174,107 @@ All five must be YES to parallelize. Any NO = run sequentially.
    g. Update docs/codebase-map.md with all new files
 ```
 
+### Subagent Prompt Template
+
+Every subagent MUST receive a self-contained prompt. The subagent has zero context from the parent session. Include ALL of these:
+
+```
+You are implementing feature [ID]: [name].
+
+## Spec
+[paste the full spec — not a reference to it, the actual content]
+
+## Files to Create/Modify
+- [exact file paths]
+
+## Verification Command
+[exact command to run — the subagent will run this before reporting done]
+
+## Constraints
+- Follow code-quality skill rules (load skills/code-quality/SKILL.md)
+- No placeholders, no TODOs, no stubs — complete code only
+- Run verification BEFORE reporting status
+- Report status using the Subagent Status Protocol below
+
+## Context
+- Project language: [Python/Rust]
+- Key dependencies: [list]
+- Related files (read-only, for context): [list]
+```
+
+**Never assume the subagent knows anything.** A prompt that says "implement F03 as discussed" will fail. A prompt that includes the full spec, file list, and verification command will succeed.
+
+### Subagent Status Protocol
+
+Every subagent MUST report its final status using exactly one of these four codes. No other status is valid.
+
+| Status | Meaning | Parent Action |
+|--------|---------|--------------|
+| **DONE** | Feature complete. All verification layers pass. Evidence included. | Merge, verify merged result |
+| **DONE_WITH_CONCERNS** | Feature complete and verified, but agent noticed something worth flagging (edge case, potential issue, design question). | Read concerns. Decide. Merge if acceptable. |
+| **NEEDS_CONTEXT** | Agent could not complete because it needs information not in the prompt — a design decision, a missing file, an unclear requirement. | Provide the context. Re-spawn with enriched prompt. |
+| **BLOCKED** | Agent hit an external blocker — broken dependency, failing infrastructure, permission issue, environment problem. | Fix the blocker. Re-spawn. |
+
+**Status report format:**
+
+```markdown
+## Status: [DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED]
+
+### What Was Done
+- [list of completed work with file paths]
+
+### Verification Evidence
+- Layer 1: [paste ruff + mypy output]
+- Layer 2: [paste pytest output]
+- Layer 3: [paste E2E output if applicable]
+
+### [If DONE_WITH_CONCERNS] Concerns
+- [specific concern with file:line reference]
+
+### [If NEEDS_CONTEXT] What's Needed
+- [specific question or missing information]
+
+### [If BLOCKED] Blocker Details
+- [what failed, error output, what was tried]
+```
+
+### Model Selection for Subagents
+
+Match model capability to task complexity:
+
+| Task Type | Recommended Model | Why |
+|-----------|------------------|-----|
+| New module/class with business logic | **opus** | Needs design judgment, abstraction decisions |
+| Complex refactoring across files | **opus** | Needs to hold multiple file contexts, make structural decisions |
+| Straightforward CRUD endpoint | **sonnet** | Well-defined pattern, low ambiguity |
+| Adding tests for existing code | **sonnet** | Pattern-following, low design decisions |
+| Simple data model / schema | **sonnet** | Mechanical translation from spec |
+| Config file changes, simple fixes | **haiku** | Fast, cheap, low complexity |
+
+**Default to opus when uncertain.** A more capable model on a simple task wastes a little money. A less capable model on a complex task wastes the entire attempt.
+
+### Two-Stage Review for Subagent Work
+
+After a subagent reports DONE or DONE_WITH_CONCERNS, the parent session runs a TWO-STAGE review before accepting:
+
+**Stage 1 — Spec Compliance Review:**
+```
+Does the implementation match the spec?
+- [ ] All behaviors from the spec are implemented (happy path AND error cases)
+- [ ] All specified types/fields/validation present
+- [ ] No extra behaviors added beyond spec (no scope creep)
+- [ ] Verification command from spec was run and passed
+```
+
+**Stage 2 — Code Quality Review:**
+```
+Does the code meet quality standards?
+→ Spawn review agent per code-quality/references/review-agent.md
+→ Review agent checks all 19 audit items independently
+```
+
+**Both stages must pass.** Spec compliance without quality = tech debt. Quality without spec compliance = wrong feature.
+
 ### Critical Rules for Parallel Work
 
 1. **Each agent commits before merging.** No agent leaves uncommitted changes.
@@ -129,3 +282,4 @@ All five must be YES to parallelize. Any NO = run sequentially.
 3. **If any agent fails,** STOP the entire batch. Diagnose. Fix. Then decide whether to re-spawn or continue sequentially.
 4. **After merge, full verification.** `make check` on the merged codebase — not just per-agent verification.
 5. **One agent handles the merge + doc updates.** After all parallel agents finish, one agent (the main session) merges, verifies, and updates GRAPH.md, codebase-map.md, and PROGRESS.md.
+6. **Two-stage review on merged result.** After merge verification passes, run both spec compliance and code quality review on the merged codebase.

@@ -13,8 +13,11 @@ The full 14-step flow that every feature follows. Do not skip steps. Do not reor
 7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
 8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
 9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
-10. **Spawn review agent** — `→ apply code-quality`: per [review-agent.md](../../code-quality/references/review-agent.md), independent agent audits the diff.
-11. **Address review findings** — fix every MAJOR and BLOCKING finding. Re-run verification after fixes.
+10. **Two-stage review** — Run BOTH stages before accepting any feature as complete:
+    - **Stage 1 — Spec compliance:** Does the implementation match the spec? All behaviors (happy + error), all types/fields, no scope creep, verification command ran and passed.
+    - **Stage 2 — Code quality:** `→ apply code-quality`: per [review-agent.md](../../code-quality/references/review-agent.md), spawn an independent agent to audit the diff against all 19 audit items.
+    - Both stages must pass. Spec compliance without quality = tech debt. Quality without spec compliance = wrong feature.
+11. **Address review findings** — fix every MAJOR and BLOCKING finding from BOTH review stages. Re-run verification after fixes.
 12. **Record evidence** — save verification output, update feature state to `passing`.
 13. **Update docs** — update the spec with actual outcome, update `docs/GRAPH.md` with new/changed flows, update `docs/business/*.md` if rules changed, update `docs/codebase-map.md` if files changed, update AGENTS.md if conventions changed.
 14. **Commit and clock out** — atomic commit with clean message. Session exit checklist. Update PROGRESS.md.
@@ -58,6 +61,8 @@ These behaviors are FORBIDDEN. They cause the majority of agent failures:
 - **"I'll document it later"** — Update docs in the same session. "Later" never comes.
 - **"Let me also refactor X while I'm here"** — WIP=1. Stay on task. Refactoring is its own feature.
 - **"This is a simple change, I don't need to read GRAPH.md"** — Every change has context. Read the graph.
+- **"I'll stub this out and implement it later"** — No placeholders. No `pass`. No `todo!()`. No `raise NotImplementedError`. Every function is complete or it doesn't exist yet.
+- **"Let me add the interface now and implement later"** — An interface without an implementation is a placeholder with extra steps. Implement now or defer the entire task.
 
 ### Verification Anti-Patterns
 
@@ -65,6 +70,10 @@ These behaviors are FORBIDDEN. They cause the majority of agent failures:
 - **"The code looks right"** — Verification passes or it's not done. No judgment calls.
 - **"I'll fix the lint later"** — Layer 1 is always required. Fix it now.
 - **"The failing test is probably unrelated"** — Investigate. Fix. Or document as known issue.
+- **"It should work"** — "Should" is not evidence. Run the verification.
+- **"No functional change"** — Then the tests will pass. Run them. Prove it.
+- **"This is trivial"** — Trivial changes take 10 seconds to verify. Do it.
+- **"I'm confident"** — Confidence is the feeling you get right before you're wrong. Run the tests.
 
 ### State Anti-Patterns
 

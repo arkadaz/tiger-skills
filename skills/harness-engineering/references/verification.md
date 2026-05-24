@@ -71,6 +71,65 @@ A feature is complete ONLY when:
 8. Session exit checklist passes (all 8 items)
 ```
 
+## The Iron Law
+
+**Never claim completion without fresh verification evidence from THIS session.**
+
+This is the single most important rule in the entire harness. It is non-negotiable, non-overridable, and has zero exceptions. Every other rule exists to support this one.
+
+What "fresh evidence" means:
+- **Fresh** = produced in the current session, after the last code change. Not from a previous session. Not from before you edited the file.
+- **Evidence** = tool output you can paste. `ruff check` output. `pytest` output. `curl` response. Screenshot. Not "I believe," not "it should work," not "the logic is sound."
+- **From THIS session** = if you read a passing result from PROGRESS.md that was recorded yesterday, that is NOT fresh evidence. Run it again.
+
+### The Gate
+
+Before writing ANY completion claim ("done," "implemented," "passing," "ready for review"), this gate MUST pass:
+
+```
+COMPLETION GATE — all must be TRUE:
+1. Layer 1 ran THIS session, AFTER last code change    → paste output
+2. Layer 2 ran THIS session, AFTER last code change    → paste output
+3. Layer 3 ran THIS session (if required)              → paste output
+4. Every output shows ZERO failures                    → no "expected failures"
+5. Evidence is recorded in verification file           → file path cited
+```
+
+If ANY item is FALSE, you are NOT done. Do not say you are done. Do not say "almost done." Do not say "done pending X." You are not done.
+
+### Rationalization Prevention
+
+Agents systematically rationalize skipping verification. These are the most common rationalizations and why they are ALL wrong:
+
+| Rationalization | Why It's Wrong | What To Do Instead |
+|----------------|---------------|-------------------|
+| "The change is too small to break anything" | Small changes cause cascading failures. A one-character typo can crash production. | Run all three layers. It takes 30 seconds. |
+| "I just ran the tests before this edit" | "Before this edit" ≠ "after this edit." You changed code. Evidence is stale. | Run again. Every time. |
+| "The tests aren't related to what I changed" | You don't know that. Coupling is invisible. | Run the full suite. Let the tools decide. |
+| "It's just a refactoring, behavior didn't change" | If behavior didn't change, tests will pass. If they don't, your refactoring broke something. | Run the tests. Prove it. |
+| "I'll verify after the next change too" | Batching verification obscures which change broke what. | Verify after EVERY change. |
+| "The linter warnings are pre-existing" | If they're pre-existing, document them. If they're new, fix them. Either way, acknowledge them explicitly. | Run `ruff check`, compare to baseline. |
+| "Tests are flaky, that failure doesn't count" | Flaky tests are broken tests. Fix or quarantine them. A flaky pass is not evidence. | Fix the flake, then re-run. |
+| "I'm confident in the logic" | Confidence is not evidence. Confidence is the feeling you get right before you're wrong. | Run the verification. Replace confidence with proof. |
+| "The type checker is too strict here" | The type checker is exactly as strict as it should be. If `mypy --strict` says there's an error, there's an error. | Fix the type error. Do not add `# type: ignore`. |
+
+### Red Flag Words
+
+If you find yourself writing ANY of these words in a completion claim, STOP. You are rationalizing.
+
+| Red Flag | Translation | Required Action |
+|----------|------------|----------------|
+| "should work" | "I didn't test it" | Test it |
+| "probably fine" | "I didn't verify" | Verify it |
+| "looks correct" | "I read it but didn't run it" | Run it |
+| "minor issue" | "There's a bug I'm ignoring" | Fix the bug |
+| "essentially done" | "Not actually done" | Finish it |
+| "just needs" | "There's more work" | Do the work |
+| "straightforward" | "I'm about to skip verification" | Don't skip |
+| "no functional change" | "I didn't run the tests to confirm" | Run the tests |
+| "as expected" | "I expected it to work so I didn't check" | Check it |
+| "trivial" | "I'm about to skip a step" | Don't skip |
+
 ## Worker ≠ Checker
 
 The agent that writes code CANNOT be the sole judge of whether it works. This is a systematic bias — agents over-rate their own output.
