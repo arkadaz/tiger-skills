@@ -91,7 +91,68 @@ def make_committee_checkpoint(cfg: AppConfig, ticker: str) -> Checkpoint:
 
 **Why `Any` is dangerous here:** `cfg: Any` means mypy cannot check that `cfg.kg_state_dir` exists. A typo like `cfg.kg_state_dirr` compiles silently and crashes at runtime. With `cfg: AppConfig`, mypy catches the typo immediately. Every `Any` is a hole in the type safety net.
 
-**If you cannot find a type:** That means one needs to be CREATED, not that `Any` is acceptable. Create the Pydantic model, dataclass, or TypedDict, then use it.
+**If you cannot find a type — CREATE IT FIRST, then use it.**
+
+`Any` is never the answer. If no type exists for the data you're working with, that means you must define one BEFORE writing the function. This applies to parameters AND return types. A function signature is a contract — `Any` is a blank contract that tells the caller nothing.
+
+**Create-before-use examples:**
+
+```python
+# WRONG — function returns untyped dict, caller has no idea what keys exist
+def run_committee_analysis(ticker: str) -> dict[str, Any]:
+    return {"verdict": "buy", "confidence": 0.92, "agents_agreed": 4, "agents_total": 5}
+
+# STEP 1: Create the type FIRST
+class CommitteeVerdict(BaseModel):
+    verdict: Literal["buy", "sell", "hold"]
+    confidence: float
+    agents_agreed: int
+    agents_total: int
+
+# STEP 2: Now write the function using it
+def run_committee_analysis(ticker: str) -> CommitteeVerdict:
+    return CommitteeVerdict(verdict="buy", confidence=0.92, agents_agreed=4, agents_total=5)
+```
+
+```python
+# WRONG — parameter is untyped, what fields does "options" have?
+def build_pipeline(options: dict[str, Any]) -> Pipeline:
+    timeout = options["timeout"]
+    retries = options["max_retries"]
+    ...
+
+# STEP 1: Create the type
+class PipelineOptions(BaseModel):
+    timeout: int = 30
+    max_retries: int = 3
+    batch_size: int = 100
+
+# STEP 2: Use it
+def build_pipeline(options: PipelineOptions) -> Pipeline:
+    timeout = options.timeout  # mypy validates this exists
+    retries = options.max_retries
+    ...
+```
+
+```python
+# WRONG — returns list of untyped tuples, what is each element?
+def find_matches(query: str) -> list[tuple[str, float, int]]:
+    ...
+
+# STEP 1: Create a named type for the tuple
+class SearchMatch(NamedTuple):
+    document_id: str
+    relevance_score: float
+    word_count: int
+
+# STEP 2: Return type is now self-documenting
+def find_matches(query: str) -> list[SearchMatch]:
+    ...
+```
+
+**Where to put new types:** In `models/` or in the same module if the type is only used locally. If the type crosses module boundaries, it MUST go in `models/`.
+
+**The litmus test:** Can someone read ONLY the function signature — without reading the body — and know exactly what it accepts and what it returns? If the answer is no, the types are incomplete.
 
 ## No Bare Generics
 
@@ -227,20 +288,29 @@ def set_mode(mode: Literal["read", "write", "admin"]) -> None: ...
 
 ### Case 5: Truly generic containers (heterogeneous caches, parsed-but-unknown JSON)
 
-Rare. If you genuinely don't know the shape, use the narrowest `object`-free type possible:
+Rare. **Default assumption: you DO know the shape.** If a function receives or returns structured data, you know the shape — you wrote the code that produces it. Create a type.
+
+Only use a union type (NOT `Any`) when the data is genuinely unknown at compile time — e.g., a JSON parser that accepts arbitrary user input:
 
 ```python
-# Acceptable — the value really is "any JSON-serializable thing"
+# Acceptable ONLY for truly unknown JSON — define a union, never use Any
 JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 
 def parse(raw: str) -> JsonValue: ...
 ```
 
-If none of the above fit, the design is likely wrong — there is a type you should define. If you're unsure, ask.
+**If none of the above cases fit, the design is wrong.** There is a type you should define. "I don't know the shape" usually means "I haven't thought about the shape yet" — think about it, define the type, then write the function.
 
 ---
 
-**If you write `Any` or `object` as the inner type of a generic container, it's a violation.** Pick the case above that matches what the values actually are. The type checker can't enforce this — the skill enforces it at review time.
+**`Any` and `object` are BANNED as inner types of generic containers.** Pick the case above that matches what the values actually are. If no case fits, CREATE a new type — Pydantic model, dataclass, TypedDict, NamedTuple, or Protocol. The type checker can't enforce this — the skill enforces it at review time.
+
+**The zero-`Any` rule:** A well-typed codebase has ZERO uses of `Any` in business logic. `Any` should only appear in:
+- Third-party library type stubs you don't control
+- The `JsonValue` union type alias (which itself avoids `Any`)
+- Generic utility code that genuinely operates on any type (rare — `T` type vars are usually better)
+
+If you find yourself reaching for `Any`, stop and create a type instead.
 
 ## Dependency Injection — No Pass-Through Dependencies
 

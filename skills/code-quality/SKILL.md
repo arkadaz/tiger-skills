@@ -56,7 +56,26 @@ Execute in strict order. Do not skip any step. Do not write code until all steps
    - What enums exist? (e.g., `OrderStatus`, `AgentKey`, `PipelinePhase`)
    - What type aliases exist? (e.g., `JsonValue`, `UserId`)
 
-   **Rule:** If a type exists in the codebase for a concept, you MUST use it. Writing `Any`, `object`, or a generic stand-in when a real type exists is a **BLOCKING violation** — not a style issue, a correctness bug. The type exists. Use it.
+   **Rule — No `Any`, ever. Two cases:**
+   - **Type exists in the codebase** → use it. `Any` when a real type exists = BLOCKING violation.
+   - **Type does NOT exist** → CREATE it first, then use it. `Any` is never acceptable — if you need a type and it doesn't exist, that means you must define a Pydantic model, dataclass, TypedDict, Enum, Protocol, or NewType BEFORE writing the function that needs it. A function with `Any` tells the reader nothing about what it accepts or returns. A function with `CommitteeResult` tells them everything.
+
+   **The "create-before-use" rule applies to return types too.** If a function returns a dict, list of tuples, or any structured data — define a type for it. The reader should never have to read the function body to understand what it returns.
+
+   ```python
+   # WRONG — returns untyped dict, caller has no idea what keys exist
+   def analyze_ticker(ticker: str) -> dict[str, Any]:
+       return {"score": 0.85, "signals": ["bullish"], "timestamp": now()}
+
+   # CORRECT — create the type, now caller knows exactly what they get
+   class TickerAnalysis(BaseModel):
+       score: float
+       signals: list[str]
+       timestamp: datetime
+
+   def analyze_ticker(ticker: str) -> TickerAnalysis:
+       return TickerAnalysis(score=0.85, signals=["bullish"], timestamp=now())
+   ```
 
 2. **Read all project documentation** — Read every `.md` file that provides context about the codebase:
    - `AGENTS.md` / `CLAUDE.md` — project conventions, hard constraints, architecture
@@ -123,10 +142,26 @@ When reviewing code, check all 13 [design principles](references/design-principl
 11. Flat functions — no nested `def` inside `def`; every function at module level or class method
 12. Init files — `__init__.py` present in every package directory, always empty
 
-### `Any` Severity Escalation
+### `Any` Is Never Acceptable — Create or Use
 
-| Situation | Severity | Action |
-|-----------|----------|--------|
-| `Any` used, no matching type exists anywhere in project | MAJOR | Create the proper type (Pydantic/dataclass/TypedDict/Enum) |
-| `Any` used, matching type EXISTS in project (e.g., `cfg: Any` when `AppConfig` exists) | **BLOCKING** | Use the existing type. This means type discovery was skipped. |
-| `Any` used in truly generic context (JSON parser, cache) | MINOR | Document why `Any` is unavoidable, use `JsonValue` union if possible |
+**`Any` is banned from all function signatures, return types, and variable annotations.** There are zero valid uses of `Any` in business logic. If you think you need `Any`, you are wrong — you need to create a type.
+
+| Situation | Severity | Required Action |
+|-----------|----------|-----------------|
+| `Any` used, matching type EXISTS in project (e.g., `cfg: Any` when `AppConfig` exists) | **BLOCKING** | Use the existing type. Agent skipped type discovery. |
+| `Any` used, no matching type exists — but data has known structure | **BLOCKING** | Create the type FIRST (Pydantic/dataclass/TypedDict), then use it. The structure is known — `Any` is laziness. |
+| `Any` as return type (e.g., `-> dict[str, Any]`, `-> list[Any]`) | **BLOCKING** | Create a named return type. Callers must know what they receive without reading the function body. |
+| `Any` in truly generic utility (JSON parser, cache, serializer) | MINOR | Replace with `JsonValue` union type if possible. Document why `Any` is unavoidable. |
+
+**How to create the right type:**
+
+| Data shape | Create this | Example |
+|------------|------------|---------|
+| Structured data with known fields | `class X(BaseModel)` or `@dataclass` | API response, DB row, config, checkpoint result |
+| Read-only record from external source | `class X(TypedDict)` | Query result, parsed JSON with known keys |
+| Fixed set of string/int values | `class X(Enum)` | Status codes, categories, pipeline phases |
+| Primitive with domain meaning | `NewType("X", str)` | `UserId`, `Ticker`, `FilePath` |
+| Callable with specific signature | `Callable[[Args], Return]` or `Protocol` | Handler, resolver, validator |
+| Multiple possible return shapes | `X \| Y` union or `class X(BaseModel)` with optional fields | Success/error result, polymorphic response |
+
+**The test:** Can a new developer read ONLY the function signature and understand what it accepts and returns? If the answer is no, the types are wrong.

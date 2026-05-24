@@ -25,7 +25,7 @@ Implementation Agent          Review Agent
 3. Commits locally
 4. Spawns review agent ──────> 5. Reads code-quality SKILL.md
                                6. Reads the diff
-                               7. Checks against all 19 audit items
+                               7. Checks against all 25 audit items
                                8. Files violations with line references
                                9. Saves to docs/reviews/<date>-<topic>-review.md
 10. Reads review findings
@@ -42,9 +42,11 @@ Implementation Agent          Review Agent
 Use the Agent tool with this prompt:
 
 > You are a code review agent. Read code-quality/SKILL.md and its references/ directory.
-> Audit the following files against the 19-item audit checklist:
+> FIRST: Run Codebase Type Discovery — Grep for all type definitions (BaseModel, dataclass, TypedDict, Enum, NewType, TypeAlias, Config, Settings, Driver, Client) in the project. Build a Type Inventory so you know every type that exists.
+> THEN: Audit the following files against the 25-item audit checklist:
 > - [list files]
 > For each violation: cite file:line, name the audit item, explain what's wrong, suggest a fix.
+> CRITICAL: If you find `Any` anywhere — check your Type Inventory. If a matching type exists, it's BLOCKING. If no type exists but the data has known structure, it's BLOCKING — the agent should have created a type first.
 > Save findings to `docs/reviews/YYYY-MM-DD-<topic>-review.md`. Do NOT modify code.
 
 ## Review Report Structure
@@ -94,6 +96,8 @@ The review agent must check all items from the [audit checklist](../SKILL.md#aud
 These are the most common issues review agents catch that implementation agents miss:
 
 - **`Any` used when a real type exists in the codebase** — e.g., `cfg: Any` when `AppConfig` is defined in `src/core/config.py`. **BLOCKING.** Search the codebase before accepting any `Any`. (Type Discovery)
+- **`Any` used when no type exists but data has known structure** — e.g., `-> dict[str, Any]` returning `{"score": 0.85, "signals": [...]}`. **BLOCKING.** Agent should have created a Pydantic model / dataclass / TypedDict FIRST. (Type Creation)
+- **`Any` as return type** — e.g., `-> list[Any]`, `-> dict[str, Any]`. **BLOCKING.** Callers cannot know what they receive without reading the function body. Create a named return type. (Type Creation)
 - Returning `None` from a function that callers expect to always return a value (LSP / Surprise)
 - Using `print()` in new code instead of `logging` (Logging)
 - Catching `Exception` broadly in error handling (No bare except)
