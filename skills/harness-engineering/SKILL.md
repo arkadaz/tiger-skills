@@ -201,6 +201,8 @@ At steps 6-10, load [code-quality](../code-quality/SKILL.md) and follow all rule
 
 For single-task features: implement directly in the main session. No need to spawn.
 
+**After every commit during implementation:** Run the Phase 7 Auto-Track Checklist. Update PROGRESS.md (progress %), GRAPH.md (new flows), codebase-map.md (new/changed files), DECISIONS.md (any decisions made). Do not wait until "done" — state rots fast.
+
 ### Phase 6: VERIFY — The Iron Law
 
 **The Iron Law: Never claim completion without fresh verification evidence from THIS session.**
@@ -221,16 +223,47 @@ Sequence is mandatory. Do not proceed to layer 2 if layer 1 fails. Record verifi
 
 **If ANY gate item is FALSE, you are NOT done.** Do not say "done." Do not say "almost done." Do not say "done pending X." See [references/verification.md](references/verification.md) § "Rationalization Prevention" for the full list of rationalizations agents use to skip this gate.
 
-### Phase 7: TRACK — Update State Every Session
+**After verification passes:** Immediately record evidence in PROGRESS.md (what passed, when, output summary). Update feature state to `passing`. Then run the full Phase 7 Auto-Track Checklist — every harness file that needs updating gets updated NOW.
 
-Before the session ends, update ALL of these:
-- **PROGRESS.md** — mark completed, update in-progress (state + % + what remains), reorder next steps, add/remove known issues
-- **DECISIONS.md** — record any architectural choices made (what, why, alternatives rejected, constraints imposed)
-- **docs/GRAPH.md** — add new/changed code flows with IN/OUT/ADDS/COMPUTES detail
-- **docs/codebase-map.md** — add/update/remove file entries
-- **AGENTS.md** — if new conventions, commands, hard constraints, or topic docs emerged
+### Phase 7: TRACK — Auto-Update ALL Harness Files After Every Change
 
-**State decays. Update it now, not "next session."** The next session's agent depends on this.
+**This is NOT optional. After EVERY implementation, EVERY verification pass, EVERY decision made — update the harness files immediately.** Do not batch updates. Do not "do it next session." State decays the moment code changes without documentation.
+
+The agent MUST update these files in this order after every meaningful action:
+
+#### 7a. What to Update — The Auto-Track Checklist
+
+Run this checklist after EVERY code change, commit, or decision:
+
+```
+Auto-Track Checklist:
+- [ ] PROGRESS.md — any feature state change? Mark it NOW. In-progress % accurate? Update NOW. Known issue found/fixed? Add/remove NOW.
+- [ ] DECISIONS.md — any architectural choice made? Record NOW (what, why, alternatives rejected, constraints).
+- [ ] docs/GRAPH.md — any new/modified code flow? Document NOW with IN/OUT/ADDS/COMPUTES. Stale graph lies to the next agent.
+- [ ] docs/codebase-map.md — any file created/deleted/renamed? Update NOW. Stale map sends agents to wrong files.
+- [ ] AGENTS.md — any new convention, command, constraint, or topic doc? Add NOW.
+- [ ] Spec doc — any difference between spec and what was built? Update NOW.
+- [ ] Plan doc — any task completed/blocked? Update NOW.
+```
+
+**Gate: If the Auto-Track Checklist has any unchecked item that applies (e.g., you changed code but didn't update GRAPH.md), you are NOT done.** The agent must run through the checklist and report what was updated.
+
+#### 7b. When Auto-Track Fires
+
+Auto-track fires at these trigger points — not just "before session ends":
+
+| Trigger | Update |
+|---------|--------|
+| After CLARIFY completes | PROGRESS.md (clarification done, link design doc) |
+| After SPEC is approved | PROGRESS.md (spec done, link spec) |
+| After PLAN is approved | PROGRESS.md (plan done, feature → active) |
+| After each commit during IMPLEMENT | PROGRESS.md (progress %), GRAPH.md (new flows), codebase-map.md (new files) |
+| After VERIFY passes | PROGRESS.md (feature → passing, evidence linked) |
+| After any architectural decision | DECISIONS.md |
+| After any new convention emerges | AGENTS.md |
+| After any file create/delete/rename | codebase-map.md |
+
+**The rule: code changes → harness files update. No exceptions. No delays.**
 
 ### Phase Loop Diagram
 
@@ -238,18 +271,18 @@ Before the session ends, update ALL of these:
 User Request
     ↓
 CLARIFY ←── Business discovery, 2-3 approaches, technical specifics
-    ↓
+    ↓  └→ AUTO-TRACK: PROGRESS.md (clarified)
 EXPLORE ←── Read codebase, create missing harness files
     ↓
 SPEC   ←── Technical spec, self-review, get approval
-    ↓
+    ↓  └→ AUTO-TRACK: PROGRESS.md (specced)
 PLAN   ←── Bite-sized tasks, checkpoints, dependencies
-    ↓
+    ↓  └→ AUTO-TRACK: PROGRESS.md (planned)
 IMPLEMENT → code-quality + TDD + subagent dispatch
-    ↓
+    ↓  └→ AUTO-TRACK: after EVERY commit (PROGRESS, GRAPH, codebase-map, DECISIONS)
 VERIFY  ←── Iron Law: 3-layer pipeline, completion gate
-    ↓
-TRACK  ←── Update all harness files
+    ↓  └→ AUTO-TRACK: PROGRESS.md (passing + evidence), full checklist
+TRACK  ←── Final auto-track sweep: all 5 harness files current
     ↓
  Done
 ```
