@@ -1,17 +1,23 @@
 {
   "name": "tiger-skills",
-  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. code-quality enforces 13 design principles + Python/Rust rules. harness-engineering manages the full agent workflow from session discipline through verification. Each skill cross-references the other at defined handoff points.",
+  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. code-quality enforces 13 design principles + 11 tooling rules with a comprehension gate. harness-engineering is a self-contained 7-phase conductor with auto-track across 8 harness files.",
   "version": "1.8.0",
-  "author": "arkadaz",
+  "author": {
+    "name": "arkadaz"
+  },
+  "homepage": "https://github.com/arkadaz/tiger-skills",
   "repository": "https://github.com/arkadaz/tiger-skills",
-  "skills": [
-    {
-      "name": "code-quality",
-      "description": "Inner loop — enforces 13 design principles (SRP, OCP, LSP, DRY), language-specific rules for Python and Rust, independent review agent, typed boundaries (no bare dict/list/set/tuple), structured logging, enums for all fixed choices including factory/registry keys, empty __init__.py policy, no leading-underscore naming, and no-water code. Cross-references harness-engineering for verification pipeline."
-    },
-    {
-      "name": "harness-engineering",
-      "description": "Outer loop conductor — bootstrap gate, 7-phase protocol (clarify→explore→spec→plan→implement→verify→track), Iron Law verification (never claim done without fresh evidence), rationalization prevention, bite-sized tasks (no placeholders/stubs), subagent-driven development with status protocol (DONE/BLOCKED/NEEDS_CONTEXT), model selection, two-stage review (spec compliance + code quality), TDD (Red-Green-Refactor with testing anti-patterns), systematic debugging (4-phase root cause + defense-in-depth), spec/plan self-review checklists, continuous execution, implementer escalation protocol, session discipline, WIP=1, diagnostic loop, parallel agent dispatch. Cross-references code-quality at implementation steps."
-    }
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "code-quality",
+    "harness-engineering",
+    "design-principles",
+    "solid",
+    "python",
+    "rust",
+    "tdd",
+    "workflow",
+    "verification"
   ]
 }
