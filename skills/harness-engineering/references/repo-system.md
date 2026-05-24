@@ -20,58 +20,29 @@ If a fresh session cannot answer all five from the repo alone within 2 minutes, 
 
 The entry instruction file MUST be a router, not an encyclopedia. Keep it under 150 lines. Beyond 150 lines, the lost-in-the-middle effect becomes significant — rules in the middle of the file are frequently ignored.
 
-### Full Template
+### Minimal Template
 
 ```markdown
 # AGENTS.md
 
 ## Project Overview
-[2-3 sentences: what this system is, what it does, primary technology stack]
-Example: "FastAPI backend for the book ordering platform. Python 3.12,
-PostgreSQL 15, Redis for caching. Serves the customer-facing order API."
+[2-3 sentences: what, tech stack]
 
 ## Quick Start
-- Install dependencies: `make setup`
-- Run development server: `make dev` (listens on http://localhost:8000)
-- Run tests: `make test`
-- Full verification: `make check` (runs lint + type-check + tests)
+- make setup / make dev / make test / make check
 
 ## Directory Map
-src/
-├── api/          — FastAPI route handlers, request/response Pydantic models
-├── services/     — Business logic, use cases, orchestration
-├── repositories/ — Database access (SQLAlchemy 2.0 queries)
-├── models/       — ORM models, domain types, enums
-├── middleware/    — Auth, logging, error handling middleware
-└── utils/        — Shared helpers with NO business logic
-docs/
-├── business/     — Business rules and domain logic documentation
-├── specs/        — Per-feature specification documents
-└── reviews/      — Code review reports
+src/{api,services,repositories,models,core,utils}
 
 ## Hard Constraints
-- [ ] All API endpoints require OAuth 2.0 Bearer token (src/middleware/auth.py)
-- [ ] All DB queries use SQLAlchemy 2.0 syntax — no raw SQL
-- [ ] All I/O boundaries use Pydantic models — no dict, list, or Any
-- [ ] All public functions have full type hints — mypy --strict must pass
-- [ ] All user-facing strings must be internationalized (src/utils/i18n.py)
-- [ ] Never commit secrets — use environment variables via pydantic-settings
-- [ ] Never use print() — use logging.getLogger(__name__)
-- [ ] WIP=1 — one feature at a time, finish before starting next
+- [ ] Rule 1
+- [ ] Rule 2
 
 ## Verification Commands
-- Lint: `ruff check src/`
-- Type check: `mypy src/ --strict`
-- Unit tests: `pytest tests/ -x -m "not e2e"`
-- Integration tests: `pytest tests/ -x -m integration`
-- E2E tests: `pytest tests/ -x -m e2e`
-- Full check: `make check`
+- Lint / Type check / Tests / E2E
 
 ## Topic Docs
-- [docs/api-patterns.md](docs/api-patterns.md) — When adding or modifying API endpoints
-- [docs/database-rules.md](docs/database-rules.md) — When modifying DB schema or queries
-- [docs/testing-standards.md](docs/testing-standards.md) — When writing or modifying tests
-- [docs/business/pricing.md](docs/business/pricing.md) — When touching pricing, discounts, or shipping
+- [link](path) — When to load
 ```
 
 ### Rules for Maintaining AGENTS.md
@@ -161,27 +132,6 @@ src/
 - src/api/products.py — GET /products, GET /products/{id}
 - src/repositories/product_repo.py — find_all(), find_by_id(), search()
 - src/models/product.py — Product (ORM), ProductCategory (Enum)
-
-## Cross-Cutting Concerns
-- **Auth:** All /api/* endpoints require OAuth2 Bearer token → src/middleware/auth.py:12 (require_auth)
-- **Logging:** Structured JSON logging via structlog → src/middleware/logging.py:8 (setup_logging)
-- **Error handling:** All services raise domain exceptions from src/errors.py → src/middleware/errors.py:20 (error_handler)
-- **Database:** SQLAlchemy 2.0 async session → src/database.py:15 (get_session)
-- **I18N:** All user-facing strings via gettext → src/utils/i18n.py:5 (_)
-
-## External Dependencies
-- PostgreSQL 15 — primary data store (via asyncpg + SQLAlchemy)
-- Redis 7 — session cache, rate limiting
-- Stripe API (2024-09) — payment processing
-- SendGrid API — transactional email
-- AWS S3 — order invoice PDF storage
-
-## Environment Variables
-See `.env.example` for full list. Critical ones:
-- DATABASE_URL — PostgreSQL connection string
-- REDIS_URL — Redis connection string
-- STRIPE_SECRET_KEY — Stripe API key
-- SENDGRID_API_KEY — SendGrid API key
 ```
 
 ## Docs-to-Code Mapping Convention
