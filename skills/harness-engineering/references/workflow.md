@@ -6,7 +6,7 @@ This workflow maps to the Outer Loop phases in SKILL.md. Each step shows which s
 
 ## Normal Flow (per feature)
 
-1. **Clock in** (Phase 1) — read PROGRESS.md, DECISIONS.md, `docs/codebase-map.md`, `docs/GRAPH.md`. Run `make check`. Understand the current state BEFORE touching anything.
+1. **Clock in** (Phase 1) — READ (not just check existence of) ALL harness files: AGENTS.md, PROGRESS.md, DECISIONS.md, `docs/GRAPH.md`, `docs/codebase-map.md`, `docs/business/*.md`, `docs/specs/*.md`. Run `make check`. Announce understanding: project state, locked decisions, known issues, current task. Understand the current state BEFORE touching anything.
 2. **Clarify** (Phase 2) — invoke `superpowers:brainstorming` for business discovery, approaches, and design. BEFORE invoking: read GRAPH.md, business docs, codebase-map for context to feed in. AFTER: update PROGRESS.md, DECISIONS.md, business docs.
 3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
 4. **Explore codebase** (Phase 2) — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob. This happens BEFORE brainstorming.
@@ -27,7 +27,16 @@ This workflow maps to the Outer Loop phases in SKILL.md. Each step shows which s
 
 ## What to Read Before Implementing
 
-See [session-discipline.md](session-discipline.md) clock-in sequence. Minimum: PROGRESS.md -> DECISIONS.md -> codebase-map.md -> GRAPH.md -> business docs -> AGENTS.md.
+See [session-discipline.md](session-discipline.md) clock-in sequence. **ALL of these, not just some:**
+1. AGENTS.md (how to work here)
+2. PROGRESS.md (where the project is)
+3. DECISIONS.md (what's locked)
+4. docs/GRAPH.md (how code connects)
+5. docs/codebase-map.md (where things are)
+6. docs/business/*.md (why the code does what it does)
+7. docs/specs/*.md (what to build — at least the current spec)
+
+Then announce understanding. If you can't summarize what you read, you didn't read it.
 
 ## What to Update After Implementing
 

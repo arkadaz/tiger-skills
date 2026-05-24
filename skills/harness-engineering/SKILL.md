@@ -65,40 +65,153 @@ Load these as needed based on the task:
 
 Execute these checks immediately. For each file that is missing, CREATE it using the template from the reference:
 
-| # | Check | If Missing — CREATE From Template In |
-|---|-------|--------------------------------------|
-| 1 | `AGENTS.md` or `CLAUDE.md` | [references/repo-system.md](references/repo-system.md) § "Minimal Template" |
-| 2 | `PROGRESS.md` | [references/session-discipline.md](references/session-discipline.md) § "PROGRESS.md — The Agent's Memory" |
-| 3 | `DECISIONS.md` | [references/session-discipline.md](references/session-discipline.md) § "DECISIONS.md — The Agent's Rationale" |
-| 4 | `docs/GRAPH.md` | [references/doc-first.md](references/doc-first.md) § "Code Flow Graph (GRAPH.md)" |
-| 5 | `docs/codebase-map.md` | [references/repo-system.md](references/repo-system.md) § "Codebase Knowledge Map" |
+| # | Check | If Missing — What to Do |
+|---|-------|--------------------------|
+| 1 | `AGENTS.md` or `CLAUDE.md` | [references/repo-system.md](references/repo-system.md) § "Minimal Template" — create from template |
+| 2 | `PROGRESS.md` | [references/session-discipline.md](references/session-discipline.md) § "PROGRESS.md — The Agent's Memory" — create from template |
+| 3 | `DECISIONS.md` | [references/session-discipline.md](references/session-discipline.md) § "DECISIONS.md — The Agent's Rationale" — create from template |
+| 4 | `docs/GRAPH.md` | **READ the source code first**, then create with real code flows — see "Populate from Code" below |
+| 5 | `docs/codebase-map.md` | **READ the source code first**, then create with real file roles — see "Populate from Code" below |
 | 6 | `Makefile` | [references/workflow.md](references/workflow.md) § "Init Acceptance Checklist" — create with targets: setup, test, lint, check, dev |
-| 7 | `docs/business/` | Create the directory (empty, ready for business rule docs) |
+| 7 | `docs/business/*.md` | **READ the source code first**, then create with real business rules — see "Populate from Code" below |
 | 8 | `docs/specs/` | Create the directory (empty, ready for per-feature specs) |
 | 9 | `.env.example` | Create with all required env vars documented (no real values) |
 
-**Gate rule:** If >=1 files are missing, the agent's entire response is: report which files are missing, create them all, then report done. Do NOT take any other action until the bootstrap gate passes.
+### Populate from Code — Do NOT Create Empty Files
 
-**Gate passes when:** All 9 checks above exist on disk. Only then proceed to the Outer Loop.
+**Items 4, 5, and 7 require reading the actual source code.** An empty template is useless — it gives the next agent zero context. When these files are missing, the agent MUST:
+
+1. **Glob/Grep the entire codebase** — find all `.py`/`.rs` files, understand the directory structure
+2. **Read the source files** — understand what each module does, what business rules are encoded, how data flows
+3. **Write real documentation** — not templates, not placeholders, real content based on what the code actually does
+
+#### 4. `docs/GRAPH.md` — Code Flow Graph
+
+Read the source code and document how data flows through the system:
+
+```markdown
+# Code Flow Graph
+
+## User Registration Flow
+IN: POST /auth/register (CreateUserRequest)
+→ auth_service.register(request)
+→ password_service.hash(request.password)
+→ user_repo.create(user)
+→ email_service.send_welcome(user.email)
+OUT: UserResponse (201)
+
+## Order Processing Flow
+IN: POST /orders (CreateOrderRequest)
+→ order_service.create(request)
+→ pricing.calculate(items) COMPUTES total, tax, shipping
+→ inventory.reserve(items) ADDS reservation
+→ order_repo.save(order)
+→ notification.send(order) ADDS email queue entry
+OUT: OrderResponse (201)
+```
+
+#### 5. `docs/codebase-map.md` — File Roles
+
+Read every directory and key file, document what each one does:
+
+```markdown
+# Codebase Map
+
+## Directory Structure
+- `src/api/` — HTTP endpoints (FastAPI routes)
+- `src/services/` — Business logic orchestration
+- `src/repositories/` — Database queries (Neo4j/PostgreSQL)
+- `src/models/` — Domain models, Pydantic schemas, enums
+- `src/core/` — Config, database connection, logging setup
+- `tests/` — Unit and integration tests
+
+## Key Files
+- `src/core/config.py` — AppConfig (Pydantic settings, all env vars)
+- `src/models/checkpoint.py` — Checkpoint class (pipeline state tracking)
+- `src/services/committee.py` — Committee pipeline (multi-agent analysis)
+```
+
+#### 7. `docs/business/*.md` — Business Rules
+
+**This is the most critical one.** Without business docs, every future agent will misunderstand the domain.
+
+**Two sources — use both:**
+
+1. **Read the source code** — search for constants (`THRESHOLD`, `MAX_`), conditionals in services (`if score < ...`), validations, enums, and test names. Extract what you can understand from the code.
+2. **Ask the user** — the code doesn't capture everything. Ask the user about the business domain: "What does this system do? What are the key business rules? What edge cases matter?" The user knows context that isn't in the code.
+
+**Write the docs from both sources.** Code tells you WHAT the rules are. The user tells you WHY they exist and what's missing from the code.
+
+```markdown
+# Committee Pipeline Rules
+
+## Agent Voting
+- Rule: Each agent produces a verdict (buy/sell/hold) with a confidence score 0.0-1.0
+- Rule: Committee verdict requires ≥60% agent agreement (COMMITTEE_THRESHOLD = 0.6)
+- Rule: If confidence < 0.5 for any agent, that vote is excluded from the tally
+- Implemented: src/services/committee.py:89 (tally_votes)
+
+## Checkpoint Recovery
+- Rule: Pipeline checkpoints save after each agent completes, not at the end
+- Rule: On restart, completed agents are skipped (checkpoint has their results)
+- Implemented: src/models/checkpoint.py:23 (Checkpoint.load, Checkpoint.save)
+```
+
+**Gate rule:** If >=1 files are missing, the agent's entire response is: report which files are missing, create them all (with REAL content from the codebase for items 4, 5, 7), then report done. Do NOT take any other action until the bootstrap gate passes.
+
+**Gate passes when:** All 9 checks above exist on disk AND items 4, 5, 7 contain real content (not empty templates). Only then proceed to Phase 1 — which READS every file.
+
+**CRITICAL:** Creating files is NOT using them. The bootstrap gate ensures files EXIST with real content. Phase 1 ensures you READ them. Both gates must pass.
 
 ---
 
 ## The Outer Loop — Conductor Protocol
 
-Once the bootstrap gate passes, **every user task** flows through these seven phases in strict order. Never skip a phase. Never reorder. Never jump to implementation.
+Once the bootstrap gate passes, **every user task** flows through these eight phases in strict order. Never skip a phase. Never reorder. Never jump to implementation.
 
 ---
 
 ### Phase 1: SESSION START — Clock In (Harness-Specific)
 
-Follow [references/session-discipline.md](references/session-discipline.md) clock-in sequence. This is NOT optional.
+Follow [references/session-discipline.md](references/session-discipline.md) clock-in sequence. This is NOT optional. **You must READ every harness file, not just verify it exists.**
 
-1. **Read `PROGRESS.md`** — what's completed, what's in progress, known issues
-2. **Read `DECISIONS.md`** — what architectural choices are locked in
-3. **Run `make check`** — confirm the repo is in a consistent state
-4. **Handle failures** — if `make check` fails, diagnose BEFORE starting new work. Never build on a broken foundation.
+**Step 1 — Read ALL harness state files (MANDATORY):**
 
-**Gate:** Repo state is understood, `make check` passes (or failures are documented in PROGRESS.md Known Issues).
+Read every single one. Not "check if it exists" — OPEN and READ the full content. **If any doc file is empty or a bare template, treat it as missing — read the source code and populate it NOW before proceeding.**
+
+1. **Read `AGENTS.md` or `CLAUDE.md`** — project conventions, hard constraints, architecture rules, topic doc links. This tells you HOW to work in this codebase.
+2. **Read `PROGRESS.md`** — what's completed, what's in progress, known issues, next steps. This tells you WHERE the project is.
+3. **Read `DECISIONS.md`** — locked architectural choices, rejected alternatives, imposed constraints. This tells you what NOT to change.
+4. **Read `docs/GRAPH.md`** — code flow connections. **If empty/template:** read the source code, trace the data flows, and write real flow documentation NOW.
+5. **Read `docs/codebase-map.md`** — file roles and dependencies. **If empty/template:** Glob the project, read key files, and write real file descriptions NOW.
+6. **Read `docs/business/*.md`** — all business rule docs. **If the directory is empty:** read the source code to extract what you can, then ASK the user about the business domain ("What does this system do? What are the key rules?"). Write the business docs from both sources — code tells you WHAT, the user tells you WHY.
+7. **Read `docs/specs/*.md`** — at minimum the spec for the current task. This tells you WHAT to build.
+
+**Step 2 — Run `make check`:**
+
+Confirm the repo is in a consistent state. See [references/verification.md](references/verification.md).
+
+**Step 3 — Handle failures:**
+
+If `make check` fails, diagnose BEFORE starting new work. Never build on a broken foundation.
+
+**Step 4 — Announce understanding:**
+
+After reading all files, the agent MUST announce: "Clock-in complete. Read [N] harness files. Project state: [summary]. Current task: [what]. Locked decisions: [key constraints]."
+
+**Gate:** ALL harness files read (not just checked for existence), repo state understood, `make check` passes (or failures documented in PROGRESS.md Known Issues).
+
+**Anti-pattern — the "create and forget" agent:**
+```
+❌ Bootstrap: "docs/business/ missing, creating it." → immediately starts coding
+   (Created the directory but never read any .md files — has zero project context)
+
+✓ Bootstrap: "docs/business/ missing, creating it."
+  Phase 1: "Reading AGENTS.md... Reading PROGRESS.md... Reading DECISIONS.md...
+  Reading GRAPH.md... Reading codebase-map.md... Reading business docs... Reading specs...
+  Clock-in complete. Read 7 harness files. Project state: 3 features done, pagination in progress.
+  Locked decisions: SQLAlchemy 2.0, Pydantic at boundaries. Current task: add user avatar upload."
+```
 
 ---
 
@@ -416,7 +529,7 @@ Session Exit Checklist:
 
 ```
 SESSION START (harness)
-    | clock-in: read PROGRESS.md, DECISIONS.md, run make check
+    | clock-in: READ all .md files (AGENTS, PROGRESS, DECISIONS, GRAPH, codebase-map, business/*, specs/*), run make check
     |
 CLARIFY
     | BEFORE: read GRAPH.md, codebase-map, business docs, grep for overlaps
@@ -483,7 +596,7 @@ SESSION END (harness)
 
 | Phase | BEFORE (Harness) | INVOKE (Skill) | AFTER (Harness) |
 |-------|-------------------|----------------|-----------------|
-| 1. SESSION START | Clock-in, read state files, make check | — | — |
+| 1. SESSION START | Clock-in: READ all 7+ .md files, make check, announce understanding | — | — |
 | 2. CLARIFY | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS, business docs |
 | 3. SPEC | (only if brainstorming skipped) | — | PROGRESS |
 | 4. PLAN | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) |

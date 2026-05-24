@@ -8,30 +8,34 @@ Without session discipline, a fresh session spends 30-50% of time re-discovering
 
 ## Clock-In (Session Start)
 
-Execute these steps in strict order. Do not skip any.
+Execute these steps in strict order. Do not skip any. **READ means OPEN AND READ THE FULL CONTENT — not "check if it exists."**
 
-### Step 1: Read PROGRESS.md
+### Step 1: Read ALL Harness Files
 
-Understand the current state of the project:
-- What's completed? (verify — don't just trust, run the verification commands)
-- What's in progress? (is it actually in progress, or abandoned?)
-- What are the known issues? (these are landmines — know them before you step)
-- What are the next steps? (this is likely your task)
+Read every harness file to build full project context. An agent that skips this step will re-invent existing patterns, contradict locked decisions, and miss known issues. **This is the difference between a productive session and a wasted one.**
 
-### Step 2: Read DECISIONS.md
+Read in this order:
 
-Understand WHY past decisions were made:
-- What architectural choices are locked in?
-- What alternatives were rejected and why?
-- What constraints are in place from past decisions?
+1. **`AGENTS.md` or `CLAUDE.md`** — HOW to work in this codebase: project overview, conventions, hard constraints, architecture, topic doc links. This is the agent's operating manual for this project.
+2. **`PROGRESS.md`** — WHERE the project is: completed items (verify, don't just trust), in-progress items (is it actually in progress or abandoned?), known issues (these are landmines — know them before you step), next steps (this is likely your task).
+3. **`DECISIONS.md`** — what NOT to change: architectural choices locked in, alternatives rejected and why, constraints imposed. If you don't read this, you'll re-litigate settled decisions or unknowingly violate them.
+4. **`docs/GRAPH.md`** — HOW the code connects: code flows with IN/OUT/ADDS/COMPUTES. This tells you the integration points your changes will touch.
+5. **`docs/codebase-map.md`** — WHERE things are: file roles, responsibilities, dependencies. This prevents you from creating duplicate files or putting code in the wrong place.
+6. **`docs/business/*.md`** — WHY the code does what it does: domain rules, business constraints, edge cases. Read ALL files in this directory. **If the directory is empty:** read the source code to extract what you can, then ASK the user about the business domain ("What does this system do? What are the key rules?"). Write the business docs from both sources.
+7. **`docs/specs/*.md`** — WHAT to build: at minimum the spec for the current task. Skim others to understand prior features.
 
-If you don't read DECISIONS.md, you risk re-litigating settled decisions or unknowingly violating them.
+**After reading, you must be able to answer:**
+- What's the current project state? (features done, in progress, blocked)
+- What architectural decisions are locked? (can't be changed without discussion)
+- What are the known issues? (what's broken and where)
+- How does the existing code flow? (what connects to what)
+- What business rules exist? (what constraints does the domain impose)
 
-### Step 3: Run make check
+### Step 2: Run make check
 
 Confirm the repo is in a consistent state. See [verification.md](verification.md) for the 3-layer pipeline. The same checks that code-quality's [non-negotiable #3](../../code-quality/SKILL.md#five-non-negotiables-language-agnostic) enforces.
 
-### Step 4: Handle Failures
+### Step 3: Handle Failures
 
 If `make check` fails:
 - Diagnose the failure BEFORE starting any new work
@@ -40,6 +44,32 @@ If `make check` fails:
 - If you cannot fix it within 10 minutes: mark the feature as `blocked` and explain why in PROGRESS.md
 
 **Never start new work with a broken build.** It's like building a second floor while the first floor is on fire.
+
+### Step 4: Announce Understanding
+
+After reading all files and running make check, announce:
+
+```
+Clock-in complete. Read [N] harness files.
+Project state: [summary of PROGRESS.md]
+Locked decisions: [key constraints from DECISIONS.md]
+Known issues: [from PROGRESS.md]
+Current task: [what the user asked for or next step from PROGRESS.md]
+```
+
+**This announcement is mandatory.** It proves the agent actually read the files, not just checked they exist. If the agent cannot summarize what it read, it didn't read it.
+
+### Anti-Pattern: "Create and Forget"
+
+The most common agent failure is: bootstrap gate creates missing files → agent immediately starts coding without reading ANY of the .md files it just verified exist. This agent has zero project context. It will:
+- Re-implement features that are already done (didn't read PROGRESS.md)
+- Contradict locked decisions (didn't read DECISIONS.md)
+- Create duplicate code (didn't read codebase-map.md)
+- Break existing flows (didn't read GRAPH.md)
+- Violate business rules (didn't read business docs)
+- Build the wrong thing (didn't read specs)
+
+**The fix:** Clock-in is not optional. Reading is not optional. The announcement is not optional.
 
 ## Clock-Out (Session End)
 
