@@ -2,26 +2,28 @@
 
 The full 14-step flow that every feature follows. Do not skip steps. Do not reorder.
 
+This workflow maps to the Outer Loop phases in SKILL.md. Each step shows which superpowers skill and code-quality rules apply.
+
 ## Normal Flow (per feature)
 
-1. **Clock in** — read PROGRESS.md, DECISIONS.md, `docs/codebase-map.md`, `docs/GRAPH.md`. Run `make check`. Understand the current state and code flow BEFORE touching anything.
-2. **Clarify** — if ANY aspect of the task is ambiguous (scope, I/O, files to touch, verification criteria), ask the user before proceeding. A 30-second clarification prevents a 30-minute wrong implementation.
+1. **Clock in** (Phase 1) — read PROGRESS.md, DECISIONS.md, `docs/codebase-map.md`, `docs/GRAPH.md`. Run `make check`. Understand the current state BEFORE touching anything.
+2. **Clarify** (Phase 2) — invoke `superpowers:brainstorming` for business discovery, approaches, and design. BEFORE invoking: read GRAPH.md, business docs, codebase-map for context to feed in. AFTER: update PROGRESS.md, DECISIONS.md, business docs.
 3. **Mark feature active** — update PROGRESS.md. WIP=1: only one feature active at a time.
-4. **Explore codebase** — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob.
-5. **Write spec** — create `docs/specs/YYYY-MM-DD-<topic>.md`. Run the spec self-review checklist (below). Present to user for approval if non-trivial. Do NOT write code until spec is approved.
-5b. **Write plan** (if ≥3 files or ≥2 steps) — create `docs/plans/YYYY-MM-DD-<topic>.md`. Run the plan self-review checklist (below). Present to user for approval. Each task must be bite-sized — see [task-management.md](task-management.md) § "Bite-Sized Tasks".
-6. **Implement** — write the code. Follow TDD: failing test first, minimal implementation, verify, refactor. See [tdd.md](tdd.md). `→ apply code-quality`: load [code-quality](../../code-quality/SKILL.md) and follow all rules (Pydantic, logging, enums, types, no water, SRP, etc.). If a bug arises during implementation, apply [debugging.md](debugging.md) — root cause first, never guess.
-7. **Layer 1 verify** — `ruff check` + `mypy --strict`. Fix all issues.
-8. **Layer 2 verify** — `pytest tests/ -x`. All tests must pass.
-9. **Layer 3 verify** — if cross-component changes, run E2E tests or manual smoke test.
-10. **Two-stage review** — Run BOTH stages before accepting any feature as complete:
+4. **Explore codebase** (Phase 2) — read `docs/GRAPH.md` for the relevant flow, `docs/business/*.md` for domain rules, search for overlapping existing code with Grep/Glob. This happens BEFORE brainstorming.
+5. **Write spec** (Phase 2-3) — brainstorming writes the spec. If skipped, create `docs/specs/YYYY-MM-DD-<topic>.md` manually. Run the spec self-review checklist (below). Get user approval. Do NOT write code until spec is approved.
+5b. **Write plan** (Phase 4) — invoke `superpowers:writing-plans`. BEFORE: verify spec, check WIP=1, read GRAPH.md. Each task must be bite-sized — see [task-management.md](task-management.md) § "Bite-Sized Tasks". AFTER: update PROGRESS.md (planned).
+6. **Implement** (Phase 5) — BEFORE: pass code-quality comprehension gate (read all 13 design principles + language rules from [code-quality](../../code-quality/SKILL.md)). INVOKE: `superpowers:subagent-driven-development` or `superpowers:executing-plans`. All code follows `superpowers:test-driven-development` (failing test first, minimal implementation, verify, refactor). All code follows code-quality rules. On any failure: invoke `superpowers:systematic-debugging`. DURING: auto-track after every commit.
+7. **Layer 1 verify** (Phase 6) — `ruff check` + `mypy --strict`. Fix all issues.
+8. **Layer 2 verify** (Phase 6) — `pytest tests/ -x`. All tests must pass.
+9. **Layer 3 verify** (Phase 6) — if cross-component changes, run E2E tests or manual smoke test.
+10. **Two-stage review** (Phase 6) — Run BOTH stages before accepting any feature as complete:
     - **Stage 1 — Spec compliance:** Does the implementation match the spec? All behaviors (happy + error), all types/fields, no scope creep, verification command ran and passed.
-    - **Stage 2 — Code quality:** `→ apply code-quality`: per [review-agent.md](../../code-quality/references/review-agent.md), spawn an independent agent to audit the diff against all 19 audit items.
+    - **Stage 2 — Code quality:** spawn an independent review agent per [review-agent.md](../../code-quality/references/review-agent.md) to audit the diff against all design principles + tooling rules.
     - Both stages must pass. Spec compliance without quality = tech debt. Quality without spec compliance = wrong feature.
 11. **Address review findings** — fix every MAJOR and BLOCKING finding from BOTH review stages. Re-run verification after fixes.
-12. **Record evidence** — save verification output, update feature state to `passing`.
-13. **Update docs** — update the spec with actual outcome, update `docs/GRAPH.md` with new/changed flows, update `docs/business/*.md` if rules changed, update `docs/codebase-map.md` if files changed, update AGENTS.md if conventions changed.
-14. **Commit and clock out** — atomic commit with clean message. Session exit checklist. Update PROGRESS.md.
+12. **Record evidence** — save verification output, update feature state to `passing`. Invoke `superpowers:verification-before-completion` to enforce the Iron Law.
+13. **Update docs** (Phase 7) — run the full Auto-Track Checklist: update spec, `docs/GRAPH.md`, `docs/business/*.md`, `docs/codebase-map.md`, AGENTS.md, PROGRESS.md, DECISIONS.md.
+14. **Commit and clock out** (Phase 8) — atomic commit with clean message. Session exit checklist (8 items). Update PROGRESS.md.
 
 ## What to Read Before Implementing
 

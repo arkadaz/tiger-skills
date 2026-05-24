@@ -1,14 +1,124 @@
 # tiger-skills
 
-Two Claude Code skills that work as one system. **harness-engineering** is the outer loop — process, workflow, and session management. **code-quality** is the inner loop — how to write the actual code. Each cross-references the other at defined handoff points.
+Two Claude Code skills that work as one system — **harness-engineering** (outer loop) orchestrates the full agent workflow and delegates to **superpowers** skills for brainstorming, planning, TDD, debugging, and verification, while **code-quality** (inner loop) governs every line of code written. The harness wraps each delegated skill with state tracking, session discipline, and verification gates.
 
 Follows the [Agent Skills](https://agentskills.io) standard.
 
-## What This Does
+## How the System Works
+
+```
+USER REQUEST
+    |
+    v
++------------------------------------------------------------------+
+|  harness-engineering (Conductor)                                  |
+|                                                                   |
+|  SESSION START ── clock-in, read PROGRESS.md, DECISIONS.md,      |
+|  |                run make check                                  |
+|  |                                                                |
+|  CLARIFY                                                          |
+|  |  BEFORE: read GRAPH.md, codebase-map, business docs            |
+|  |  INVOKE: superpowers:brainstorming ──> design + spec           |
+|  |  AFTER:  update PROGRESS.md, DECISIONS.md, business docs       |
+|  |                                                                |
+|  PLAN                                                             |
+|  |  BEFORE: verify spec, check WIP=1, read GRAPH.md               |
+|  |  INVOKE: superpowers:writing-plans ──> bite-sized tasks         |
+|  |  AFTER:  update PROGRESS.md (planned)                          |
+|  |                                                                |
+|  IMPLEMENT                                                        |
+|  |  BEFORE: pass code-quality comprehension gate                  |
+|  |  INVOKE: superpowers:subagent-driven-development               |
+|  |          + superpowers:test-driven-development                 |
+|  |          + superpowers:systematic-debugging (on failure)        |
+|  |          + code-quality rules (every line)                     |
+|  |  DURING: WIP=1, no placeholders, auto-track after every commit |
+|  |  AFTER:  update PROGRESS, GRAPH, codebase-map, DECISIONS       |
+|  |                                                                |
+|  VERIFY                                                           |
+|  |  INVOKE: superpowers:verification-before-completion            |
+|  |  RUN:    3-layer pipeline (static > runtime > system)          |
+|  |  SPAWN:  code-quality review agent (independent audit)         |
+|  |  GATE:   7-item completion gate, all TRUE                      |
+|  |                                                                |
+|  TRACK ── auto-update all 8 harness files                         |
+|  |                                                                |
+|  SESSION END ── clock-out, 8-item exit checklist                  |
++------------------------------------------------------------------+
+```
+
+Every phase follows the same pattern: **BEFORE** (harness reads state files) **> INVOKE** (superpowers skill runs) **> AFTER** (harness updates state files). The harness never delegates control — it wraps each skill.
+
+---
+
+## What Each Piece Does
+
+### harness-engineering (Outer Loop + Conductor)
+
+The conductor orchestrates the full agent workflow. It manages session state, delegates to superpowers skills at defined handoff points, and wraps every delegation with harness-specific pre-work and state updates.
+
+**8-Phase Conductor Protocol:**
+
+| Phase | BEFORE (Harness) | INVOKE (Skill) | AFTER (Harness) |
+|-------|-------------------|----------------|-----------------|
+| 1. SESSION START | Clock-in, read state files, `make check` | — | — |
+| 2. CLARIFY | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS, business docs |
+| 3. SPEC | (only if brainstorming skipped) | — | PROGRESS |
+| 4. PLAN | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) |
+| 5. IMPLEMENT | Code-quality comprehension gate | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map, DECISIONS |
+| 6. VERIFY | — | `verification-before-completion` + 3-layer pipeline + code-quality review agent | PROGRESS (passing + evidence) |
+| 7. TRACK | — | — | Full auto-track checklist |
+| 8. SESSION END | Clock-out, 8-item exit checklist | — | — |
+
+**Skills the conductor orchestrates:**
+
+| Superpowers Skill | What It Does | Invoked At |
+|-------------------|-------------|-----------|
+| `superpowers:brainstorming` | Business discovery, 2-3 approaches, design, spec writing, spec self-review | Phase 2 (CLARIFY) |
+| `superpowers:writing-plans` | Bite-sized task decomposition, complete code in every step, plan self-review | Phase 4 (PLAN) |
+| `superpowers:test-driven-development` | Red-Green-Refactor — no production code without a failing test first | Phase 5 (IMPLEMENT) |
+| `superpowers:subagent-driven-development` | Fresh subagent per task, two-stage review (spec compliance + code quality) | Phase 5 (IMPLEMENT) |
+| `superpowers:executing-plans` | Sequential task execution in current session | Phase 5 (IMPLEMENT) |
+| `superpowers:systematic-debugging` | 4-phase root cause analysis — investigate, pattern, hypothesis, fix | Phase 5 (on failure) |
+| `superpowers:verification-before-completion` | Iron Law — no completion claims without fresh evidence THIS session | Phase 6 (VERIFY) |
+
+**Harness-specific features (NOT delegated to superpowers):**
+
+- **Bootstrap Gate** — 9-file check before any work. Auto-creates missing harness files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, Makefile, docs/business/, docs/specs/, .env.example)
+- **Session Discipline** — clock-in (read state, run `make check`) and clock-out (8-item exit checklist) routines
+- **Auto-Track** — after every phase and every commit, update all 8 harness files (PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business docs, AGENTS.md, spec doc, plan doc)
+- **3-Layer Verification Pipeline** — static (lint + type check) > runtime (tests) > system (E2E). Sequential — layer 2 blocked until layer 1 passes.
+- **7-Point Completion Gate** — all 3 layers passed + evidence recorded + code quality review passed + spec compliance confirmed
+- **Diagnostic Loop** — attribute every failure to one of 5 layers (spec / context / environment / verification / state), fix that layer, never fail the same way twice
+- **WIP=1** — one feature active at a time, non-negotiable
+- **Feature State Machine** — `not_started` > `active` > `passing` / `blocked`
+- **Bite-Sized Tasks** — every task = one commit, independently verifiable, no placeholders ever
+
+**Reference files:**
+
+| Reference | Content |
+|-----------|---------|
+| `references/repo-system.md` | AGENTS.md template, codebase knowledge map, cold-start test |
+| `references/session-discipline.md` | Clock-in/out routines, PROGRESS.md template, DECISIONS.md template |
+| `references/task-management.md` | WIP=1 rules, bite-sized tasks, subagent protocol, model selection |
+| `references/verification.md` | Iron Law, completion gate, rationalization prevention, 3-layer pipeline |
+| `references/doc-first.md` | Spec template, business docs, GRAPH.md template with completeness checklist |
+| `references/workflow.md` | 14-step implementation flow, self-review checklists, anti-patterns |
+
+---
 
 ### code-quality (Inner Loop)
 
-Enforces design principles and language-specific rules during implementation. **Comprehension gate blocks code until all rules are read and understood.**
+Enforces design principles and language-specific rules during implementation. Loaded by harness-engineering at Phase 5 (IMPLEMENT) and Phase 6 (VERIFY).
+
+**Integration with harness-engineering:**
+
+| Handoff Point | What Happens |
+|---------------|-------------|
+| Phase 5 BEFORE | Agent passes the comprehension gate (read all 13 principles + language rules, pass 5-question self-check) before writing any code |
+| Phase 5 DURING | All code must comply with code-quality rules (13 design principles + 11 tooling rules) |
+| Phase 6 Step 3 | Harness spawns an independent code-quality review agent to audit the diff |
+| Phase 6 GATE | Code quality review must pass (0 MAJOR/BLOCKING findings) before completion |
 
 **Comprehension Gate:** Before writing ANY code, the agent must read all 13 design principles + all language rules + all language examples, then pass a 5-item self-check. Skimming is not reading. "I get the idea" is not understanding.
 
@@ -35,73 +145,25 @@ Enforces design principles and language-specific rules during implementation. **
 
 **Independent Review Agent:** After implementing, a separate agent audits the diff against all 24 audit items (13 principles + 11 tooling rules).
 
-### harness-engineering (Outer Loop)
+---
 
-Self-contained conductor — manages the full agent workflow from business discovery to tracked completion. No external dependencies.
+### superpowers (External Dependency)
 
-**7-Phase Conductor Protocol:**
+The superpowers plugin provides the implementation skills that harness-engineering orchestrates. These are NOT bundled in tiger-skills — they come from the [superpowers plugin](https://github.com/anthropics/claude-code-superpowers).
 
-| Phase | What Happens | Gate |
-|-------|-------------|------|
-| 1. CLARIFY | Business discovery (WHY), 2-3 approaches with trade-offs, technical confirmation | User confirms |
-| 2. EXPLORE | Read codebase map, graph, business docs, existing code; create missing harness files | Can answer: what exists, how it connects |
-| 3. SPEC | Write spec, self-review (placeholders/consistency/scope/ambiguity), get approval | User approves |
-| 4. PLAN | Bite-sized tasks, checkpoints, dependencies | User approves |
-| 5. IMPLEMENT | TDD + code-quality rules + subagent parallel execution | Two-stage review passes |
-| 6. VERIFY | Iron Law: 3-layer pipeline, 5-point completion gate, rationalization prevention | Fresh evidence THIS session |
-| 7. TRACK | Auto-update ALL 8 harness files after every phase, every commit | All files current |
+| Skill | Role in Tiger-Skills |
+|-------|---------------------|
+| `brainstorming` | Business discovery, design, spec writing — invoked at Phase 2 |
+| `writing-plans` | Bite-sized task decomposition — invoked at Phase 4 |
+| `test-driven-development` | Red-Green-Refactor — invoked at Phase 5 |
+| `subagent-driven-development` | Parallel task execution with review — invoked at Phase 5 |
+| `executing-plans` | Sequential task execution — invoked at Phase 5 |
+| `systematic-debugging` | 4-phase root cause analysis — invoked on any failure |
+| `verification-before-completion` | Iron Law enforcement — invoked at Phase 6 |
 
-**Business Discovery (Phase 1):**
-- Asks WHY: purpose, users, success criteria, constraints — one question at a time
-- Scope gate: decomposes large requests into independent subsystems
-- Always proposes 2-3 approaches with trade-offs (YAGNI ruthlessly)
-- Technical confirmation: I/Os, files to touch, verification criteria
+Tiger-skills works without superpowers installed — the harness-engineering references contain equivalent guidance in the reference files. But with superpowers installed, the conductor automatically delegates to the more detailed superpowers implementations.
 
-**Auto-Track (Phase 7):**
-Fires after EVERY phase, EVERY commit — not just "at the end." Updates all 8 harness files:
-- `PROGRESS.md` — feature state, progress %, known issues, next steps
-- `DECISIONS.md` — every architectural choice with rationale
-- `docs/GRAPH.md` — every code flow with IN/OUT/ADDS/COMPUTES field-level detail
-- `docs/codebase-map.md` — every file create/delete/rename with dependency graph
-- `docs/business/<domain>.md` — every business rule with implementation reference
-- `AGENTS.md` — every new convention, command, constraint, or topic doc
-- Spec doc — any difference between spec and what was built
-- Plan doc — every task completed/blocked
-
-**Iron Law Verification (Phase 6):**
-- Never claim done without fresh evidence from THIS session
-- 5-point completion gate (all must be TRUE)
-- Rationalization prevention table (9 common rationalizations)
-- Red flag words table (10 weasel words that signal skipped verification)
-
-**Subagent-Driven Development (Phase 5):**
-- Self-contained prompt template (subagent gets full spec, not a reference)
-- Status protocol: DONE / DONE\_WITH\_CONCERNS / NEEDS\_CONTEXT / BLOCKED
-- Model selection by complexity (opus for design, sonnet for patterns, haiku for trivial)
-- Two-stage review: spec compliance first, then code quality
-- Escalation protocol (when to stop and say "too hard")
-
-**TDD (Red-Green-Refactor):**
-- No production code without failing test first
-- Testing anti-patterns + 11 common rationalizations table
-
-**Systematic Debugging:**
-- 4-phase: root cause → pattern → hypothesis → implementation
-- Defense-in-depth validation (4 layers)
-- 3-fix limit before questioning architecture
-
-**Bite-Sized Tasks:**
-- Every task = one commit, independently verifiable
-- No placeholders ever (`pass`, `todo!()`, `raise NotImplementedError`)
-- Decomposition guide by task type
-
-**Session Management:**
-- Bootstrap gate (9 checks — auto-creates missing harness files)
-- Clock-in/out routines
-- WIP=1 (one feature at a time)
-- Feature state machine (not\_started → active → passing / blocked)
-- 14-step implementation workflow
-- Diagnostic loop (5 layers: spec / context / environment / verification / state)
+---
 
 ## Structure
 
@@ -109,7 +171,7 @@ Fires after EVERY phase, EVERY commit — not just "at the end." Updates all 8 h
 tiger-skills/
 ├── skills/
 │   ├── code-quality/
-│   │   ├── SKILL.md                   — Router: 5 non-negotiables, 11-item audit checklist
+│   │   ├── SKILL.md                   — Router: 5 non-negotiables, comprehension gate, 11-item audit checklist
 │   │   └── references/
 │   │       ├── design-principles.md   — 13 principles with violation signals and fixes
 │   │       ├── design-patterns.md     — 13 patterns with selection guide
@@ -121,34 +183,34 @@ tiger-skills/
 │   │           ├── rules.md           — serde, tracing, enums, clippy, cargo
 │   │           └── examples.md        — Code examples for all 13 principles + 13 patterns
 │   └── harness-engineering/
-│       ├── SKILL.md                   — Router: bootstrap gate, 7-phase conductor protocol
+│       ├── SKILL.md                   — Conductor: bootstrap gate, 8-phase protocol, superpowers integration
 │       └── references/
 │           ├── repo-system.md         — AGENTS.md template, codebase map, cold-start test
 │           ├── session-discipline.md  — Clock-in/out, PROGRESS.md, DECISIONS.md
 │           ├── task-management.md     — WIP=1, bite-sized tasks, subagent protocol, model selection
 │           ├── verification.md        — Iron Law, completion gate, rationalization prevention
 │           ├── doc-first.md           — Spec-before-code, business docs, GRAPH.md
-│           ├── workflow.md            — 14-step flow, self-review checklists, diagnostic loop
-│           ├── tdd.md                 — Red-Green-Refactor, testing anti-patterns
-│           └── debugging.md           — 4-phase debugging, root cause tracing, defense-in-depth
+│           └── workflow.md            — 14-step flow, self-review checklists, diagnostic loop
 ├── .claude-plugin/
-│   └── plugin.json
+│   ├── plugin.json
+│   └── marketplace.json
 └── README.md
 ```
 
+---
+
 ## Install
+
+### Via Claude Code Plugin (Recommended)
+
+```
+/install-plugin https://github.com/arkadaz/tiger-skills.git
+```
 
 ### Via npx
 
 ```bash
 npx skills add arkadaz/tiger-skills
-```
-
-### Via Claude Code Plugin
-
-```
-/plugin marketplace add arkadaz/tiger-skills
-/plugin install tiger-skills@arkadaz
 ```
 
 ### Manual (macOS/Linux)
@@ -178,6 +240,8 @@ ln -s $(pwd)/tiger-skills/skills/code-quality ~/.claude/skills/
 ln -s $(pwd)/tiger-skills/skills/harness-engineering ~/.claude/skills/
 ```
 
+---
+
 ## Update
 
 ```bash
@@ -186,33 +250,164 @@ git pull
 # Restart Claude Code — skills reload automatically
 ```
 
+---
+
 ## Verify
 
 Start Claude Code. Both `/code-quality` and `/harness-engineering` should appear in available commands.
 
-## How the Two Skills Connect
+---
+
+## Detailed Phase Walkthrough
+
+### Phase 1: SESSION START
+
+The agent reads harness state files to understand where the project left off.
 
 ```
-User Request
-    ↓
-harness-engineering: CLARIFY (business discovery, 2-3 approaches)
-    ↓  └→ AUTO-TRACK
-harness-engineering: EXPLORE (codebase, create missing harness files)
-    ↓
-harness-engineering: SPEC (technical spec, self-review)
-    ↓  └→ AUTO-TRACK
-harness-engineering: PLAN (bite-sized tasks, checkpoints)
-    ↓  └→ AUTO-TRACK
-    IMPLEMENT ──→ code-quality: comprehension gate → 13 principles + 11 tooling rules
-                  code-quality: review agent (24-item audit)
-    ↓  └→ AUTO-TRACK (after every commit)
-harness-engineering: VERIFY (Iron Law, 3-layer pipeline, completion gate)
-    ↓  └→ AUTO-TRACK (evidence recorded, feature → passing)
-harness-engineering: TRACK (final sweep: all 8 harness files current)
-    ↓
-Done
+1. Read PROGRESS.md — what's completed, in progress, known issues
+2. Read DECISIONS.md — locked architectural choices
+3. Run make check — confirm repo is consistent
+4. If make check fails — diagnose before starting new work
 ```
 
-Handoff points:
-- `→ apply code-quality` — at IMPLEMENT phase: comprehension gate, principles, rules, review agent
-- `→ auto-track` — after every phase and every commit: PROGRESS, DECISIONS, GRAPH, codebase-map, business docs, AGENTS, spec, plan
+### Phase 2: CLARIFY (delegates to `superpowers:brainstorming`)
+
+The agent reads harness context first, then invokes brainstorming for business discovery and design.
+
+**BEFORE:** Read GRAPH.md (existing code flows), codebase-map.md (file structure), business docs (domain rules). Grep for overlapping code.
+
+**INVOKE brainstorming:** Asks clarifying questions one at a time. Proposes 2-3 approaches with trade-offs. Presents design section by section. Writes spec. Runs spec self-review. Gets user approval.
+
+**AFTER:** Update PROGRESS.md (feature → active). Record decisions in DECISIONS.md. Create/update business docs.
+
+### Phase 3: SPEC (only if brainstorming was skipped)
+
+For bug fixes or when the user provides a complete spec. Write to `docs/specs/YYYY-MM-DD-<topic>.md`. Run spec self-review. Get approval.
+
+### Phase 4: PLAN (delegates to `superpowers:writing-plans`)
+
+**BEFORE:** Verify spec exists. Check WIP=1. Read GRAPH.md for integration points. Load task-management rules.
+
+**INVOKE writing-plans:** Maps file structure. Decomposes into bite-sized tasks (2-5 min each). Provides complete code in every step. TDD structure. Plan self-review. Offers execution choice (subagent-driven vs inline).
+
+**AFTER:** Update PROGRESS.md (planned). Verify plan aligns with GRAPH.md.
+
+### Phase 5: IMPLEMENT (delegates to execution + TDD + debugging + code-quality)
+
+**BEFORE — Code-quality comprehension gate:**
+1. Read all 13 design principles
+2. Read language-specific rules (Python or Rust)
+3. Read language examples
+4. Pass 5-question self-check — all must be YES
+
+**INVOKE execution skill:**
+
+| Path | Skill | How It Works |
+|------|-------|-------------|
+| Subagent-driven (recommended) | `superpowers:subagent-driven-development` | Fresh subagent per task. Each uses TDD + code-quality. Two-stage review after each (spec compliance + code quality review agent). |
+| Inline | `superpowers:executing-plans` | Sequential execution. TDD + code-quality on every step. |
+
+All code also uses:
+- `superpowers:test-driven-development` — Red-Green-Refactor, no code before tests
+- `superpowers:systematic-debugging` — on any failure, 4-phase root cause analysis
+- `code-quality` rules — 13 principles + 11 tooling rules on every line
+
+**DURING (harness rules on top):**
+- WIP=1 — one feature at a time
+- No placeholders — `pass`, `todo!()`, `raise NotImplementedError` forbidden
+- Auto-track after every commit — update PROGRESS, GRAPH, codebase-map, DECISIONS
+
+### Phase 6: VERIFY (delegates to verification + pipeline + review)
+
+Three verification systems combine:
+
+**Step 1 — Iron Law** (`superpowers:verification-before-completion`): No completion claims without fresh evidence. Identify command > run it > read output > verify > only then claim.
+
+**Step 2 — 3-Layer Pipeline:**
+
+| Layer | What | Required For |
+|-------|------|-------------|
+| 1. Static | Lint + type check | Every change |
+| 2. Runtime | Unit + integration tests | Every change |
+| 3. System | E2E / smoke test | Cross-component changes |
+
+Sequential — layer 2 blocked until layer 1 passes.
+
+**Step 3 — Code Quality Review:** Spawn independent review agent (per `code-quality/references/review-agent.md`) to audit against all 24 items. Fix MAJOR/BLOCKING findings. Re-run verification.
+
+**7-Point Completion Gate (all must be TRUE):**
+1. Layer 1 ran THIS session, after last code change
+2. Layer 2 ran THIS session, after last code change
+3. Layer 3 ran THIS session (if required)
+4. Every output shows zero failures
+5. Evidence recorded
+6. Code quality review passed (0 MAJOR/BLOCKING)
+7. Spec compliance confirmed
+
+### Phase 7: TRACK (harness-specific)
+
+Auto-update all 8 harness files:
+
+```
+- [ ] PROGRESS.md — feature state, progress %, known issues
+- [ ] DECISIONS.md — architectural choices with rationale
+- [ ] docs/GRAPH.md — code flows with IN/OUT/ADDS/COMPUTES
+- [ ] docs/codebase-map.md — file paths, roles, dependencies
+- [ ] docs/business/<domain>.md — business rules with implementation references
+- [ ] AGENTS.md — conventions, commands, constraints
+- [ ] Spec doc — differences between spec and what was built
+- [ ] Plan doc — tasks completed/blocked
+```
+
+### Phase 8: SESSION END
+
+8-item exit checklist:
+```
+- [ ] make check passes
+- [ ] PROGRESS.md updated
+- [ ] DECISIONS.md updated
+- [ ] All work committed with clean messages
+- [ ] No debug code, print(), commented-out code, stale TODOs
+- [ ] No temporary files
+- [ ] Standard startup path works
+- [ ] AGENTS.md updated if needed
+```
+
+---
+
+## Diagnostic Loop
+
+When something fails, the system combines superpowers debugging with harness layer diagnosis:
+
+1. **INVOKE `superpowers:systematic-debugging`** — 4-phase root cause analysis
+2. **Attribute to harness layer** — spec / context / environment / verification / state
+3. **Fix the harness** — so this class of failure never happens again
+
+| Layer | Example | Fix |
+|-------|---------|-----|
+| Spec | Built X, wanted Y | Run brainstorming for the ambiguous part |
+| Context | Used raw SQL, didn't know the rule | Add rule to AGENTS.md |
+| Environment | Module not found | Fix pyproject.toml + `make setup` |
+| Verification | Tests pass, E2E fails | Add step to `make check` |
+| State | Re-implemented finished work | Update PROGRESS.md, read at clock-in |
+
+---
+
+## Bootstrap Gate
+
+On first run, harness-engineering checks for 9 required files and auto-creates any that are missing:
+
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `AGENTS.md` / `CLAUDE.md` | Agent instruction routing |
+| 2 | `PROGRESS.md` | Feature state + progress tracking |
+| 3 | `DECISIONS.md` | Architectural decision records |
+| 4 | `docs/GRAPH.md` | Code flow graph |
+| 5 | `docs/codebase-map.md` | File directory + dependency map |
+| 6 | `Makefile` | setup, test, lint, check, dev targets |
+| 7 | `docs/business/` | Business rule documentation |
+| 8 | `docs/specs/` | Per-feature specifications |
+| 9 | `.env.example` | Required environment variables |
+
+No other work happens until all 9 exist.

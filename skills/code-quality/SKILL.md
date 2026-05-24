@@ -10,8 +10,10 @@ Enforces design principles from *Software Design for Python Programmers* by Rona
 ## Relationship to harness-engineering
 
 This skill is the **inner loop** — applied during implementation. Load [harness-engineering](../harness-engineering/SKILL.md) for the **outer loop** (session discipline, spec-before-code, verification pipeline). The two skills hand off at specific points:
-- `→ apply code-quality` — at workflow steps 6-10 (implement, verify, review)
-- `→ follow harness verification` — after implementing, run the 3-layer pipeline
+- **Phase 5 BEFORE** — harness requires passing the comprehension gate (read all principles + language rules) before any code is written
+- **Phase 5 DURING** — all code must comply with code-quality rules (13 design principles + language-specific rules)
+- **Phase 6 Step 3** — harness spawns an independent code-quality review agent (per `references/review-agent.md`) to audit the diff
+- **Phase 6 GATE** — code quality review must pass (0 MAJOR/BLOCKING findings) before completion
 
 ## Language Detection
 

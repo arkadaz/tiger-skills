@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. code-quality enforces 13 design principles + 11 tooling rules with a comprehension gate and 5-case type fix (TypedDict, Pydantic, dataclass, Callable, Protocol, NewType, Enum, Literal). harness-engineering is a self-contained 7-phase conductor with auto-track across 8 harness files.",
-  "version": "1.9.0",
+  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. harness-engineering is an 8-phase conductor that orchestrates superpowers skills (brainstorming, writing-plans, TDD, subagent-driven-development, systematic-debugging, verification-before-completion) with harness-specific state tracking, session discipline, and verification gates layered on top. code-quality enforces 13 design principles + 11 tooling rules with a comprehension gate and independent review agent.",
+  "version": "2.0.0",
   "author": {
     "name": "arkadaz"
   },
@@ -12,12 +12,15 @@
     "skills",
     "code-quality",
     "harness-engineering",
+    "superpowers",
     "design-principles",
     "solid",
     "python",
     "rust",
     "tdd",
     "workflow",
-    "verification"
+    "verification",
+    "brainstorming",
+    "subagent"
   ]
 }

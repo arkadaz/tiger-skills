@@ -256,7 +256,7 @@ Every subagent MUST self-review before reporting. This checklist is mandatory:
 
 **Testing:**
 - Do tests verify behavior (not mock behavior)?
-- Did I follow TDD if required? See [tdd.md](tdd.md).
+- Did I follow TDD if required? Use `superpowers:test-driven-development`.
 - Are tests comprehensive?
 
 If issues found during self-review, fix them BEFORE reporting. Self-review does NOT replace the two-stage review — both are needed.
