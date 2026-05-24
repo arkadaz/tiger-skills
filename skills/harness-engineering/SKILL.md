@@ -241,6 +241,7 @@ Auto-Track Checklist:
 - [ ] DECISIONS.md — any architectural choice made? Record NOW (what, why, alternatives rejected, constraints).
 - [ ] docs/GRAPH.md — any new/modified code flow? Document NOW with IN/OUT/ADDS/COMPUTES. Stale graph lies to the next agent.
 - [ ] docs/codebase-map.md — any file created/deleted/renamed? Update NOW. Stale map sends agents to wrong files.
+- [ ] docs/business/<domain>.md — any new or changed business rule? Document NOW (what the rule is, why it exists, where implemented, when changed).
 - [ ] AGENTS.md — any new convention, command, constraint, or topic doc? Add NOW.
 - [ ] Spec doc — any difference between spec and what was built? Update NOW.
 - [ ] Plan doc — any task completed/blocked? Update NOW.
@@ -257,10 +258,11 @@ Auto-track fires at these trigger points — not just "before session ends":
 | After CLARIFY completes | PROGRESS.md (clarification done, link design doc) |
 | After SPEC is approved | PROGRESS.md (spec done, link spec) |
 | After PLAN is approved | PROGRESS.md (plan done, feature → active) |
-| After each commit during IMPLEMENT | PROGRESS.md (progress %), GRAPH.md (new flows), codebase-map.md (new files) |
+| After each commit during IMPLEMENT | PROGRESS.md (progress %), GRAPH.md (new flows), codebase-map.md (new files), business.md (rules implemented) |
 | After VERIFY passes | PROGRESS.md (feature → passing, evidence linked) |
 | After any architectural decision | DECISIONS.md |
 | After any new convention emerges | AGENTS.md |
+| After any new/changed business rule | docs/business/<domain>.md |
 | After any file create/delete/rename | codebase-map.md |
 
 **The rule: code changes → harness files update. No exceptions. No delays.**
