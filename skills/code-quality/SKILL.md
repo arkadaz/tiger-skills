@@ -28,26 +28,48 @@ Detect the project language from file extensions, Cargo.toml/pyproject.toml, or 
 4. **Logs always.** Never `print()` / `println!()` for operational output.
 5. **No water.** Every line earns its place.
 
-## Reference Files
+## Comprehension Gate — READ BEFORE WRITING CODE
 
-Load these as needed based on the task:
+**Before writing, modifying, or reviewing any code, the agent MUST fully read and understand ALL applicable rules.** Skimming the checklist is not reading. "I get the idea" is not understanding. The reference files exist because the rules cannot be summarized in a checklist — the agent must read them.
 
-| Reference | When to Load |
-|-----------|-------------|
-| [references/design-principles.md](references/design-principles.md) | When reviewing/writing — 13 principles, violation signals, fixes (language-agnostic) |
-| [references/design-patterns.md](references/design-patterns.md) | When architecting — pattern selection guide + cheat sheet (language-agnostic) |
-| [references/python/rules.md](references/python/rules.md) | Python projects — Pydantic, logging, enums, mypy, ruff, config, structure |
-| [references/python/examples.md](references/python/examples.md) | Python projects — code examples for all 13 principles + 13 patterns |
-| [references/rust/rules.md](references/rust/rules.md) | Rust projects — serde, tracing, enums, clippy, cargo, config, structure |
-| [references/rust/examples.md](references/rust/examples.md) | Rust projects — code examples for all 13 principles + 13 patterns |
-| [references/review-agent.md](references/review-agent.md) | After implementing — spawn an independent review agent |
+### Mandatory Reading Sequence
 
-## Quick Start
+Execute in strict order. Do not skip any step. Do not write code until all steps complete. **If you think you already know the rules from a previous session, you're wrong — read them again. Rules evolve, and memory degrades.**
 
-1. Detect language → load `references/<lang>/rules.md` + `references/<lang>/examples.md`
-2. If reviewing/refactoring: read [references/design-principles.md](references/design-principles.md)
-3. If architecting: read [references/design-patterns.md](references/design-patterns.md)
-4. After implementing: read [references/review-agent.md](references/review-agent.md) and spawn a review agent
+1. **Read design principles** — [references/design-principles.md](references/design-principles.md). Every principle. Every violation signal. Every fix. All 13. Do not skim the table — read the full text for each principle. Understanding WHY a principle exists is what prevents you from violating it.
+2. **Read language rules** — [references/python/rules.md](references/python/rules.md) or [references/rust/rules.md](references/rust/rules.md). Naming conventions (no leading-underscore on ANY name), Pydantic/serde at boundaries, fully parameterized generics (no bare dict/list/set/tuple), enums for all fixed choices, structured logging, flat functions (no nested def), empty `__init__.py`, config injection, one-way imports, no water.
+3. **Read language examples** — [references/python/examples.md](references/python/examples.md) or [references/rust/examples.md](references/rust/examples.md). See each principle and pattern in real code. The examples show correct implementation — copy the pattern, not just the concept.
+4. **If designing new components/architecture:** Read [references/design-patterns.md](references/design-patterns.md). Pattern selection guide, when to use which pattern, the cheat sheet.
+
+### Comprehension Self-Check
+
+Before writing ANY code, the agent must answer YES to ALL five questions:
+
+- [ ] Can I name all 13 design principles and what violation each prevents?
+- [ ] Can I recognize at least one violation signal for each principle?
+- [ ] Do I know all 10 tooling rules (types, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
+- [ ] Do I know what code I'm about to write and which rules are most relevant to it?
+- [ ] If I encountered a violation while reviewing, do I know the correct fix pattern?
+
+**If ANY answer is NO:** Re-read the relevant reference file. Do not write code until all five are YES.
+
+### Gate Rule
+
+**Do not write, modify, or review a single line of code until the mandatory reading sequence is complete AND the comprehension self-check passes all five items.** The agent's first response after loading this skill must include: "Read [N] reference files. Comprehension check: [PASS/FAIL]." Only then may code work begin.
+
+### Quick Reference
+
+Once the comprehension gate passes, use these as reminders while implementing:
+
+| Reference | Use When |
+|-----------|----------|
+| [references/design-principles.md](references/design-principles.md) | Checking your code against all 13 principles |
+| [references/design-patterns.md](references/design-patterns.md) | Choosing a pattern for new architecture |
+| [references/python/rules.md](references/python/rules.md) | Python — every line must comply |
+| [references/rust/rules.md](references/rust/rules.md) | Rust — every line must comply |
+| [references/python/examples.md](references/python/examples.md) | Python — need a reference implementation |
+| [references/rust/examples.md](references/rust/examples.md) | Rust — need a reference implementation |
+| [references/review-agent.md](references/review-agent.md) | After implementing — spawn independent review |
 
 ## Audit Checklist (Quick Reference)
 
