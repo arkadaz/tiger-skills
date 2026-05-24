@@ -201,20 +201,33 @@ tiger-skills/
 
 ## Install
 
-### Via Claude Code Plugin (Recommended)
-
-```
-/install-plugin https://github.com/arkadaz/tiger-skills.git
-```
-
-### Via npx
+### Step 1: Add the marketplace (one-time)
 
 ```bash
-npx skills add arkadaz/tiger-skills
+claude plugin marketplace add https://github.com/arkadaz/tiger-skills.git
 ```
 
-### Manual (macOS/Linux)
+### Step 2: Install the plugin
 
+```bash
+claude plugin install tiger-skills@arkadaz
+```
+
+That's it. Both `/code-quality` and `/harness-engineering` skills are now available.
+
+### Update to latest version
+
+```bash
+claude plugin marketplace update arkadaz
+claude plugin uninstall tiger-skills@arkadaz
+claude plugin install tiger-skills@arkadaz
+```
+
+### Manual install (alternative)
+
+If you prefer not to use the marketplace:
+
+**macOS/Linux:**
 ```bash
 git clone https://github.com/arkadaz/tiger-skills.git
 mkdir -p ~/.claude/skills
@@ -222,8 +235,7 @@ cp -r tiger-skills/skills/code-quality ~/.claude/skills/
 cp -r tiger-skills/skills/harness-engineering ~/.claude/skills/
 ```
 
-### Manual (Windows PowerShell)
-
+**Windows PowerShell:**
 ```powershell
 git clone https://github.com/arkadaz/tiger-skills.git
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills"
