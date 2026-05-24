@@ -40,7 +40,4 @@ Quick-reference selection guide. When you recognize an architecture problem, app
 
 ## How to Choose
 
-1. Identify the problem from the first table
-2. Read the one-liner — does it match?
-3. Open the language examples file for concrete code
-4. Adapt the pattern structure to your domain
+Match the problem to the selection table → verify with the one-liner → open [python/examples.md](python/examples.md) or [rust/examples.md](rust/examples.md) for code.
