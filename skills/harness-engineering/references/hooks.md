@@ -21,10 +21,12 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 ```json
 {
   "phase": "session-start",
+  "docs_read": false,
   "code_quality_loaded": false,
   "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
+  "docs_updated": false,
   "verification_passed": false
 }
 ```
@@ -36,7 +38,7 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 | `session-start` | Bootstrap / Phase 1 | blocked | blocked | blocked |
 | `clarify` | Phase 2 start | blocked | blocked | blocked |
 | `plan` | Phase 4 start | blocked | blocked | blocked |
-| `implement` | Phase 5 start | gate on ALL 3: `code_quality_loaded` + `codebase_read` + `comprehension_gate` | gate on `tests_passed` | blocked |
+| `implement` | Phase 5 start | gate on ALL 4: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` | gate on `tests_passed` + `docs_updated` | blocked |
 | `verify` | Phase 6 start | allowed | allowed | gate on `verification_passed` |
 | `track` | Phase 7 | allowed | allowed | allowed |
 | `session-end` | Phase 8 | allowed | allowed | allowed |
@@ -45,29 +47,43 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 
 | Flag | Set When | Unblocks |
 |------|----------|----------|
-| `code_quality_loaded` | Agent invokes code-quality skill and reads all 13 design principles + language rules + examples | Required for code edits (with `codebase_read` + `comprehension_gate`) |
-| `codebase_read` | Agent reads all existing source files, type definitions, and relevant code in the area being modified | Required for code edits (with `code_quality_loaded` + `comprehension_gate`) |
-| `comprehension_gate` | Agent passes the 7-item self-check confirming understanding of types, principles, and rules | Required for code edits (with `code_quality_loaded` + `codebase_read`) |
-| `tests_passed` | Test suite runs with zero failures | `git commit` |
-| `verification_passed` | 3-layer pipeline + code quality review passes | `git push` |
+| `docs_read` | Agent reads ALL harness .md files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business/*.md, specs/*.md) | Required for code edits (pre-edit gate) |
+| `code_quality_loaded` | Agent invokes code-quality skill and reads all 13 design principles + language rules + examples | Required for code edits (pre-edit gate) |
+| `codebase_read` | Agent reads all existing source files, type definitions, and relevant code in the area being modified | Required for code edits (pre-edit gate) |
+| `comprehension_gate` | Agent passes the 7-item self-check confirming understanding of types, principles, and rules | Required for code edits (pre-edit gate) |
+| `tests_passed` | Test suite runs with zero failures | `git commit` (pre-commit gate) |
+| `docs_updated` | Agent updates ALL harness .md files (PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business docs) after code changes | `git commit` (pre-commit gate) |
+| `verification_passed` | 3-layer pipeline + code quality review passes | `git push` (pre-push gate) |
 
 ### Pre-Edit Gate Unlock Sequence
 
-All three flags must be `true` before any code edit is allowed during `implement` phase:
+All four flags must be `true` before any code edit is allowed during `implement` phase:
 
 ```
-1. code_quality_loaded  — invoke code-quality skill, read principles + rules + examples
-2. codebase_read        — glob/grep all types, read all source files in affected area
-3. comprehension_gate   — pass 7-item self-check, announce readiness
+1. docs_read            — read ALL harness .md files (know the project state, decisions, flows)
+2. code_quality_loaded  — invoke code-quality skill, read principles + rules + examples
+3. codebase_read        — glob/grep all types, read all source files in affected area
+4. comprehension_gate   — pass 7-item self-check, announce readiness
 ```
 
-The order matters: load the rules first, then read the code (so you know what to look for), then confirm understanding.
+The order matters: read docs first (know what exists and what's decided), then load the quality rules, then read the code (so you know what to reuse), then confirm understanding.
+
+### Pre-Commit Gate Unlock Sequence
+
+Both flags must be `true` before `git commit` is allowed:
+
+```
+1. tests_passed   — run test suite, zero failures
+2. docs_updated   — update PROGRESS.md, GRAPH.md, codebase-map.md, DECISIONS.md, business docs
+```
+
+After any code change, both `tests_passed` and `docs_updated` reset to `false`. The agent must re-run tests AND update docs before the next commit.
 
 ## Hook Scripts
 
 ### 1. Pre-Edit Gate — `.claude/hooks/pre-edit-gate.js`
 
-Blocks Edit/Write on code files until the agent reaches the `implement` phase AND passes all three gates: code-quality loaded, codebase read, and comprehension check.
+Blocks Edit/Write on code files until the agent reaches the `implement` phase AND passes all four gates: docs read, code-quality loaded, codebase read, and comprehension check.
 
 ```javascript
 const fs = require('fs');
@@ -92,6 +108,8 @@ process.stdin.on('end', () => {
 
     if (!codePhases.includes(state.phase)) {
       deny('Harness gate: phase is "' + state.phase + '". Complete clarify/spec/plan phases before editing code. Transition .harness-state phase to "implement" after planning.');
+    } else if (state.phase === 'implement' && !state.docs_read) {
+      deny('Harness gate: harness docs not read. Read ALL .md files: AGENTS.md, PROGRESS.md, DECISIONS.md, docs/GRAPH.md, docs/codebase-map.md, docs/business/*.md, docs/specs/*.md. Then set docs_read=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.code_quality_loaded) {
       deny('Harness gate: code-quality skill not loaded. Invoke the code-quality skill and read ALL 13 design principles + language-specific rules + examples, then set code_quality_loaded=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.codebase_read) {
@@ -107,7 +125,7 @@ process.stdin.on('end', () => {
 
 ### 2. Pre-Commit Gate — `.claude/hooks/pre-commit-gate.js`
 
-Blocks `git commit` unless tests have passed this session.
+Blocks `git commit` unless tests have passed AND all harness docs are updated this session.
 
 ```javascript
 const fs = require('fs');
@@ -117,15 +135,14 @@ process.stdin.on('data', chunk => data += chunk);
 process.stdin.on('end', () => {
   try {
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
+    const deny = (reason) => console.log(JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
+    }));
 
     if (!state.tests_passed) {
-      console.log(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'deny',
-          permissionDecisionReason: 'Harness gate: tests have not passed this session. Run the test suite (make test or equivalent), verify zero failures, then set tests_passed=true in .harness-state.'
-        }
-      }));
+      deny('Harness gate: tests have not passed this session. Run the test suite (make test or equivalent), verify zero failures, then set tests_passed=true in .harness-state.');
+    } else if (!state.docs_updated) {
+      deny('Harness gate: harness docs not updated after code changes. Update ALL relevant .md files: PROGRESS.md (feature state, progress %), GRAPH.md (new/changed code flows), codebase-map.md (new/changed files), DECISIONS.md (if decisions made), docs/business/*.md (if rules changed). Then set docs_updated=true in .harness-state.');
     }
   } catch (e) {
     process.exit(0);
@@ -260,11 +277,13 @@ The agent updates `.harness-state` at each phase boundary. Use Edit tool to upda
 | Phase 1 → Phase 2 | `phase: "clarify"` |
 | Phase 2/3 → Phase 4 | `phase: "plan"` |
 | Phase 4 → Phase 5 | `phase: "implement"`, all implementation flags `false` |
+| All harness .md files read | `docs_read: true` |
 | Code-quality skill invoked + all references read | `code_quality_loaded: true` |
 | All source files in affected area read + type inventory built | `codebase_read: true` |
 | 7-item self-check passes | `comprehension_gate: true` |
 | Tests pass (any run) | `tests_passed: true` |
-| Code changes after tests passed | `tests_passed: false` (reset — must re-run) |
+| All harness .md files updated after code changes | `docs_updated: true` |
+| Code changes after tests/docs | `tests_passed: false`, `docs_updated: false` (reset — must re-run and re-update) |
 | Phase 5 → Phase 6 | `phase: "verify"` |
 | Verification pipeline passes | `verification_passed: true` |
 | Phase 6 → Phase 7 | `phase: "track"` |
@@ -277,16 +296,22 @@ For trivial fixes (typo, single-line change) where the full flow is overkill, th
 ```json
 {
   "phase": "implement",
+  "docs_read": true,
   "code_quality_loaded": true,
   "codebase_read": true,
   "comprehension_gate": true,
   "tests_passed": false,
+  "docs_updated": false,
   "verification_passed": false
 }
 ```
 
-This skips the phase gate and all three pre-edit gates, but still requires tests before commit and verification before push. The agent must explicitly acknowledge why it's fast-tracking and note it in the session.
+This skips the phase gate and all four pre-edit gates, but still requires tests + docs update before commit and verification before push. The agent must explicitly acknowledge why it's fast-tracking and note it in the session.
 
-## Test Gate Reset
+## Post-Edit Resets
 
-After any code change (Edit/Write on code files), `tests_passed` should be reset to `false`. The agent must re-run tests before the next commit. This is enforced by instruction (in SKILL.md), not by hook — a PostToolUse hook on Edit would be too noisy and would slow down every edit.
+After any code change (Edit/Write on code files), these flags should be reset to `false`:
+- `tests_passed` — must re-run tests before the next commit
+- `docs_updated` — must re-update harness docs before the next commit
+
+This is enforced by instruction (in SKILL.md), not by hook — a PostToolUse hook on Edit would be too noisy and would slow down every edit.

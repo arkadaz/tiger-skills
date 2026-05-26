@@ -85,7 +85,7 @@ The conductor orchestrates the full agent workflow. It manages session state, de
 **Harness-specific features (NOT delegated to superpowers):**
 
 - **Bootstrap Gate** — 12-item check before any work. Auto-creates missing harness files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, Makefile, docs/business/, docs/specs/, .env.example) + hook enforcement (.harness-state, .claude/hooks/, hook settings)
-- **Hook Enforcement** — 4 Claude Code hooks that mechanically block premature actions: code edits before 3-gate unlock (code-quality loaded + codebase read + comprehension check), commits before tests pass, push before verification, session end without exit checklist
+- **Hook Enforcement** — 4 Claude Code hooks that mechanically block premature actions: code edits before 4-gate unlock (docs read + code-quality loaded + codebase read + comprehension check), commits before tests pass + docs updated, push before verification, session end without exit checklist
 - **Session Discipline** — clock-in (read state, run `make check`) and clock-out (8-item exit checklist) routines
 - **Auto-Track** — after every phase and every commit, update all 8 harness files (PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business docs, AGENTS.md, spec doc, plan doc)
 - **3-Layer Verification Pipeline** — static (lint + type check) > runtime (tests) > system (E2E). Sequential — layer 2 blocked until layer 1 passes.
@@ -447,8 +447,8 @@ Hook scripts read .harness-state → block/allow tool calls
 
 | Hook | Event | Blocks | Until |
 |------|-------|--------|-------|
-| **pre-edit-gate** | PreToolUse on Edit/Write | Code file edits | Phase = `implement` AND all 3 gates: `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
-| **pre-commit-gate** | PreToolUse on Bash(`git commit*`) | `git commit` | Tests passed this session |
+| **pre-edit-gate** | PreToolUse on Edit/Write | Code file edits | Phase = `implement` AND all 4 gates: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
+| **pre-commit-gate** | PreToolUse on Bash(`git commit*`) | `git commit` | Tests passed AND docs updated this session |
 | **pre-push-gate** | PreToolUse on Bash(`git push*`) | `git push` | Full verification pipeline passed |
 | **session-end-check** | Stop | (advisory) | Reminds about 8-item exit checklist |
 
@@ -459,10 +459,12 @@ Session-specific JSON file in project root. Tracks current phase and gate flags:
 ```json
 {
   "phase": "implement",
+  "docs_read": true,
   "code_quality_loaded": true,
   "codebase_read": true,
   "comprehension_gate": true,
   "tests_passed": false,
+  "docs_updated": false,
   "verification_passed": false
 }
 ```
@@ -473,10 +475,12 @@ The agent updates this file at each phase transition. Hook scripts read it to ma
 
 | Enforceable (tool-level) | Not enforceable (conversation-level) |
 |--------------------------|--------------------------------------|
-| No code edits before code-quality skill loaded | Phase ordering (brainstorm before plan) |
-| No code edits before codebase is read | Spec self-review happened |
-| No code edits before comprehension gate passed | Questions asked one-at-a-time |
-| No commits without tests | Design presented section-by-section |
+| No code edits before harness docs read | Phase ordering (brainstorm before plan) |
+| No code edits before code-quality skill loaded | Spec self-review happened |
+| No code edits before codebase is read | Questions asked one-at-a-time |
+| No code edits before comprehension gate passed | Design presented section-by-section |
+| No commits without tests passing | — |
+| No commits without docs updated | — |
 | No push without verification | — |
 | Exit checklist reminder | — |
 

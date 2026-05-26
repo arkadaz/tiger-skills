@@ -88,10 +88,12 @@ Create in project root with initial state. Add `.harness-state` to `.gitignore` 
 ```json
 {
   "phase": "session-start",
+  "docs_read": false,
   "code_quality_loaded": false,
   "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
+  "docs_updated": false,
   "verification_passed": false
 }
 ```
@@ -102,8 +104,8 @@ Create `.claude/hooks/` directory with 4 scripts (pre-edit-gate.js, pre-commit-g
 
 | Hook | Blocks | Until |
 |------|--------|-------|
-| pre-edit-gate | Edit/Write on code files | Phase = `implement` + ALL THREE: `code_quality_loaded` + `codebase_read` + `comprehension_gate` = true |
-| pre-commit-gate | `git commit` | `tests_passed` = true |
+| pre-edit-gate | Edit/Write on code files | Phase = `implement` + ALL FOUR: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
+| pre-commit-gate | `git commit` | `tests_passed` + `docs_updated` = both true |
 | pre-push-gate | `git push` | `verification_passed` = true |
 | session-end-check | (advisory on Stop) | Reminds about exit checklist |
 
@@ -236,10 +238,12 @@ The `.harness-state` file tracks this session's phase. If it exists from a prior
 ```json
 {
   "phase": "session-start",
+  "docs_read": false,
   "code_quality_loaded": false,
   "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
+  "docs_updated": false,
   "verification_passed": false
 }
 ```
@@ -363,17 +367,31 @@ The writing-plans skill handles:
 
 ### Phase 5: IMPLEMENT — Code Quality + TDD + Execution
 
-**State transition:** Update `.harness-state` → `"phase": "implement"`, all implementation flags `false` (`code_quality_loaded`, `codebase_read`, `comprehension_gate`)
+**State transition:** Update `.harness-state` → `"phase": "implement"`, all implementation flags `false` (`docs_read`, `code_quality_loaded`, `codebase_read`, `comprehension_gate`, `docs_updated`)
 
 This is the most skill-heavy phase. Three skills work together, with code-quality rules governing everything.
 
-**Hook enforcement:** The pre-edit-gate hook now BLOCKS Edit/Write on code files. The hook checks `.harness-state` and denies code edits until ALL THREE gates pass: `code_quality_loaded`, `codebase_read`, AND `comprehension_gate`. Each gate has its own deny message telling the agent exactly what to do next.
+**Hook enforcement:** The pre-edit-gate hook now BLOCKS Edit/Write on code files. The hook checks `.harness-state` and denies code edits until ALL FOUR gates pass: `docs_read`, `code_quality_loaded`, `codebase_read`, AND `comprehension_gate`. Each gate has its own deny message telling the agent exactly what to do next.
 
-#### BEFORE invoking execution — 3-gate unlock sequence
+#### BEFORE invoking execution — 4-gate unlock sequence
 
-The agent must pass three gates in order before editing ANY code file. The pre-edit-gate hook enforces this mechanically — the agent physically cannot edit code until all three are `true`.
+The agent must pass four gates in order before editing ANY code file. The pre-edit-gate hook enforces this mechanically — the agent physically cannot edit code until all four are `true`.
 
-**Gate 1 — Load code-quality skill (MANDATORY):**
+**Gate 1 — Read all harness docs (MANDATORY):**
+
+**Read EVERY harness .md file.** This ensures the agent knows what exists, what's decided, what's in progress, and how the code flows — before touching anything. The hook blocks code edits without it.
+
+1. **Read `AGENTS.md` or `CLAUDE.md`** — project conventions, hard constraints, architecture rules
+2. **Read `PROGRESS.md`** — what's completed, in progress, known issues
+3. **Read `DECISIONS.md`** — locked architectural choices, rejected alternatives
+4. **Read `docs/GRAPH.md`** — code flow connections (IN/OUT/ADDS/COMPUTES)
+5. **Read `docs/codebase-map.md`** — file roles and dependencies
+6. **Read `docs/business/*.md`** — all business rule docs
+7. **Read `docs/specs/*.md`** — at minimum the spec for the current task
+
+**When complete:** Update `.harness-state` → `"docs_read": true`
+
+**Gate 2 — Load code-quality skill (MANDATORY):**
 
 **Load [code-quality](../code-quality/SKILL.md) and read ALL its references.** This is mandatory — the hook blocks code edits without it.
 
@@ -385,7 +403,7 @@ The agent must pass three gates in order before editing ANY code file. The pre-e
 
 **When complete:** Update `.harness-state` → `"code_quality_loaded": true`
 
-**Gate 2 — Read the codebase (MANDATORY):**
+**Gate 3 — Read the codebase (MANDATORY):**
 
 **Read ALL existing source code in the affected area.** The agent must see the code before changing it. The hook blocks code edits without it.
 
@@ -400,7 +418,7 @@ The agent must pass three gates in order before editing ANY code file. The pre-e
 
 **When complete:** Update `.harness-state` → `"codebase_read": true`
 
-**Gate 3 — Pass comprehension check (MANDATORY):**
+**Gate 4 — Pass comprehension check (MANDATORY):**
 
 **Pass the 7-item self-check.** All must be YES. The hook blocks code edits without it.
 
@@ -415,9 +433,9 @@ The agent must pass three gates in order before editing ANY code file. The pre-e
 
 **If ANY answer is NO:** Re-read the reference or re-run type/code discovery. Do not write code.
 
-**When ALL answers are YES:** Update `.harness-state` → `"comprehension_gate": true`. All three gates are now `true` — the pre-edit-gate hook unlocks and code edits are allowed.
+**When ALL answers are YES:** Update `.harness-state` → `"comprehension_gate": true`. All four gates are now `true` — the pre-edit-gate hook unlocks and code edits are allowed.
 
-**Announce:** "Gate 1 (code-quality): loaded [N] reference files. Gate 2 (codebase): read [N] source files, [N] types discovered. Gate 3 (comprehension): PASS. All edit gates unlocked."
+**Announce:** "Gate 1 (docs): read [N] harness files. Gate 2 (code-quality): loaded [N] references. Gate 3 (codebase): read [N] source files, [N] types. Gate 4 (comprehension): PASS. All edit gates unlocked."
 
 #### INVOKE execution skill — with TDD and debugging layered in
 
@@ -451,6 +469,7 @@ These rules layer on top of whatever execution skill is running:
 2. **No placeholders** — `pass`, `todo!()`, `raise NotImplementedError`, `# TODO` are forbidden in committed code. Every function is complete or doesn't exist yet.
 3. **Auto-track after every commit** — run the Phase 7 Auto-Track Checklist immediately after each commit. Do not wait until "done."
 4. **Test gate for commits** — after tests pass, update `.harness-state` → `"tests_passed": true`. After any subsequent code edit, reset `"tests_passed": false`. The pre-commit-gate hook blocks `git commit` until `tests_passed` is `true`.
+5. **Docs gate for commits** — after updating all harness .md files (PROGRESS.md, GRAPH.md, codebase-map.md, DECISIONS.md, business docs), update `.harness-state` → `"docs_updated": true`. After any subsequent code edit, reset `"docs_updated": false`. The pre-commit-gate hook blocks `git commit` until BOTH `tests_passed` AND `docs_updated` are `true`.
 4. **Code-quality compliance** — every line must pass:
    - Types fully parameterized (no bare `dict`/`list`/`set`/`tuple`)
    - Pydantic/serde at I/O boundaries
@@ -618,17 +637,19 @@ PLAN                                             .harness-state → phase: "plan
     | HOOK:   pre-edit-gate BLOCKS code edits (phase != implement)
     |
 IMPLEMENT                                        .harness-state → phase: "implement"
-    | GATE 1: invoke code-quality skill + read all references → code_quality_loaded: true
-    | GATE 2: read all source files + build type inventory  → codebase_read: true
-    | GATE 3: pass 7-item self-check                        → comprehension_gate: true
-    | HOOK:   pre-edit-gate UNBLOCKS code edits (all 3 gates true)
+    | GATE 1: read all harness .md files                    → docs_read: true
+    | GATE 2: invoke code-quality skill + read all refs     → code_quality_loaded: true
+    | GATE 3: read all source files + build type inventory  → codebase_read: true
+    | GATE 4: pass 7-item self-check                        → comprehension_gate: true
+    | HOOK:   pre-edit-gate UNBLOCKS code edits (all 4 gates true)
     | INVOKE: superpowers:subagent-driven-development OR executing-plans
     |         + superpowers:test-driven-development (Red-Green-Refactor)
     |         + superpowers:systematic-debugging (on failure)
     |         + code-quality rules (every line)
     | DURING: WIP=1, no placeholders, auto-track after every commit
     | TESTS:  tests pass → .harness-state tests_passed: true
-    | HOOK:   pre-commit-gate UNBLOCKS git commit (tests_passed=true)
+    | DOCS:   update all .md files → .harness-state docs_updated: true
+    | HOOK:   pre-commit-gate UNBLOCKS git commit (tests_passed + docs_updated)
     | AFTER:  update PROGRESS.md, GRAPH.md, codebase-map.md, business docs, DECISIONS.md
     |
 VERIFY                                           .harness-state → phase: "verify"
@@ -681,7 +702,7 @@ SESSION END (harness)                            .harness-state → phase: "sess
 | 2. CLARIFY | `clarify` | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS | code edits blocked |
 | 3. SPEC | — | (only if brainstorming skipped) | — | PROGRESS | code edits blocked |
 | 4. PLAN | `plan` | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) | code edits blocked |
-| 5. IMPLEMENT | `implement` | 3-gate unlock: `code_quality_loaded` → `codebase_read` → `comprehension_gate` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | edits blocked until all 3 gates; commits blocked until `tests_passed` |
+| 5. IMPLEMENT | `implement` | 4-gate unlock: `docs_read` → `code_quality_loaded` → `codebase_read` → `comprehension_gate` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | edits blocked until all 4 gates; commits blocked until `tests_passed` + `docs_updated` |
 | 6. VERIFY | `verify` | — | `verification-before-completion` + 3-layer pipeline + review agent → `verification_passed: true` | PROGRESS (passing) | push blocked until `verification_passed` |
 | 7. TRACK | `track` | — | — | Full auto-track checklist | all unlocked |
 | 8. SESSION END | `session-end` | Clock-out, 8-item exit checklist | — | — | exit warnings |
