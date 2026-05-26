@@ -78,7 +78,7 @@ Execute these checks immediately. For each file that is missing, CREATE it using
 | 8 | `docs/specs/` | Create the directory (empty, ready for per-feature specs) |
 | 9 | `.env.example` | Create with all required env vars documented (no real values) |
 | 10 | `.harness-state` | Create with initial state — see [references/hooks.md](references/hooks.md) § "State File" |
-| 11 | `.claude/hooks/*.js` | Create all 4 hook scripts from [references/hooks.md](references/hooks.md) § "Hook Scripts" |
+| 11 | `.claude/hooks/*.js` | Create all 5 hook scripts from [references/hooks.md](references/hooks.md) § "Hook Scripts" |
 | 12 | `.claude/settings.json` hooks | Merge hook config from [references/hooks.md](references/hooks.md) § "Settings Configuration" into existing settings |
 
 **Item 10 — `.harness-state` (gitignored, session-specific):**
@@ -100,14 +100,15 @@ Create in project root with initial state. Add `.harness-state` to `.gitignore` 
 
 **Items 11-12 — Hook enforcement scripts + settings:**
 
-Create `.claude/hooks/` directory with 4 scripts (pre-edit-gate.js, pre-commit-gate.js, pre-push-gate.js, session-end-check.js) from [references/hooks.md](references/hooks.md). Merge the hook configuration into `.claude/settings.json`. These hooks enforce:
+Create `.claude/hooks/` directory with 5 scripts (pre-edit-gate.js, pre-commit-gate.js, pre-push-gate.js, post-edit-reset.js, session-end-check.js) from [references/hooks.md](references/hooks.md). Merge the hook configuration into `.claude/settings.json`. These hooks enforce:
 
-| Hook | Blocks | Until |
-|------|--------|-------|
-| pre-edit-gate | Edit/Write on code files | Phase = `implement` + ALL FOUR: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
-| pre-commit-gate | `git commit` | `tests_passed` + `docs_updated` = both true |
-| pre-push-gate | `git push` | `verification_passed` = true |
-| session-end-check | (advisory on Stop) | Reminds about exit checklist |
+| Hook | Event | Blocks / Does | Until / When |
+|------|-------|---------------|-------------|
+| pre-edit-gate | PreToolUse Edit\|Write | Blocks code file edits | Phase = `implement` + ALL FOUR: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
+| pre-commit-gate | PreToolUse Bash\|PowerShell | Blocks `git commit` | `tests_passed` + `docs_updated` = both true |
+| pre-push-gate | PreToolUse Bash\|PowerShell | Blocks `git push` | `verification_passed` = true |
+| post-edit-reset | PostToolUse Edit\|Write | Auto-resets `tests_passed` + `docs_updated` to false | After any code file edit (non-code files excluded) |
+| session-end-check | Stop | Advisory exit warnings | Reminds about 8-item exit checklist |
 
 ### Populate from Code — Do NOT Create Empty Files
 
@@ -468,8 +469,8 @@ These rules layer on top of whatever execution skill is running:
 1. **WIP=1** — only one feature active at a time. Finish or block before starting another.
 2. **No placeholders** — `pass`, `todo!()`, `raise NotImplementedError`, `# TODO` are forbidden in committed code. Every function is complete or doesn't exist yet.
 3. **Auto-track after every commit** — run the Phase 7 Auto-Track Checklist immediately after each commit. Do not wait until "done."
-4. **Test gate for commits** — after tests pass, update `.harness-state` → `"tests_passed": true`. After any subsequent code edit, reset `"tests_passed": false`. The pre-commit-gate hook blocks `git commit` until `tests_passed` is `true`.
-5. **Docs gate for commits** — after updating all harness .md files (PROGRESS.md, GRAPH.md, codebase-map.md, DECISIONS.md, business docs), update `.harness-state` → `"docs_updated": true`. After any subsequent code edit, reset `"docs_updated": false`. The pre-commit-gate hook blocks `git commit` until BOTH `tests_passed` AND `docs_updated` are `true`.
+4. **Test gate for commits** — after tests pass, update `.harness-state` → `"tests_passed": true`. The post-edit-reset hook automatically resets this to `false` after any subsequent code edit. The pre-commit-gate hook blocks `git commit` until `tests_passed` is `true`.
+5. **Docs gate for commits** — after updating all harness .md files (PROGRESS.md, GRAPH.md, codebase-map.md, DECISIONS.md, business docs), update `.harness-state` → `"docs_updated": true`. The post-edit-reset hook automatically resets this to `false` after any subsequent code edit. The pre-commit-gate hook blocks `git commit` until BOTH `tests_passed` AND `docs_updated` are `true`.
 4. **Code-quality compliance** — every line must pass:
    - Types fully parameterized (no bare `dict`/`list`/`set`/`tuple`)
    - Pydantic/serde at I/O boundaries
@@ -649,6 +650,7 @@ IMPLEMENT                                        .harness-state → phase: "impl
     | DURING: WIP=1, no placeholders, auto-track after every commit
     | TESTS:  tests pass → .harness-state tests_passed: true
     | DOCS:   update all .md files → .harness-state docs_updated: true
+    | HOOK:   post-edit-reset AUTO-RESETS tests_passed + docs_updated after each code edit
     | HOOK:   pre-commit-gate UNBLOCKS git commit (tests_passed + docs_updated)
     | AFTER:  update PROGRESS.md, GRAPH.md, codebase-map.md, business docs, DECISIONS.md
     |
@@ -702,7 +704,7 @@ SESSION END (harness)                            .harness-state → phase: "sess
 | 2. CLARIFY | `clarify` | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS | code edits blocked |
 | 3. SPEC | — | (only if brainstorming skipped) | — | PROGRESS | code edits blocked |
 | 4. PLAN | `plan` | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) | code edits blocked |
-| 5. IMPLEMENT | `implement` | 4-gate unlock: `docs_read` → `code_quality_loaded` → `codebase_read` → `comprehension_gate` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | edits blocked until all 4 gates; commits blocked until `tests_passed` + `docs_updated` |
+| 5. IMPLEMENT | `implement` | 4-gate unlock: `docs_read` → `code_quality_loaded` → `codebase_read` → `comprehension_gate` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | edits blocked until all 4 gates; post-edit-reset auto-resets test/doc flags; commits blocked until `tests_passed` + `docs_updated` |
 | 6. VERIFY | `verify` | — | `verification-before-completion` + 3-layer pipeline + review agent → `verification_passed: true` | PROGRESS (passing) | push blocked until `verification_passed` |
 | 7. TRACK | `track` | — | — | Full auto-track checklist | all unlocked |
 | 8. SESSION END | `session-end` | Clock-out, 8-item exit checklist | — | — | exit warnings |

@@ -85,7 +85,7 @@ The conductor orchestrates the full agent workflow. It manages session state, de
 **Harness-specific features (NOT delegated to superpowers):**
 
 - **Bootstrap Gate** — 12-item check before any work. Auto-creates missing harness files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, Makefile, docs/business/, docs/specs/, .env.example) + hook enforcement (.harness-state, .claude/hooks/, hook settings)
-- **Hook Enforcement** — 4 Claude Code hooks that mechanically block premature actions: code edits before 4-gate unlock (docs read + code-quality loaded + codebase read + comprehension check), commits before tests pass + docs updated, push before verification, session end without exit checklist
+- **Hook Enforcement** — 5 Claude Code hooks that mechanically enforce workflow gates: code edits blocked before 4-gate unlock (docs read + code-quality loaded + codebase read + comprehension check), commits blocked before tests pass + docs updated, push blocked before verification, auto-reset of test/doc flags after code edits, session end exit checklist reminder
 - **Session Discipline** — clock-in (read state, run `make check`) and clock-out (8-item exit checklist) routines
 - **Auto-Track** — after every phase and every commit, update all 8 harness files (PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business docs, AGENTS.md, spec doc, plan doc)
 - **3-Layer Verification Pipeline** — static (lint + type check) > runtime (tests) > system (E2E). Sequential — layer 2 blocked until layer 1 passes.
@@ -425,7 +425,7 @@ On first run, harness-engineering checks for 12 required items and auto-creates 
 | 8 | `docs/specs/` | Per-feature specifications |
 | 9 | `.env.example` | Required environment variables |
 | 10 | `.harness-state` | Session phase tracking (gitignored) |
-| 11 | `.claude/hooks/*.js` | 4 hook enforcement scripts |
+| 11 | `.claude/hooks/*.js` | 5 hook enforcement scripts |
 | 12 | `.claude/settings.json` hooks | Hook event configuration |
 
 No other work happens until all 12 exist.
@@ -443,14 +443,15 @@ Skill writes phase transitions → .harness-state (JSON)
 Hook scripts read .harness-state → block/allow tool calls
 ```
 
-### The 4 Hooks
+### The 5 Hooks
 
-| Hook | Event | Blocks | Until |
-|------|-------|--------|-------|
-| **pre-edit-gate** | PreToolUse on Edit/Write | Code file edits | Phase = `implement` AND all 4 gates: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
-| **pre-commit-gate** | PreToolUse on Bash(`git commit*`) | `git commit` | Tests passed AND docs updated this session |
-| **pre-push-gate** | PreToolUse on Bash(`git push*`) | `git push` | Full verification pipeline passed |
-| **session-end-check** | Stop | (advisory) | Reminds about 8-item exit checklist |
+| Hook | Event | Blocks / Does | Until / When |
+|------|-------|---------------|-------------|
+| **pre-edit-gate** | PreToolUse on Edit\|Write | Blocks code file edits | Phase = `implement` AND all 4 gates: `docs_read` + `code_quality_loaded` + `codebase_read` + `comprehension_gate` |
+| **pre-commit-gate** | PreToolUse on Bash\|PowerShell | Blocks `git commit` | Tests passed AND docs updated this session |
+| **pre-push-gate** | PreToolUse on Bash\|PowerShell | Blocks `git push` | Full verification pipeline passed |
+| **post-edit-reset** | PostToolUse on Edit\|Write | Auto-resets `tests_passed` + `docs_updated` to false | After any code file edit (non-code files excluded) |
+| **session-end-check** | Stop | Advisory exit warnings | Reminds about 8-item exit checklist |
 
 ### State File: `.harness-state`
 
@@ -482,6 +483,7 @@ The agent updates this file at each phase transition. Hook scripts read it to ma
 | No commits without tests passing | — |
 | No commits without docs updated | — |
 | No push without verification | — |
+| Auto-reset test/doc flags after code edits | — |
 | Exit checklist reminder | — |
 
 Hooks provide the mechanical safety net. The skill prompt provides the conversational discipline. Together they cover both layers.

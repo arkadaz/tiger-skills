@@ -1,18 +1,24 @@
 # Hook Enforcement
 
-Hooks enforce harness workflow gates at the tool level. The skill prompt governs conversational flow (phase ordering, brainstorming before planning). Hooks govern tool-level actions (no code edits before comprehension gate, no commits before tests, no push before verification).
+Hooks enforce harness workflow gates at the tool level. The skill prompt governs conversational flow (phase ordering, brainstorming before planning). Hooks govern tool-level actions (no code edits before comprehension gate, no commits before tests, no push before verification, auto-reset after edits).
 
 ## Architecture
 
 ```
 .harness-state (JSON, gitignored)     ← skill updates at each phase transition
-       ↓ read by
+       ↓ read by                        ↑ written by
 .claude/hooks/*.js (committed)        ← hook scripts check state before allowing tools
-       ↓ configured in
+       ↓ configured in                  (post-edit-reset.js also WRITES .harness-state)
 .claude/settings.json (committed)     ← hook events wired to scripts
+
+PreToolUse  → pre-edit-gate.js        (blocks Edit/Write on code files)
+PreToolUse  → pre-commit-gate.js      (blocks git commit)
+PreToolUse  → pre-push-gate.js        (blocks git push)
+PostToolUse → post-edit-reset.js      (resets test/doc flags after code edits)
+Stop        → session-end-check.js    (advisory exit warnings)
 ```
 
-The skill writes phase transitions to `.harness-state`. Hook scripts read it to gate actions.
+The skill writes phase transitions to `.harness-state`. Hook scripts read it to gate actions. The post-edit-reset hook also writes to `.harness-state` to auto-reset flags after code edits.
 
 ## State File: `.harness-state`
 
@@ -125,7 +131,7 @@ process.stdin.on('end', () => {
 
 ### 2. Pre-Commit Gate — `.claude/hooks/pre-commit-gate.js`
 
-Blocks `git commit` unless tests have passed AND all harness docs are updated this session.
+Blocks `git commit` unless tests have passed AND all harness docs are updated this session. The script filters by command — only `git commit` is gated, all other commands pass through.
 
 ```javascript
 const fs = require('fs');
@@ -134,6 +140,10 @@ let data = '';
 process.stdin.on('data', chunk => data += chunk);
 process.stdin.on('end', () => {
   try {
+    const input = JSON.parse(data);
+    const command = (input.tool_input?.command || '').trim();
+    if (!/\bgit\s+commit\b/.test(command)) process.exit(0);
+
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
     const deny = (reason) => console.log(JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
@@ -152,7 +162,7 @@ process.stdin.on('end', () => {
 
 ### 3. Pre-Push Gate — `.claude/hooks/pre-push-gate.js`
 
-Blocks `git push` unless the full verification pipeline has passed.
+Blocks `git push` unless the full verification pipeline has passed. The script filters by command — only `git push` is gated.
 
 ```javascript
 const fs = require('fs');
@@ -161,6 +171,10 @@ let data = '';
 process.stdin.on('data', chunk => data += chunk);
 process.stdin.on('end', () => {
   try {
+    const input = JSON.parse(data);
+    const command = (input.tool_input?.command || '').trim();
+    if (!/\bgit\s+push\b/.test(command)) process.exit(0);
+
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
 
     if (!state.verification_passed) {
@@ -212,9 +226,53 @@ try {
 }
 ```
 
+### 5. Post-Edit Reset — `.claude/hooks/post-edit-reset.js`
+
+Automatically resets `tests_passed` and `docs_updated` to `false` after any code file is edited. This makes the system self-correcting — the agent cannot commit with stale test results or outdated docs because the flags are mechanically reset after every code change.
+
+Only fires when flags were actually `true` before the edit (during active development when both are already `false`, this is a no-op). When flags are reset, injects a reminder into the agent's context.
+
+```javascript
+const fs = require('fs');
+
+let data = '';
+process.stdin.on('data', chunk => data += chunk);
+process.stdin.on('end', () => {
+  try {
+    const input = JSON.parse(data);
+    const filePath = input.tool_input?.file_path || input.tool_input?.filePath || '';
+
+    const nonCode = ['.md', '.json', '.toml', '.yaml', '.yml', '.cfg', '.ini', '.env', '.txt', '.lock'];
+    if (nonCode.some(ext => filePath.endsWith(ext))) process.exit(0);
+    if (filePath.includes('.harness-state') || filePath.includes('.claude/') || filePath.includes('.claude\\')) process.exit(0);
+    if (filePath.includes('Makefile') || filePath.includes('.gitignore')) process.exit(0);
+
+    const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
+    if (state.tests_passed || state.docs_updated) {
+      state.tests_passed = false;
+      state.docs_updated = false;
+      fs.writeFileSync('.harness-state', JSON.stringify(state, null, 2));
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: 'Harness: code file edited — tests_passed and docs_updated reset to false. Re-run tests and update docs before next commit.'
+        }
+      }));
+    }
+  } catch (e) {
+    // No state file — nothing to reset
+  }
+});
+```
+
 ## Settings Configuration
 
 Add this to `.claude/settings.json` (merge with existing settings):
+
+**Design notes:**
+- `Bash|PowerShell` matcher covers both shell tools (agents may use either, especially on Windows)
+- No `if` field — the scripts filter commands internally via regex (`\bgit\s+commit\b`, `\bgit\s+push\b`)
+- PostToolUse on `Edit|Write` auto-resets test/doc flags after code edits
 
 ```json
 {
@@ -232,21 +290,32 @@ Add this to `.claude/settings.json` (merge with existing settings):
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
             "command": "node .claude/hooks/pre-commit-gate.js",
-            "if": "Bash(git commit*)",
             "timeout": 5,
-            "statusMessage": "Harness: checking test gate..."
+            "statusMessage": "Harness: checking commit gate..."
           },
           {
             "type": "command",
             "command": "node .claude/hooks/pre-push-gate.js",
-            "if": "Bash(git push*)",
             "timeout": 5,
-            "statusMessage": "Harness: checking verification gate..."
+            "statusMessage": "Harness: checking push gate..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/post-edit-reset.js",
+            "timeout": 5,
+            "statusMessage": "Harness: tracking code changes..."
           }
         ]
       }
@@ -283,7 +352,7 @@ The agent updates `.harness-state` at each phase boundary. Use Edit tool to upda
 | 7-item self-check passes | `comprehension_gate: true` |
 | Tests pass (any run) | `tests_passed: true` |
 | All harness .md files updated after code changes | `docs_updated: true` |
-| Code changes after tests/docs | `tests_passed: false`, `docs_updated: false` (reset — must re-run and re-update) |
+| Code changes after tests/docs | `tests_passed: false`, `docs_updated: false` (auto-reset by post-edit-reset hook) |
 | Phase 5 → Phase 6 | `phase: "verify"` |
 | Verification pipeline passes | `verification_passed: true` |
 | Phase 6 → Phase 7 | `phase: "track"` |
@@ -310,8 +379,8 @@ This skips the phase gate and all four pre-edit gates, but still requires tests 
 
 ## Post-Edit Resets
 
-After any code change (Edit/Write on code files), these flags should be reset to `false`:
+After any code change (Edit/Write on code files), these flags are automatically reset to `false` by the `post-edit-reset.js` hook:
 - `tests_passed` — must re-run tests before the next commit
 - `docs_updated` — must re-update harness docs before the next commit
 
-This is enforced by instruction (in SKILL.md), not by hook — a PostToolUse hook on Edit would be too noisy and would slow down every edit.
+This is enforced mechanically by the PostToolUse hook on Edit|Write. The hook uses the same file extension filter as the pre-edit gate — non-code files (.md, .json, .toml, etc.), `.harness-state`, `.claude/` files, `Makefile`, and `.gitignore` do NOT trigger a reset. The hook only outputs a message when flags were actually `true` before the edit (no noise during active development when flags are already `false`).
