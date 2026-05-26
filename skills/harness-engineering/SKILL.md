@@ -88,6 +88,8 @@ Create in project root with initial state. Add `.harness-state` to `.gitignore` 
 ```json
 {
   "phase": "session-start",
+  "code_quality_loaded": false,
+  "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
   "verification_passed": false
@@ -100,7 +102,7 @@ Create `.claude/hooks/` directory with 4 scripts (pre-edit-gate.js, pre-commit-g
 
 | Hook | Blocks | Until |
 |------|--------|-------|
-| pre-edit-gate | Edit/Write on code files | Phase = `implement` + `comprehension_gate` = true |
+| pre-edit-gate | Edit/Write on code files | Phase = `implement` + ALL THREE: `code_quality_loaded` + `codebase_read` + `comprehension_gate` = true |
 | pre-commit-gate | `git commit` | `tests_passed` = true |
 | pre-push-gate | `git push` | `verification_passed` = true |
 | session-end-check | (advisory on Stop) | Reminds about exit checklist |
@@ -234,6 +236,8 @@ The `.harness-state` file tracks this session's phase. If it exists from a prior
 ```json
 {
   "phase": "session-start",
+  "code_quality_loaded": false,
+  "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
   "verification_passed": false
@@ -359,38 +363,46 @@ The writing-plans skill handles:
 
 ### Phase 5: IMPLEMENT — Code Quality + TDD + Execution
 
-**State transition:** Update `.harness-state` → `"phase": "implement"`, `"comprehension_gate": false`
+**State transition:** Update `.harness-state` → `"phase": "implement"`, all implementation flags `false` (`code_quality_loaded`, `codebase_read`, `comprehension_gate`)
 
 This is the most skill-heavy phase. Three skills work together, with code-quality rules governing everything.
 
-**Hook enforcement:** The pre-edit-gate hook now BLOCKS Edit/Write on code files. The hook checks `.harness-state` and denies code edits until `comprehension_gate` is `true`. This is the mechanical enforcement of the comprehension gate — the agent physically cannot edit code until it passes.
+**Hook enforcement:** The pre-edit-gate hook now BLOCKS Edit/Write on code files. The hook checks `.harness-state` and denies code edits until ALL THREE gates pass: `code_quality_loaded`, `codebase_read`, AND `comprehension_gate`. Each gate has its own deny message telling the agent exactly what to do next.
 
-#### BEFORE invoking execution — codebase discovery + code-quality comprehension gate
+#### BEFORE invoking execution — 3-gate unlock sequence
 
-**Load [code-quality](../code-quality/SKILL.md) and pass its comprehension gate BEFORE writing any code.** This is mandatory. The comprehension gate now includes **Codebase Type Discovery** — the agent must find and read ALL existing types before writing a single line.
+The agent must pass three gates in order before editing ANY code file. The pre-edit-gate hook enforces this mechanically — the agent physically cannot edit code until all three are `true`.
 
-**Step A — Codebase Type Discovery (MANDATORY, DO NOT SKIP):**
+**Gate 1 — Load code-quality skill (MANDATORY):**
 
-The #1 agent failure is writing `cfg: Any` when `AppConfig` exists 3 files away. This step prevents it.
+**Load [code-quality](../code-quality/SKILL.md) and read ALL its references.** This is mandatory — the hook blocks code edits without it.
+
+1. **Invoke the code-quality skill** — load the full skill content
+2. **Read design principles** — [code-quality/references/design-principles.md](../code-quality/references/design-principles.md). All 13 principles.
+3. **Read language rules** — [code-quality/references/python/rules.md](../code-quality/references/python/rules.md) or [code-quality/references/rust/rules.md](../code-quality/references/rust/rules.md).
+4. **Read language examples** — [code-quality/references/python/examples.md](../code-quality/references/python/examples.md) or [code-quality/references/rust/examples.md](../code-quality/references/rust/examples.md).
+5. **If designing new components:** Read [code-quality/references/design-patterns.md](../code-quality/references/design-patterns.md).
+
+**When complete:** Update `.harness-state` → `"code_quality_loaded": true`
+
+**Gate 2 — Read the codebase (MANDATORY):**
+
+**Read ALL existing source code in the affected area.** The agent must see the code before changing it. The hook blocks code edits without it.
 
 1. **Glob/Grep for all type definitions** — models, configs, drivers, enums, type aliases. Search patterns:
    - `class.*BaseModel|class.*TypedDict|@dataclass|class.*Enum|NewType|TypeAlias`
    - `class.*Config|class.*Settings|class.*Options`
    - `class.*Driver|class.*Client|class.*Connection|class.*Session`
 2. **Read EVERY matched file** — not just the class name. Read the full file with all fields and methods.
-3. **Build a Type Inventory** — you must know: config types, driver/client types, domain models, enums, type aliases.
-4. **For every parameter you're about to write** — verify the type exists. If it does, use it. If it doesn't, CREATE it. Never use `Any`.
+3. **Read ALL source files in the area being modified** — if you're changing `src/services/`, read every file in `src/services/`. If you're adding a new endpoint, read the existing endpoints.
+4. **Read all project documentation** — `AGENTS.md`, `PROGRESS.md`, `DECISIONS.md`, `docs/GRAPH.md`, `docs/codebase-map.md`, `docs/business/*.md`, and the relevant spec.
+5. **Build a Type Inventory** — you must know: config types, driver/client types, domain models, enums, type aliases. For every parameter you're about to write, the type must exist or be created. Never use `Any`.
 
-**Step B — Read all project documentation:**
+**When complete:** Update `.harness-state` → `"codebase_read": true`
 
-Read every `.md` that provides context: `AGENTS.md`, `PROGRESS.md`, `DECISIONS.md`, `docs/GRAPH.md`, `docs/codebase-map.md`, `docs/business/*.md`, and the relevant spec. These files prevent you from contradicting locked decisions, re-inventing existing patterns, or misunderstanding domain rules.
+**Gate 3 — Pass comprehension check (MANDATORY):**
 
-**Step C — Read code-quality reference files:**
-
-1. **Read design principles** — [code-quality/references/design-principles.md](../code-quality/references/design-principles.md). All 13 principles.
-2. **Read language rules** — [code-quality/references/python/rules.md](../code-quality/references/python/rules.md) or [code-quality/references/rust/rules.md](../code-quality/references/rust/rules.md). Naming, types, Pydantic/serde, enums, logging, flat functions, etc.
-3. **Read language examples** — [code-quality/references/python/examples.md](../code-quality/references/python/examples.md) or [code-quality/references/rust/examples.md](../code-quality/references/rust/examples.md). See patterns in real code.
-4. **If designing new components:** Read [code-quality/references/design-patterns.md](../code-quality/references/design-patterns.md).
+**Pass the 7-item self-check.** All must be YES. The hook blocks code edits without it.
 
 **Pass the comprehension self-check** (all 7 must be YES):
 - [ ] Can I list every type in this project's Type Inventory? (config types, driver types, domain models, enums, type aliases)
@@ -401,11 +413,11 @@ Read every `.md` that provides context: `AGENTS.md`, `PROGRESS.md`, `DECISIONS.m
 - [ ] Do I know what code I'm about to write and which rules are most relevant?
 - [ ] If I encountered a violation while reviewing, do I know the correct fix pattern?
 
-**If ANY answer is NO:** Re-read the reference or re-run type discovery. Do not write code.
+**If ANY answer is NO:** Re-read the reference or re-run type/code discovery. Do not write code.
 
-**When ALL answers are YES:** Update `.harness-state` → `"comprehension_gate": true`. This unlocks the pre-edit-gate hook — code edits are now allowed.
+**When ALL answers are YES:** Update `.harness-state` → `"comprehension_gate": true`. All three gates are now `true` — the pre-edit-gate hook unlocks and code edits are allowed.
 
-**Announce:** "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: PASS. Edit gate unlocked."
+**Announce:** "Gate 1 (code-quality): loaded [N] reference files. Gate 2 (codebase): read [N] source files, [N] types discovered. Gate 3 (comprehension): PASS. All edit gates unlocked."
 
 #### INVOKE execution skill — with TDD and debugging layered in
 
@@ -606,9 +618,10 @@ PLAN                                             .harness-state → phase: "plan
     | HOOK:   pre-edit-gate BLOCKS code edits (phase != implement)
     |
 IMPLEMENT                                        .harness-state → phase: "implement"
-    | BEFORE: codebase type discovery → read all .md docs → code-quality comprehension gate
-    | GATE:   comprehension gate passes → .harness-state comprehension_gate: true
-    | HOOK:   pre-edit-gate UNBLOCKS code edits (phase=implement + gate=true)
+    | GATE 1: invoke code-quality skill + read all references → code_quality_loaded: true
+    | GATE 2: read all source files + build type inventory  → codebase_read: true
+    | GATE 3: pass 7-item self-check                        → comprehension_gate: true
+    | HOOK:   pre-edit-gate UNBLOCKS code edits (all 3 gates true)
     | INVOKE: superpowers:subagent-driven-development OR executing-plans
     |         + superpowers:test-driven-development (Red-Green-Refactor)
     |         + superpowers:systematic-debugging (on failure)
@@ -668,7 +681,7 @@ SESSION END (harness)                            .harness-state → phase: "sess
 | 2. CLARIFY | `clarify` | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS | code edits blocked |
 | 3. SPEC | — | (only if brainstorming skipped) | — | PROGRESS | code edits blocked |
 | 4. PLAN | `plan` | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) | code edits blocked |
-| 5. IMPLEMENT | `implement` | Type discovery → docs → code-quality gate (7 checks) → `comprehension_gate: true` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | commits blocked until `tests_passed` |
+| 5. IMPLEMENT | `implement` | 3-gate unlock: `code_quality_loaded` → `codebase_read` → `comprehension_gate` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | edits blocked until all 3 gates; commits blocked until `tests_passed` |
 | 6. VERIFY | `verify` | — | `verification-before-completion` + 3-layer pipeline + review agent → `verification_passed: true` | PROGRESS (passing) | push blocked until `verification_passed` |
 | 7. TRACK | `track` | — | — | Full auto-track checklist | all unlocked |
 | 8. SESSION END | `session-end` | Clock-out, 8-item exit checklist | — | — | exit warnings |

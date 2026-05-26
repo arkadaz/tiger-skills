@@ -21,6 +21,8 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 ```json
 {
   "phase": "session-start",
+  "code_quality_loaded": false,
+  "codebase_read": false,
   "comprehension_gate": false,
   "tests_passed": false,
   "verification_passed": false
@@ -34,7 +36,7 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 | `session-start` | Bootstrap / Phase 1 | blocked | blocked | blocked |
 | `clarify` | Phase 2 start | blocked | blocked | blocked |
 | `plan` | Phase 4 start | blocked | blocked | blocked |
-| `implement` | Phase 5 start | gate on `comprehension_gate` | gate on `tests_passed` | blocked |
+| `implement` | Phase 5 start | gate on ALL 3: `code_quality_loaded` + `codebase_read` + `comprehension_gate` | gate on `tests_passed` | blocked |
 | `verify` | Phase 6 start | allowed | allowed | gate on `verification_passed` |
 | `track` | Phase 7 | allowed | allowed | allowed |
 | `session-end` | Phase 8 | allowed | allowed | allowed |
@@ -43,15 +45,29 @@ Session-specific state file in project root. Created during bootstrap, gitignore
 
 | Flag | Set When | Unblocks |
 |------|----------|----------|
-| `comprehension_gate` | Agent reads all design principles + language rules + passes 7-item self-check | Edit/Write on code files during `implement` phase |
+| `code_quality_loaded` | Agent invokes code-quality skill and reads all 13 design principles + language rules + examples | Required for code edits (with `codebase_read` + `comprehension_gate`) |
+| `codebase_read` | Agent reads all existing source files, type definitions, and relevant code in the area being modified | Required for code edits (with `code_quality_loaded` + `comprehension_gate`) |
+| `comprehension_gate` | Agent passes the 7-item self-check confirming understanding of types, principles, and rules | Required for code edits (with `code_quality_loaded` + `codebase_read`) |
 | `tests_passed` | Test suite runs with zero failures | `git commit` |
 | `verification_passed` | 3-layer pipeline + code quality review passes | `git push` |
+
+### Pre-Edit Gate Unlock Sequence
+
+All three flags must be `true` before any code edit is allowed during `implement` phase:
+
+```
+1. code_quality_loaded  — invoke code-quality skill, read principles + rules + examples
+2. codebase_read        — glob/grep all types, read all source files in affected area
+3. comprehension_gate   — pass 7-item self-check, announce readiness
+```
+
+The order matters: load the rules first, then read the code (so you know what to look for), then confirm understanding.
 
 ## Hook Scripts
 
 ### 1. Pre-Edit Gate — `.claude/hooks/pre-edit-gate.js`
 
-Blocks Edit/Write on code files until the agent reaches the `implement` phase AND passes the comprehension gate.
+Blocks Edit/Write on code files until the agent reaches the `implement` phase AND passes all three gates: code-quality loaded, codebase read, and comprehension check.
 
 ```javascript
 const fs = require('fs');
@@ -70,23 +86,18 @@ process.stdin.on('end', () => {
 
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
     const codePhases = ['implement', 'verify', 'track', 'session-end'];
+    const deny = (reason) => console.log(JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
+    }));
 
     if (!codePhases.includes(state.phase)) {
-      console.log(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'deny',
-          permissionDecisionReason: 'Harness gate: phase is "' + state.phase + '". Complete clarify/spec/plan phases before editing code. Transition .harness-state phase to "implement" after planning.'
-        }
-      }));
+      deny('Harness gate: phase is "' + state.phase + '". Complete clarify/spec/plan phases before editing code. Transition .harness-state phase to "implement" after planning.');
+    } else if (state.phase === 'implement' && !state.code_quality_loaded) {
+      deny('Harness gate: code-quality skill not loaded. Invoke the code-quality skill and read ALL 13 design principles + language-specific rules + examples, then set code_quality_loaded=true in .harness-state.');
+    } else if (state.phase === 'implement' && !state.codebase_read) {
+      deny('Harness gate: codebase not read. Glob/grep all type definitions, read ALL source files in the affected area, build a type inventory, then set codebase_read=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.comprehension_gate) {
-      console.log(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'deny',
-          permissionDecisionReason: 'Harness gate: comprehension gate not passed. Read all 13 design principles + language rules + examples, pass the 7-item self-check, then set comprehension_gate=true in .harness-state.'
-        }
-      }));
+      deny('Harness gate: comprehension gate not passed. Pass the 7-item self-check (types inventory, exact parameter types, 13 principles, violation signals, 11 tooling rules, relevant rules, fix patterns), then set comprehension_gate=true in .harness-state.');
     }
   } catch (e) {
     process.exit(0);
@@ -248,8 +259,10 @@ The agent updates `.harness-state` at each phase boundary. Use Edit tool to upda
 | Bootstrap complete → Phase 1 | Create file with `phase: "session-start"`, all flags `false` |
 | Phase 1 → Phase 2 | `phase: "clarify"` |
 | Phase 2/3 → Phase 4 | `phase: "plan"` |
-| Phase 4 → Phase 5 | `phase: "implement"`, `comprehension_gate: false` |
-| Comprehension gate passes | `comprehension_gate: true` |
+| Phase 4 → Phase 5 | `phase: "implement"`, all implementation flags `false` |
+| Code-quality skill invoked + all references read | `code_quality_loaded: true` |
+| All source files in affected area read + type inventory built | `codebase_read: true` |
+| 7-item self-check passes | `comprehension_gate: true` |
 | Tests pass (any run) | `tests_passed: true` |
 | Code changes after tests passed | `tests_passed: false` (reset — must re-run) |
 | Phase 5 → Phase 6 | `phase: "verify"` |
@@ -264,13 +277,15 @@ For trivial fixes (typo, single-line change) where the full flow is overkill, th
 ```json
 {
   "phase": "implement",
+  "code_quality_loaded": true,
+  "codebase_read": true,
   "comprehension_gate": true,
   "tests_passed": false,
   "verification_passed": false
 }
 ```
 
-This skips the phase gate but still requires tests before commit and verification before push. The agent must explicitly acknowledge why it's fast-tracking and note it in the session.
+This skips the phase gate and all three pre-edit gates, but still requires tests before commit and verification before push. The agent must explicitly acknowledge why it's fast-tracking and note it in the session.
 
 ## Test Gate Reset
 
