@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. harness-engineering is an 8-phase conductor that orchestrates superpowers skills (brainstorming, writing-plans, TDD, subagent-driven-development, systematic-debugging, verification-before-completion) with harness-specific state tracking, session discipline, and verification gates layered on top. code-quality enforces 13 design principles + 11 tooling rules with a comprehension gate and independent review agent.",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "author": {
     "name": "arkadaz"
   },

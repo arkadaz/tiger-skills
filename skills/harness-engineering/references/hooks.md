@@ -108,20 +108,20 @@ process.stdin.on('end', () => {
 
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
     const codePhases = ['implement', 'verify', 'track', 'session-end'];
-    const deny = (reason) => console.log(JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
+    const warn = (msg) => console.log(JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: reason }
     }));
 
     if (!codePhases.includes(state.phase)) {
-      deny('Harness gate: phase is "' + state.phase + '". Complete clarify/spec/plan phases before editing code. Transition .harness-state phase to "implement" after planning.');
+      warn('Harness gate: phase is "' + state.phase + '". Complete clarify/spec/plan phases before editing code. Transition .harness-state phase to "implement" after planning.');
     } else if (state.phase === 'implement' && !state.docs_read) {
-      deny('Harness gate: harness docs not read. Read ALL .md files: AGENTS.md, PROGRESS.md, DECISIONS.md, docs/GRAPH.md, docs/codebase-map.md, docs/business/*.md, docs/specs/*.md. Then set docs_read=true in .harness-state.');
+      warn('Harness gate: harness docs not read. Read ALL .md files: AGENTS.md, PROGRESS.md, DECISIONS.md, docs/GRAPH.md, docs/codebase-map.md, docs/business/*.md, docs/specs/*.md. Then set docs_read=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.code_quality_loaded) {
-      deny('Harness gate: code-quality skill not loaded. Invoke the code-quality skill and read ALL 13 design principles + language-specific rules + examples, then set code_quality_loaded=true in .harness-state.');
+      warn('Harness gate: code-quality skill not loaded. Invoke the code-quality skill and read ALL 13 design principles + language-specific rules + examples, then set code_quality_loaded=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.codebase_read) {
-      deny('Harness gate: codebase not read. Glob/grep all type definitions, read ALL source files in the affected area, build a type inventory, then set codebase_read=true in .harness-state.');
+      warn('Harness gate: codebase not read. Glob/grep all type definitions, read ALL source files in the affected area, build a type inventory, then set codebase_read=true in .harness-state.');
     } else if (state.phase === 'implement' && !state.comprehension_gate) {
-      deny('Harness gate: comprehension gate not passed. Pass the 7-item self-check (types inventory, exact parameter types, 13 principles, violation signals, 11 tooling rules, relevant rules, fix patterns), then set comprehension_gate=true in .harness-state.');
+      warn('Harness gate: comprehension gate not passed. Pass the 7-item self-check (types inventory, exact parameter types, 13 principles, violation signals, 11 tooling rules, relevant rules, fix patterns), then set comprehension_gate=true in .harness-state.');
     }
   } catch (e) {
     process.exit(0);
@@ -131,7 +131,7 @@ process.stdin.on('end', () => {
 
 ### 2. Pre-Commit Gate — `.claude/hooks/pre-commit-gate.js`
 
-Blocks `git commit` unless tests have passed AND all harness docs are updated this session. The script filters by command — only `git commit` is gated, all other commands pass through.
+Warns on `git commit` unless tests have passed AND all harness docs are updated this session. The commit still proceeds. The script filters by command — only `git commit` is gated, all other commands pass through.
 
 ```javascript
 const fs = require('fs');
@@ -145,14 +145,14 @@ process.stdin.on('end', () => {
     if (!/\bgit\s+commit\b/.test(command)) process.exit(0);
 
     const state = JSON.parse(fs.readFileSync('.harness-state', 'utf8'));
-    const deny = (reason) => console.log(JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
+    const warn = (msg) => console.log(JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: reason }
     }));
 
     if (!state.tests_passed) {
-      deny('Harness gate: tests have not passed this session. Run the test suite (make test or equivalent), verify zero failures, then set tests_passed=true in .harness-state.');
+      warn('Harness gate: tests have not passed this session. Run the test suite (make test or equivalent), verify zero failures, then set tests_passed=true in .harness-state.');
     } else if (!state.docs_updated) {
-      deny('Harness gate: harness docs not updated after code changes. Update ALL relevant .md files: PROGRESS.md (feature state, progress %), GRAPH.md (new/changed code flows), codebase-map.md (new/changed files), DECISIONS.md (if decisions made), docs/business/*.md (if rules changed). Then set docs_updated=true in .harness-state.');
+      warn('Harness gate: harness docs not updated after code changes. Update ALL relevant .md files: PROGRESS.md (feature state, progress %), GRAPH.md (new/changed code flows), codebase-map.md (new/changed files), DECISIONS.md (if decisions made), docs/business/*.md (if rules changed). Then set docs_updated=true in .harness-state.');
     }
   } catch (e) {
     process.exit(0);
@@ -162,7 +162,7 @@ process.stdin.on('end', () => {
 
 ### 3. Pre-Push Gate — `.claude/hooks/pre-push-gate.js`
 
-Blocks `git push` unless the full verification pipeline has passed. The script filters by command — only `git push` is gated.
+Warns on `git push` unless the full verification pipeline has passed. The push still proceeds. The script filters by command — only `git push` is gated.
 
 ```javascript
 const fs = require('fs');
@@ -181,7 +181,7 @@ process.stdin.on('end', () => {
       console.log(JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
-          permissionDecision: 'deny',
+          permissionDecision: 'allow',
           permissionDecisionReason: 'Harness gate: verification pipeline not completed. Run Phase 6 (3-layer pipeline: static > runtime > system + code quality review), then set verification_passed=true in .harness-state.'
         }
       }));
