@@ -101,7 +101,7 @@ process.stdin.on('end', () => {
     const input = JSON.parse(data);
     const filePath = input.tool_input?.file_path || input.tool_input?.filePath || '';
 
-    const nonCode = ['.md', '.json', '.toml', '.yaml', '.yml', '.cfg', '.ini', '.env', '.txt', '.lock'];
+    const nonCode = ['.md', '.json', '.toml', '.yaml', '.yml', '.cfg', '.ini', '.env', '.txt', '.lock', '.example'];
     if (nonCode.some(ext => filePath.endsWith(ext))) process.exit(0);
     if (filePath.includes('.harness-state') || filePath.includes('.claude/') || filePath.includes('.claude\\')) process.exit(0);
     if (filePath.includes('Makefile') || filePath.includes('.gitignore')) process.exit(0);
@@ -242,7 +242,7 @@ process.stdin.on('end', () => {
     const input = JSON.parse(data);
     const filePath = input.tool_input?.file_path || input.tool_input?.filePath || '';
 
-    const nonCode = ['.md', '.json', '.toml', '.yaml', '.yml', '.cfg', '.ini', '.env', '.txt', '.lock'];
+    const nonCode = ['.md', '.json', '.toml', '.yaml', '.yml', '.cfg', '.ini', '.env', '.txt', '.lock', '.example'];
     if (nonCode.some(ext => filePath.endsWith(ext))) process.exit(0);
     if (filePath.includes('.harness-state') || filePath.includes('.claude/') || filePath.includes('.claude\\')) process.exit(0);
     if (filePath.includes('Makefile') || filePath.includes('.gitignore')) process.exit(0);
