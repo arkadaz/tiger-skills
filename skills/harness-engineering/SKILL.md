@@ -56,6 +56,7 @@ Load these as needed based on the task:
 | [references/verification.md](references/verification.md) | Iron Law, completion gate, rationalization prevention, 3-layer pipeline |
 | [references/doc-first.md](references/doc-first.md) | Before implementing — specs, business docs, codebase map |
 | [references/workflow.md](references/workflow.md) | 14-step flow, self-review checklists, anti-patterns, diagnostic loop |
+| [references/hooks.md](references/hooks.md) | Bootstrap — hook scripts, `.harness-state` format, phase transitions |
 
 ---
 
@@ -76,6 +77,33 @@ Execute these checks immediately. For each file that is missing, CREATE it using
 | 7 | `docs/business/*.md` | **READ the source code first**, then create with real business rules — see "Populate from Code" below |
 | 8 | `docs/specs/` | Create the directory (empty, ready for per-feature specs) |
 | 9 | `.env.example` | Create with all required env vars documented (no real values) |
+| 10 | `.harness-state` | Create with initial state — see [references/hooks.md](references/hooks.md) § "State File" |
+| 11 | `.claude/hooks/*.js` | Create all 4 hook scripts from [references/hooks.md](references/hooks.md) § "Hook Scripts" |
+| 12 | `.claude/settings.json` hooks | Merge hook config from [references/hooks.md](references/hooks.md) § "Settings Configuration" into existing settings |
+
+**Item 10 — `.harness-state` (gitignored, session-specific):**
+
+Create in project root with initial state. Add `.harness-state` to `.gitignore` if not already present:
+
+```json
+{
+  "phase": "session-start",
+  "comprehension_gate": false,
+  "tests_passed": false,
+  "verification_passed": false
+}
+```
+
+**Items 11-12 — Hook enforcement scripts + settings:**
+
+Create `.claude/hooks/` directory with 4 scripts (pre-edit-gate.js, pre-commit-gate.js, pre-push-gate.js, session-end-check.js) from [references/hooks.md](references/hooks.md). Merge the hook configuration into `.claude/settings.json`. These hooks enforce:
+
+| Hook | Blocks | Until |
+|------|--------|-------|
+| pre-edit-gate | Edit/Write on code files | Phase = `implement` + `comprehension_gate` = true |
+| pre-commit-gate | `git commit` | `tests_passed` = true |
+| pre-push-gate | `git push` | `verification_passed` = true |
+| session-end-check | (advisory on Stop) | Reminds about exit checklist |
 
 ### Populate from Code — Do NOT Create Empty Files
 
@@ -159,7 +187,7 @@ Read every directory and key file, document what each one does:
 
 **Gate rule:** If >=1 files are missing, the agent's entire response is: report which files are missing, create them all (with REAL content from the codebase for items 4, 5, 7), then report done. Do NOT take any other action until the bootstrap gate passes.
 
-**Gate passes when:** All 9 checks above exist on disk AND items 4, 5, 7 contain real content (not empty templates). Only then proceed to Phase 1 — which READS every file.
+**Gate passes when:** All 12 checks above exist on disk AND items 4, 5, 7 contain real content (not empty templates) AND hooks are configured (items 10-12). Only then proceed to Phase 1 — which READS every file.
 
 **CRITICAL:** Creating files is NOT using them. The bootstrap gate ensures files EXIST with real content. Phase 1 ensures you READ them. Both gates must pass.
 
@@ -199,7 +227,20 @@ If `make check` fails, diagnose BEFORE starting new work. Never build on a broke
 
 After reading all files, the agent MUST announce: "Clock-in complete. Read [N] harness files. Project state: [summary]. Current task: [what]. Locked decisions: [key constraints]."
 
-**Gate:** ALL harness files read (not just checked for existence), repo state understood, `make check` passes (or failures documented in PROGRESS.md Known Issues).
+**Step 5 — Confirm `.harness-state` is current:**
+
+The `.harness-state` file tracks this session's phase. If it exists from a prior session, reset it:
+
+```json
+{
+  "phase": "session-start",
+  "comprehension_gate": false,
+  "tests_passed": false,
+  "verification_passed": false
+}
+```
+
+**Gate:** ALL harness files read (not just checked for existence), repo state understood, `make check` passes (or failures documented in PROGRESS.md Known Issues), `.harness-state` shows `phase: "session-start"`.
 
 **Anti-pattern — the "create and forget" agent:**
 ```
@@ -216,6 +257,8 @@ After reading all files, the agent MUST announce: "Clock-in complete. Read [N] h
 ---
 
 ### Phase 2: CLARIFY — Business Discovery + Design + Spec
+
+**State transition:** Update `.harness-state` → `"phase": "clarify"`
 
 This phase uses `superpowers:brainstorming` with harness work layered on top.
 
@@ -277,6 +320,8 @@ If brainstorming was skipped (user provided a complete spec, bug fix, or trivial
 
 ### Phase 4: PLAN — Implementation Planning
 
+**State transition:** Update `.harness-state` → `"phase": "plan"`
+
 This phase uses `superpowers:writing-plans` with harness work layered on top.
 
 #### BEFORE invoking writing-plans — harness pre-checks
@@ -314,7 +359,11 @@ The writing-plans skill handles:
 
 ### Phase 5: IMPLEMENT — Code Quality + TDD + Execution
 
+**State transition:** Update `.harness-state` → `"phase": "implement"`, `"comprehension_gate": false`
+
 This is the most skill-heavy phase. Three skills work together, with code-quality rules governing everything.
+
+**Hook enforcement:** The pre-edit-gate hook now BLOCKS Edit/Write on code files. The hook checks `.harness-state` and denies code edits until `comprehension_gate` is `true`. This is the mechanical enforcement of the comprehension gate — the agent physically cannot edit code until it passes.
 
 #### BEFORE invoking execution — codebase discovery + code-quality comprehension gate
 
@@ -354,7 +403,9 @@ Read every `.md` that provides context: `AGENTS.md`, `PROGRESS.md`, `DECISIONS.m
 
 **If ANY answer is NO:** Re-read the reference or re-run type discovery. Do not write code.
 
-**Announce:** "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: [PASS/FAIL]."
+**When ALL answers are YES:** Update `.harness-state` → `"comprehension_gate": true`. This unlocks the pre-edit-gate hook — code edits are now allowed.
+
+**Announce:** "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: PASS. Edit gate unlocked."
 
 #### INVOKE execution skill — with TDD and debugging layered in
 
@@ -387,6 +438,7 @@ These rules layer on top of whatever execution skill is running:
 1. **WIP=1** — only one feature active at a time. Finish or block before starting another.
 2. **No placeholders** — `pass`, `todo!()`, `raise NotImplementedError`, `# TODO` are forbidden in committed code. Every function is complete or doesn't exist yet.
 3. **Auto-track after every commit** — run the Phase 7 Auto-Track Checklist immediately after each commit. Do not wait until "done."
+4. **Test gate for commits** — after tests pass, update `.harness-state` → `"tests_passed": true`. After any subsequent code edit, reset `"tests_passed": false`. The pre-commit-gate hook blocks `git commit` until `tests_passed` is `true`.
 4. **Code-quality compliance** — every line must pass:
    - Types fully parameterized (no bare `dict`/`list`/`set`/`tuple`)
    - Pydantic/serde at I/O boundaries
@@ -408,6 +460,8 @@ These rules layer on top of whatever execution skill is running:
 ---
 
 ### Phase 6: VERIFY — Iron Law + 3-Layer Pipeline + Code Quality Review
+
+**State transition:** Update `.harness-state` → `"phase": "verify"`
 
 This phase combines three verification systems.
 
@@ -462,13 +516,16 @@ COMPLETION GATE — all must be TRUE:
 
 #### AFTER verification passes — harness state updates
 
-1. **Update `PROGRESS.md`** — feature state → `passing`, link verification evidence
-2. **Record evidence** — save verification output to `docs/verification/` or inline in PROGRESS.md
-3. Run full Phase 7 Auto-Track Checklist
+1. **Update `.harness-state`** → `"verification_passed": true`. This unlocks the pre-push-gate hook — `git push` is now allowed.
+2. **Update `PROGRESS.md`** — feature state → `passing`, link verification evidence
+3. **Record evidence** — save verification output to `docs/verification/` or inline in PROGRESS.md
+4. Run full Phase 7 Auto-Track Checklist
 
 ---
 
 ### Phase 7: TRACK — Auto-Update ALL Harness Files (Harness-Specific)
+
+**State transition:** Update `.harness-state` → `"phase": "track"`
 
 **This is NOT optional. No superpowers delegation. This is pure harness work.**
 
@@ -509,6 +566,8 @@ Auto-Track Checklist:
 
 ### Phase 8: SESSION END — Clock Out (Harness-Specific)
 
+**State transition:** Update `.harness-state` → `"phase": "session-end"`
+
 Follow [references/session-discipline.md](references/session-discipline.md) clock-out checklist. ALL 8 items must pass:
 
 ```
@@ -528,44 +587,53 @@ Session Exit Checklist:
 ## Phase Flow Diagram
 
 ```
-SESSION START (harness)
-    | clock-in: READ all .md files (AGENTS, PROGRESS, DECISIONS, GRAPH, codebase-map, business/*, specs/*), run make check
+SESSION START (harness)                          .harness-state → phase: "session-start"
+    | clock-in: READ all .md files, run make check, reset .harness-state
     |
-CLARIFY
+CLARIFY                                          .harness-state → phase: "clarify"
     | BEFORE: read GRAPH.md, codebase-map, business docs, grep for overlaps
     | INVOKE: superpowers:brainstorming → design + spec
     | AFTER:  update PROGRESS.md (active), DECISIONS.md, business docs
+    | HOOK:   pre-edit-gate BLOCKS code edits (phase != implement)
     |
 SPEC (if brainstorming skipped)
     | Write spec manually per doc-first template
     |
-PLAN
+PLAN                                             .harness-state → phase: "plan"
     | BEFORE: verify spec exists, check WIP=1, read GRAPH.md, load task-management rules
     | INVOKE: superpowers:writing-plans → bite-sized tasks
     | AFTER:  update PROGRESS.md (planned), verify plan ↔ GRAPH.md alignment
+    | HOOK:   pre-edit-gate BLOCKS code edits (phase != implement)
     |
-IMPLEMENT
+IMPLEMENT                                        .harness-state → phase: "implement"
     | BEFORE: codebase type discovery → read all .md docs → code-quality comprehension gate
+    | GATE:   comprehension gate passes → .harness-state comprehension_gate: true
+    | HOOK:   pre-edit-gate UNBLOCKS code edits (phase=implement + gate=true)
     | INVOKE: superpowers:subagent-driven-development OR executing-plans
     |         + superpowers:test-driven-development (Red-Green-Refactor)
     |         + superpowers:systematic-debugging (on failure)
     |         + code-quality rules (every line)
     | DURING: WIP=1, no placeholders, auto-track after every commit
+    | TESTS:  tests pass → .harness-state tests_passed: true
+    | HOOK:   pre-commit-gate UNBLOCKS git commit (tests_passed=true)
     | AFTER:  update PROGRESS.md, GRAPH.md, codebase-map.md, business docs, DECISIONS.md
     |
-VERIFY
+VERIFY                                           .harness-state → phase: "verify"
     | INVOKE: superpowers:verification-before-completion (Iron Law)
     | RUN:    3-layer pipeline (static → runtime → system)
     | SPAWN:  code-quality review agent (independent audit)
     | GATE:   completion gate (7 items, all TRUE)
+    | PASS:   → .harness-state verification_passed: true
+    | HOOK:   pre-push-gate UNBLOCKS git push (verification_passed=true)
     | AFTER:  update PROGRESS.md (passing + evidence)
     |
-TRACK
+TRACK                                            .harness-state → phase: "track"
     | Run full auto-track checklist (all 8 items)
     | Commit all harness file updates
     |
-SESSION END (harness)
+SESSION END (harness)                            .harness-state → phase: "session-end"
     | clock-out: 8-item exit checklist
+    | HOOK:   session-end-check reminds about exit checklist
 ```
 
 ---
@@ -594,13 +662,13 @@ SESSION END (harness)
 
 ## Quick Reference
 
-| Phase | BEFORE (Harness) | INVOKE (Skill) | AFTER (Harness) |
-|-------|-------------------|----------------|-----------------|
-| 1. SESSION START | Clock-in: READ all 7+ .md files, make check, announce understanding | — | — |
-| 2. CLARIFY | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS, business docs |
-| 3. SPEC | (only if brainstorming skipped) | — | PROGRESS |
-| 4. PLAN | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) |
-| 5. IMPLEMENT | Type discovery → read all docs → code-quality gate (7 checks) | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map, DECISIONS |
-| 6. VERIFY | — | `verification-before-completion` + 3-layer pipeline + code-quality review agent | PROGRESS (passing + evidence) |
-| 7. TRACK | — | — | Full auto-track checklist |
-| 8. SESSION END | Clock-out, 8-item exit checklist | — | — |
+| Phase | State | BEFORE (Harness) | INVOKE (Skill) | AFTER (Harness) | Hook Gate |
+|-------|-------|-------------------|----------------|-----------------|-----------|
+| 1. SESSION START | `session-start` | Clock-in: READ all .md files, make check, reset `.harness-state` | — | — | — |
+| 2. CLARIFY | `clarify` | Read GRAPH, codebase-map, business docs | `superpowers:brainstorming` | PROGRESS, DECISIONS | code edits blocked |
+| 3. SPEC | — | (only if brainstorming skipped) | — | PROGRESS | code edits blocked |
+| 4. PLAN | `plan` | Verify spec, WIP=1, read GRAPH, task rules | `superpowers:writing-plans` | PROGRESS (planned) | code edits blocked |
+| 5. IMPLEMENT | `implement` | Type discovery → docs → code-quality gate (7 checks) → `comprehension_gate: true` | `subagent-driven-dev` or `executing-plans` + `TDD` + `debugging` + `code-quality` | PROGRESS, GRAPH, codebase-map | commits blocked until `tests_passed` |
+| 6. VERIFY | `verify` | — | `verification-before-completion` + 3-layer pipeline + review agent → `verification_passed: true` | PROGRESS (passing) | push blocked until `verification_passed` |
+| 7. TRACK | `track` | — | — | Full auto-track checklist | all unlocked |
+| 8. SESSION END | `session-end` | Clock-out, 8-item exit checklist | — | — | exit warnings |

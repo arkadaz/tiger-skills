@@ -84,7 +84,8 @@ The conductor orchestrates the full agent workflow. It manages session state, de
 
 **Harness-specific features (NOT delegated to superpowers):**
 
-- **Bootstrap Gate** — 9-file check before any work. Auto-creates missing harness files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, Makefile, docs/business/, docs/specs/, .env.example)
+- **Bootstrap Gate** — 12-item check before any work. Auto-creates missing harness files (AGENTS.md, PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, Makefile, docs/business/, docs/specs/, .env.example) + hook enforcement (.harness-state, .claude/hooks/, hook settings)
+- **Hook Enforcement** — 4 Claude Code hooks that mechanically block premature actions: code edits before comprehension gate, commits before tests pass, push before verification, session end without exit checklist
 - **Session Discipline** — clock-in (read state, run `make check`) and clock-out (8-item exit checklist) routines
 - **Auto-Track** — after every phase and every commit, update all 8 harness files (PROGRESS.md, DECISIONS.md, GRAPH.md, codebase-map.md, business docs, AGENTS.md, spec doc, plan doc)
 - **3-Layer Verification Pipeline** — static (lint + type check) > runtime (tests) > system (E2E). Sequential — layer 2 blocked until layer 1 passes.
@@ -104,6 +105,7 @@ The conductor orchestrates the full agent workflow. It manages session state, de
 | `references/verification.md` | Iron Law, completion gate, rationalization prevention, 3-layer pipeline |
 | `references/doc-first.md` | Spec template, business docs, GRAPH.md template with completeness checklist |
 | `references/workflow.md` | 14-step implementation flow, self-review checklists, anti-patterns |
+| `references/hooks.md` | Hook scripts, .harness-state format, phase transitions, settings config |
 
 ---
 
@@ -183,14 +185,15 @@ tiger-skills/
 │   │           ├── rules.md           — serde, tracing, enums, clippy, cargo
 │   │           └── examples.md        — Code examples for all 13 principles + 13 patterns
 │   └── harness-engineering/
-│       ├── SKILL.md                   — Conductor: bootstrap gate, 8-phase protocol, superpowers integration
+│       ├── SKILL.md                   — Conductor: bootstrap gate, 8-phase protocol, hook enforcement
 │       └── references/
 │           ├── repo-system.md         — AGENTS.md template, codebase map, cold-start test
 │           ├── session-discipline.md  — Clock-in/out, PROGRESS.md, DECISIONS.md
 │           ├── task-management.md     — WIP=1, bite-sized tasks, subagent protocol, model selection
 │           ├── verification.md        — Iron Law, completion gate, rationalization prevention
 │           ├── doc-first.md           — Spec-before-code, business docs, GRAPH.md
-│           └── workflow.md            — 14-step flow, self-review checklists, diagnostic loop
+│           ├── workflow.md            — 14-step flow, self-review checklists, diagnostic loop
+│           └── hooks.md              — Hook scripts, .harness-state, phase gates, settings config
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
@@ -408,7 +411,7 @@ When something fails, the system combines superpowers debugging with harness lay
 
 ## Bootstrap Gate
 
-On first run, harness-engineering checks for 9 required files and auto-creates any that are missing:
+On first run, harness-engineering checks for 12 required items and auto-creates any that are missing:
 
 | # | File | Purpose |
 |---|------|---------|
@@ -421,5 +424,56 @@ On first run, harness-engineering checks for 9 required files and auto-creates a
 | 7 | `docs/business/` | Business rule documentation |
 | 8 | `docs/specs/` | Per-feature specifications |
 | 9 | `.env.example` | Required environment variables |
+| 10 | `.harness-state` | Session phase tracking (gitignored) |
+| 11 | `.claude/hooks/*.js` | 4 hook enforcement scripts |
+| 12 | `.claude/settings.json` hooks | Hook event configuration |
 
-No other work happens until all 9 exist.
+No other work happens until all 12 exist.
+
+---
+
+## Hook Enforcement
+
+The skill uses Claude Code hooks to mechanically enforce workflow gates. The skill prompt governs conversational flow (phase ordering). Hooks govern tool-level actions that the prompt alone can't reliably prevent.
+
+### How It Works
+
+```
+Skill writes phase transitions → .harness-state (JSON)
+Hook scripts read .harness-state → block/allow tool calls
+```
+
+### The 4 Hooks
+
+| Hook | Event | Blocks | Until |
+|------|-------|--------|-------|
+| **pre-edit-gate** | PreToolUse on Edit/Write | Code file edits | Phase = `implement` AND comprehension gate passed |
+| **pre-commit-gate** | PreToolUse on Bash(`git commit*`) | `git commit` | Tests passed this session |
+| **pre-push-gate** | PreToolUse on Bash(`git push*`) | `git push` | Full verification pipeline passed |
+| **session-end-check** | Stop | (advisory) | Reminds about 8-item exit checklist |
+
+### State File: `.harness-state`
+
+Session-specific JSON file in project root. Tracks current phase and gate flags:
+
+```json
+{
+  "phase": "implement",
+  "comprehension_gate": true,
+  "tests_passed": false,
+  "verification_passed": false
+}
+```
+
+The agent updates this file at each phase transition. Hook scripts read it to make allow/deny decisions. The file is gitignored (session-specific, not shared).
+
+### What Hooks Can vs Cannot Enforce
+
+| Enforceable (tool-level) | Not enforceable (conversation-level) |
+|--------------------------|--------------------------------------|
+| No code edits before comprehension gate | Phase ordering (brainstorm before plan) |
+| No commits without tests | Spec self-review happened |
+| No push without verification | Questions asked one-at-a-time |
+| Exit checklist reminder | Agent read all 13 design principles |
+
+Hooks provide the mechanical safety net. The skill prompt provides the conversational discipline. Together they cover both layers.
