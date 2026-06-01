@@ -14,6 +14,65 @@ REVIEW (independent agent) → TRACK (update state) → SESSION END (clean)
 
 **The outer loop** (harness-engineering) ensures the agent knows what to work on, stays in scope, verifies before claiming completion, and leaves a clean state. **The inner loop** (code-quality) ensures every line of code follows 16 design principles and language-specific rules.
 
+## How to Use
+
+### Just Talk to Claude — the Skills Activate Automatically
+
+You don't need to remember skill names. Just describe what you want, and the right skill activates:
+
+| You say... | Skill that activates |
+|------------|---------------------|
+| "Set up this project for AI agents" | `harness-engineering:bootstrap` |
+| "What are we working on?" / "Start a session" | `harness-engineering:session` |
+| "Let's work on feature X" | `harness-engineering:feature` |
+| "Is this done?" / "Verify my changes" | `harness-engineering:verify` |
+| "Review my code" | `harness-engineering:review` or `code-quality:review` |
+| "Why did this fail?" / "The agent keeps messing up" | `harness-engineering:diagnose` |
+| "Improve this code" / "Make this cleaner" | `code-quality` (router, delegates to sub-skills) |
+| "Audit this for design violations" | `code-quality:audit` |
+| "Fix these violations" | `code-quality:fix` |
+| "Write Python code" / "Review this .py file" | `code-quality:python` |
+| "Write Rust code" / "Review this .rs file" | `code-quality:rust` |
+
+### The Full Workflow
+
+**Phase 1 — Start a session:** Just start working. The SessionStart hook reminds Claude to clock in — read `AGENTS.md`, `progress.md`, `feature_list.json`, and run `./init.sh`.
+
+**Phase 2 — Pick a feature:** Say what you want to build. Claude reads `feature_list.json`, enforces WIP=1, and picks the highest-priority feature.
+
+**Phase 3 — Build:** Claude writes code. The Explore-before-code hook ensures it reads existing types and functions first. Code-quality rules enforce types, DI, enums, logging, and flat functions on every line.
+
+**Phase 4 — Verify:** Before claiming anything is done, Claude runs the 3-layer verification pipeline (static → unit → E2E) and records evidence. The pre-commit hook blocks commits until verification passes.
+
+**Phase 5 — Review:** For non-trivial changes, Claude spawns an independent review agent that audits against all 16 design principles + 11 tooling rules. The agent that wrote the code cannot be the sole judge.
+
+**Phase 6 — Wrap up:** Claude updates `progress.md` and `feature_list.json`. The pre-push hook blocks pushes until state files are current. The Stop hook reminds Claude to leave a clean restart path.
+
+### Slash Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/review-branch` | Review the current branch — runs verification pipeline, spawns code quality review, checks spec compliance, produces a report |
+
+### Example Prompts
+
+```
+"Set up harness files for this project"
+→ Creates AGENTS.md, feature_list.json, progress.md, init.sh
+
+"Make this code better"
+→ Invokes code-quality: reviews against all 16 principles
+
+"Why does Claude keep re-implementing features we already have?"
+→ harness-engineering:diagnose attributes to State layer, fixes progress.md
+
+"Review my PR before I merge"
+→ Runs verification pipeline + independent code quality review
+
+"I'm done for today"
+→ Clock-out: updates all state files, runs exit checklist
+```
+
 ## Project Structure
 
 ```
@@ -33,7 +92,7 @@ tiger-skills/
 │   ├── code-quality-python/            — Python rules: types, DI, enums, naming, logging
 │   ├── code-quality-rust/              — Rust rules: traits, ownership, errors, modules
 ├── agents/                             — 5 custom sub-agents (planner, generator, executor, healer, code-architect)
-├── hooks/hooks.json                    — 6 event-driven hooks
+├── hooks/                               — 6 event-driven hook files
 ├── commands/review-branch.md           — Branch review command
 ├── .claude-plugin/                     — Plugin manifest + marketplace config
 ├── init.sh                             — Verification (49 checks, 5 layers)
