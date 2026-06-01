@@ -26,42 +26,42 @@
     "rust",
     "walkinglabs"
   ],
-  "hooks": [
-    {
-      "event": "SessionStart",
-      "prompt": "HARNESS CLOCK-IN: Before any other action, (1) read AGENTS.md, (2) read progress.md, (3) read feature_list.json, (4) review git log --oneline -5, (5) run ./init.sh. Announce understanding before proceeding. If ./init.sh fails, fix the harness before working on features."
-    },
-    {
-      "event": "PreToolUse",
-      "tool": "Write|Edit",
-      "prompt": "BOOTSTRAP GATE: Before writing or editing code files, verify the four harness files exist on disk: AGENTS.md, feature_list.json, progress.md, and init.sh. If any are missing, create them first using the minimal-pack templates. Do not write application code until the bootstrap gate passes.",
-      "permission": "allow"
-    },
-    {
-      "event": "PreToolUse",
-      "tool": "Write|Edit",
-      "prompt": "EXPLORE BEFORE CODE: Before writing new code, HAVE YOU: (1) searched the codebase for existing types (Grep for class/type definitions)? (2) checked for existing functions that do 80%+ of what you need? (3) read the relevant files in the module you're about to modify? (4) built a mental Type Inventory? Never write a function that duplicates an existing one. Never use Any when a real type exists in the codebase. EXPLORE -> READ -> THEN WRITE.",
-      "permission": "allow"
-    },
-    {
-      "event": "PreToolUse",
-      "tool": "Bash|PowerShell",
-      "pattern": "git commit",
-      "prompt": "PRE-COMMIT CHECK: Before git commit, confirm: (1) verification ran fresh this session, (2) zero failures in output, (3) evidence recorded in feature_list.json. Run ./init.sh first if verification hasn't run in this session.",
-      "permission": "allow"
-    },
-    {
-      "event": "PreToolUse",
-      "tool": "Bash|PowerShell",
-      "pattern": "git push",
-      "prompt": "PRE-PUSH CHECK: Before git push, confirm: (1) ./init.sh passes with zero failures, (2) progress.md is updated, (3) feature_list.json feature states are accurate, (4) all work is committed with descriptive messages.",
-      "permission": "allow"
-    },
-    {
-      "event": "Stop",
-      "prompt": "HARNESS CLOCK-OUT: Before the session ends, run the exit checklist: (1) ./init.sh passes, (2) progress.md updated, (3) feature_list.json updated, (4) all work committed, (5) no debug artifacts/print()/TODOs, (6) no temp files, (7) standard startup works, (8) next session ready. Leave a clean restart path."
-    }
-  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "prompt": "HARNESS CLOCK-IN: Before any other action, (1) read AGENTS.md, (2) read progress.md, (3) read feature_list.json, (4) review git log --oneline -5, (5) run ./init.sh. Announce understanding before proceeding. If ./init.sh fails, fix the harness before working on features."
+      }
+    ],
+    "PreToolUse": [
+      {
+        "tool": "Write|Edit",
+        "prompt": "BOOTSTRAP GATE: Before writing or editing code files, verify the four harness files exist on disk: AGENTS.md, feature_list.json, progress.md, and init.sh. If any are missing, create them first using the minimal-pack templates. Do not write application code until the bootstrap gate passes.",
+        "permission": "allow"
+      },
+      {
+        "tool": "Write|Edit",
+        "prompt": "EXPLORE BEFORE CODE: Before writing new code, HAVE YOU: (1) searched the codebase for existing types? (2) checked for existing functions that do 80%+ of what you need? (3) read the relevant files in the module? (4) built a mental Type Inventory? Never write a function that duplicates an existing one. Never use Any when a real type exists.",
+        "permission": "allow"
+      },
+      {
+        "tool": "Bash|PowerShell",
+        "pattern": "git commit",
+        "prompt": "PRE-COMMIT CHECK: Before git commit, confirm: (1) verification ran fresh this session, (2) zero failures in output, (3) evidence recorded in feature_list.json.",
+        "permission": "allow"
+      },
+      {
+        "tool": "Bash|PowerShell",
+        "pattern": "git push",
+        "prompt": "PRE-PUSH CHECK: Before git push, confirm: (1) ./init.sh passes, (2) progress.md updated, (3) feature_list.json accurate, (4) all work committed with descriptive messages.",
+        "permission": "allow"
+      }
+    ],
+    "Stop": [
+      {
+        "prompt": "HARNESS CLOCK-OUT: Exit checklist: (1) ./init.sh passes, (2) progress.md updated, (3) feature_list.json updated, (4) all work committed, (5) no debug artifacts, (6) no temp files, (7) standard startup works, (8) next session ready."
+      }
+    ]
+  },
   "autoDiscovery": {
     "skills": [
       "skills/harness-engineering/",
