@@ -27,10 +27,10 @@ A complete harness has five subsystems. Missing any one means an incomplete harn
 
 ## How This Skill Works — Conductor Model
 
-This skill is the **conductor**. It orchestrates sub-skills for specific harness tasks. The conductor never delegates control — it invokes a sub-skill, the sub-skill runs, control returns here for state updates.
+This skill is the **conductor**. It orchestrates both sub-skills (for harness operations) and sub-agents (for implementation work). The conductor never delegates control — it invokes a sub-skill or spawns a sub-agent, that component runs and returns, control comes back here for state updates.
 
 ```
-User Request → Main Skill (this file) → Route to Sub-Skill → Return → State Update
+User Request → Conductor (this file) → Route to Sub-Skill or Spawn Agent → Return → State Update
 ```
 
 ### Sub-Skills — When to Invoke Each
@@ -44,12 +44,49 @@ User Request → Main Skill (this file) → Route to Sub-Skill → Return → St
 | `harness-engineering:review` | Spawning an independent review — separate the doer from the checker |
 | `harness-engineering:diagnose` | Something failed — attribute failure to one of five layers, fix that layer, retry |
 
-### Orchestration Pattern
+### The 5-Agent Pipeline — When Each Agent Does Its Own Work
 
-The full workflow for any task:
+This plugin defines 5 specialized sub-agents. The conductor spawns them in a defined pipeline for implementation work. **Each agent works independently in its own context** — the conductor passes it a task, it does its work, and it hands results back.
 
 ```
-SESSION START → bootstrap check → read state → pick feature → SCOPE (one feature) → IMPLEMENT → VERIFY → REVIEW → TRACK (update state) → SESSION END (clean state)
+USER GOAL → PLANNER (Opus) → CODE ARCHITECT (Opus, optional) → GENERATOR (Sonnet) → EXECUTOR (Sonnet) → HEALER (Opus)
+                ↑                                                                                    │
+                └──────────────────────────── feedback loop ─────────────────────────────────────────┘
+```
+
+| Agent | Model | When It Does Its Work | What It Produces |
+|-------|-------|----------------------|-----------------|
+| **planner** | opus | After scope is defined — before any code is written | Structured blueprint with task breakdown, dependencies, verification criteria |
+| **code-architect** | opus | Optionally during planning, or during healing for structural diagnosis | Architecture review with SOLID audit, layer compliance, pattern recommendations |
+| **generator** | sonnet | After the blueprint is approved — writes all implementation code | Working code, tests, configs, scripts. A handoff report with verification results |
+| **executor** | sonnet | After the generator hands off — runs verification | Fresh verification evidence (pass) or escalation report (fail) |
+| **healer** | opus | When the executor reports a failure | Root cause diagnosis, exact fix instructions, harness improvement suggestions |
+
+**Decision — pipeline vs. direct path:**
+
+| Task Type | Use Pipeline? | Why |
+|-----------|--------------|-----|
+| New module, class, or endpoint | **Full pipeline** (Planner → Generator → Executor) | Benefits from separate planning, implementation, and verification roles |
+| Feature spanning 3+ files | **Full pipeline** + Code Architect | Architectural risk is high — independent design review |
+| Bug fix (single file, root cause known) | **Direct path** | Planning overhead is waste |
+| Typo, formatting, config value | **Direct path** | No pipeline needed |
+| Refactoring (behavior-preserving) | **Planner → Generator → Executor** (skip Code Architect) | Need plan but not architecture review |
+| Unknown failure / regression | **Healer** (standalone) | Need diagnosis before any fix |
+| Research / exploration | **Direct path** | Agents build things — research happens inline |
+
+**The pipeline rule:** when in doubt, use the pipeline. The overhead of spawning agents is minimal compared to the cost of unplanned, unreviewed, unverified code.
+
+### Orchestration Pattern
+
+The full workflow for any non-trivial task:
+
+```
+SESSION START → bootstrap check → read state → pick feature → SCOPE (one feature)
+    → PLAN (spawn planner agent) → ARCHITECT (spawn code-architect, optional)
+    → GENERATE (spawn generator agent) → EXECUTE (spawn executor agent)
+    → [ON FAILURE: HEAL (spawn healer agent) → GENERATE → EXECUTE — max 3 loops]
+    → VERIFY (harness-engineering:verify) → REVIEW (independent review agent)
+    → TRACK (update state) → SESSION END (clean state)
 ```
 
 ## Reference Files
@@ -124,16 +161,199 @@ The feature sub-skill handles:
 
 ---
 
-### Phase 3: IMPLEMENT — Build the Feature
+### Phase 3: IMPLEMENT — Spawn the Agent Pipeline
 
-The agent implements the feature. Harness rules that apply:
+**This is the core phase. Use the decision table above to choose pipeline vs. direct path.**
 
-1. **WIP=1** — no scope creep, no "while I'm here" refactoring
-2. **No placeholders** — `pass`, `TODO`, `NotImplementedError` are forbidden in committed code
-3. **Every commit must leave `init.sh` passing** — never commit broken state
-4. **Auto-track after every commit** — update progress.md, feature_list.json
+#### Direct Path (simple tasks only)
 
-**CRITICAL:** The walkinglabs principle: agents must NOT declare completion just because code was written. Evidence required. Verification must run. That's Phase 4.
+For typo fixes, config values, single-line bug fixes — do the work inline. Then proceed to Phase 4.
+
+#### Full Pipeline (non-trivial work)
+
+The conductor spawns each agent in sequence. Each agent works independently — you wait for its result, read it, then hand off to the next agent.
+
+---
+
+**Step 3a — PLAN: Spawn the `planner` agent**
+
+Spawn the planner agent using the Agent tool. Give it:
+- The active feature from `feature_list.json` (ID, title, user_visible_behavior, verification criteria)
+- The project directory path
+- Any additional user context or constraints
+
+```
+Spawn agent: planner
+Prompt: "Plan the implementation for [feature ID]: [feature title].
+
+Feature behavior: [user_visible_behavior from feature_list.json]
+Verification criteria: [verification steps from feature_list.json]
+Project directory: [path]
+
+Read AGENTS.md, progress.md, and feature_list.json for context.
+Explore the codebase to understand existing types, patterns, and architecture.
+For non-trivial features, consult the code-architect agent during design.
+
+Produce a blueprint with task breakdown, dependencies, and verification steps.
+Use the blueprint output format: Context → Task Breakdown → Execution Phases → Risks."
+```
+
+**The planner returns a blueprint.** Read it. The blueprint must have:
+- Task breakdown table (ID, task, complexity, agent, files, dependencies, verification)
+- Execution phases with parallelism noted
+- Risks and mitigations
+
+If the blueprint is vague or incomplete, send it back to the planner with specific questions. Do NOT proceed to generation until the blueprint is solid.
+
+**Gate:** Blueprint reviewed and approved by the conductor.
+
+---
+
+**Step 3b — ARCHITECT (optional): Spawn the `code-architect` agent**
+
+Required when:
+- The feature creates a new module or package
+- The feature spans 3+ files
+- The feature introduces a new architectural pattern
+- The planner's risk assessment flagged structural concerns
+
+```
+Spawn agent: code-architect
+Prompt: "Review the architecture for this blueprint:
+
+[Paste the planner's blueprint here]
+
+Audit the proposed architecture against SOLID principles, layer discipline,
+and pattern selection. Read existing code before recommending.
+
+Produce an architecture review with violations, pattern recommendations, and verdict.
+Use the output format: Summary → Violations → Pattern Recommendations → Verdict."
+```
+
+If the code-architect returns CHANGES REQUESTED or REJECTED, send the review back to the planner to adapt the blueprint. Loop until APPROVED or APPROVED WITH CHANGES.
+
+**Gate:** Architecture approved (or step skipped for simple features).
+
+---
+
+**Step 3c — GENERATE: Spawn the `generator` agent**
+
+Give the generator the approved blueprint:
+
+```
+Spawn agent: generator
+Prompt: "Implement this blueprint. Follow all code-quality rules and TDD discipline.
+
+Blueprint:
+[paste the full blueprint from the planner, including any code-architect revisions]
+
+Project directory: [path]
+
+Before writing code:
+1. Read AGENTS.md for project conventions and hard constraints
+2. Read feature_list.json and progress.md for context
+3. Invoke the appropriate code-quality skill (code-quality:python or code-quality:rust)
+4. Discover project types — build a Type Inventory before writing function signatures
+
+During implementation:
+- TDD: write failing test first, then minimal code, then refactor
+- Code quality: types everywhere, DI, enums, no bare except, flat functions, no water
+- No placeholders: every function complete, no pass/TODO/NotImplementedError
+
+After all tasks complete, produce a Generator Handoff:
+- Completed tasks with commit hashes
+- Files changed
+- Verification: lint, type-check, and test results (Layer 1 and 2 passing)
+- Notes: any env vars or dependencies added"
+```
+
+**The generator writes code and produces a handoff.** The handoff must show:
+- All tasks from the blueprint completed
+- Layer 1 (lint + type-check) passing
+- Layer 2 (unit tests) passing
+- No placeholders, no debug artifacts
+
+If the generator reports unresolved issues, do NOT proceed. Send back specific instructions.
+
+**Gate:** Generator handoff received, self-verification passing.
+
+---
+
+**Step 3d — EXECUTE: Spawn the `executor` agent**
+
+The executor independently verifies what the generator built:
+
+```
+Spawn agent: executor
+Prompt: "Verify the implementation independently.
+
+Generator handoff:
+[paste the generator's handoff]
+
+Blueprint verification criteria:
+[paste verification steps from the blueprint]
+
+Project directory: [path]
+
+Run the full 3-layer verification pipeline:
+1. Layer 1: Static analysis (ruff + mypy / clippy) — expect 0 errors
+2. Layer 2: Runtime tests (pytest / cargo test) — expect all passing
+3. Layer 3: E2E / smoke tests if the feature crosses component boundaries
+
+The Iron Law applies: never claim completion without fresh verification evidence from THIS session.
+
+If all layers pass: report success with full output as evidence.
+If any layer fails: produce an Executor Escalation with exact error output, commit hash, and files involved."
+```
+
+**Two outcomes:**
+
+| Executor Result | Conductor Action |
+|----------------|-----------------|
+| **PASS** — all layers green | Proceed to Phase 4 (Verify) |
+| **FAIL** — any layer red | Proceed to Step 3e (Healer) |
+
+**Gate:** Executor reports all layers passing, OR escalation sent to healer.
+
+---
+
+**Step 3e — HEAL (on failure): Spawn the `healer` agent**
+
+Only when the executor reports a failure:
+
+```
+Spawn agent: healer
+Prompt: "Diagnose and prescribe a fix for this failure.
+
+Executor escalation:
+[paste the executor's escalation report]
+
+Planner blueprint:
+[paste the original blueprint]
+
+Project directory: [path]
+
+Follow the diagnostic protocol:
+1. Investigate — read the failing output, source files, spec, and blueprint
+2. Reproduce — confirm the failure is real
+3. Classify — map to one of five harness layers (Instructions/Environment/State/Scope/Verification)
+4. Determine root cause — specific file:line references
+5. Prescribe the fix — tell the generator exactly what to change
+
+Produce a Healer Diagnosis with:
+- Root cause layer and explanation
+- Exact fix instructions (file, line, change, expected result)
+- Additional checks to verify
+- Harness improvement: could this failure class have been prevented?"
+```
+
+After the healer responds:
+1. Read the diagnosis
+2. **Spawn the `generator` again** with: the original blueprint + the healer's fix instructions + "Apply these fixes"
+3. **Spawn the `executor` again** with the new generator handoff
+4. **Max 3 healing loops** — if the same failure persists after 3 cycles, escalate to the user with full diagnostic history
+
+**Gate (after healer loop):** Executor reports all layers passing, or user escalation.
 
 ---
 
@@ -151,6 +371,8 @@ The verification sub-skill enforces the walkinglabs Iron Law:
 4. **VERIFY:** Does output confirm the claim?
 5. **ONLY THEN:** Make the claim
 
+**Note:** If the full pipeline ran (Phase 3), the executor already produced verification evidence. The conductor still re-runs the top-level verification command to confirm the executor's findings — two independent verifications, not one.
+
 **Gate:** Verification command ran THIS session, output shows ZERO failures, evidence recorded.
 
 ---
@@ -163,6 +385,8 @@ The review sub-skill enforces the walkinglabs principle: **separate the doer fro
 
 **Required for:** New modules, functions >15 lines, API endpoints, changes spanning 3+ files.
 **Optional for:** Single-line bug fixes, typos, config values.
+
+**Note:** The generator, executor, and healer agents are all "doers" in this context. The review agent spawned here is independent of all of them — it has not seen the code before.
 
 **Gate:** Review passed (or not required). All BLOCKING and MAJOR findings fixed.
 
@@ -226,17 +450,41 @@ The diagnostic loop from walkinglabs Lecture 01:
 
 ## Quick Reference
 
-| Phase | Sub-Skill to Invoke | What Happens |
-|-------|-------------------|--------------|
-| 0. Bootstrap | `harness-engineering:bootstrap` | Create AGENTS.md, feature_list.json, progress.md, init.sh |
-| 1. Session Start | `harness-engineering:session` | Clock-in: read all state, verify environment |
-| 2. Scope | `harness-engineering:feature` | Pick one feature, WIP=1, define done |
-| 3. Implement | — | Build the feature (no sub-skill — just work) |
-| 4. Verify | `harness-engineering:verify` | Evidence before claims, fresh verification |
-| 5. Review | `harness-engineering:review` | Independent review agent |
-| 6. Track | — | Update progress.md, feature_list.json, commit |
-| 7. Session End | `harness-engineering:session` | Clock-out: 8-item exit checklist |
-| On Failure | `harness-engineering:diagnose` | Attribute to layer → fix harness → retry |
+| Phase | What Happens | Who Does the Work |
+|-------|-------------|-------------------|
+| 0. Bootstrap | Create AGENTS.md, feature_list.json, progress.md, init.sh | Conductor via `harness-engineering:bootstrap` |
+| 1. Session Start | Clock-in: read all state, verify environment | Conductor via `harness-engineering:session` |
+| 2. Scope | Pick one feature, WIP=1, define done | Conductor via `harness-engineering:feature` |
+| 3a. Plan | Decompose goal into structured blueprint | **`planner` agent** (opus), optionally consults `code-architect` |
+| 3b. Architect | Architecture review, SOLID audit | **`code-architect` agent** (opus) — optional, for non-trivial features |
+| 3c. Generate | Write all code, tests, configs following TDD + code-quality | **`generator` agent** (sonnet) |
+| 3d. Execute | Run 3-layer verification pipeline, collect evidence | **`executor` agent** (sonnet) |
+| 3e. Heal | Diagnose root cause, prescribe fix, close feedback loop | **`healer` agent** (opus) — only on executor failure, max 3 loops |
+| 4. Verify | Evidence before claims, fresh verification | Conductor via `harness-engineering:verify` |
+| 5. Review | Independent review — separate doer from checker | Conductor via `harness-engineering:review` (spawns review agent) |
+| 6. Track | Update progress.md, feature_list.json, commit | Conductor |
+| 7. Session End | Clock-out: 8-item exit checklist | Conductor via `harness-engineering:session` |
+| On Failure | Attribute to layer → fix harness → retry | Conductor via `harness-engineering:diagnose`, or `healer` agent for code failures |
+
+### Agent Pipeline Summary
+
+```
+CONDUCTOR (this session, any model)
+    │
+    ├─ Phase 1-2: Clock-in + Scope (sub-skills)
+    │
+    ├─ Phase 3a: Spawn PLANNER (opus) → gets blueprint
+    ├─ Phase 3b: Spawn CODE-ARCHITECT (opus) → gets architecture review [optional]
+    ├─ Phase 3c: Spawn GENERATOR (sonnet) → writes all code
+    ├─ Phase 3d: Spawn EXECUTOR (sonnet) → runs verification
+    ├─ Phase 3e: Spawn HEALER (opus) → diagnoses failure [on executor fail]
+    │       └─ Back to 3c (max 3 loops)
+    │
+    ├─ Phase 4-5: Verify + Review (sub-skills)
+    ├─ Phase 6-7: Track + Clock-out (conductor)
+    │
+    └─ DONE
+```
 
 ## Hard Constraints (Non-Negotiable)
 
@@ -249,6 +497,7 @@ These come directly from walkinglabs:
 5. **Leave a clean state** — every session ends with the repo restartable from `./init.sh`
 6. **Separate doer from checker** — the agent that wrote the code cannot be the sole judge of its quality
 7. **Repo is the system of record** — if it's not in the repo, it doesn't exist for the agent
+8. **Spawn agents for non-trivial work** — the conductor must spawn the planner, generator, and executor agents. Do NOT do their work inline. The pipeline exists for a reason: independent planning, implementation, and verification produce better results than one agent doing everything.
 
 ## Further Reading
 

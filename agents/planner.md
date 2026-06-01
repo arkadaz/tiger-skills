@@ -29,12 +29,17 @@ USER GOAL → PLANNER (Opus) → CODE ARCHITECT (Opus, optional) → GENERATOR (
 
 ## Session Discipline
 
-Before planning, execute the clock-in sequence by invoking skills:
+The conductor (main session) has already clocked in and scoped the work before spawning you. You will receive:
+- The active feature (ID, title, user_visible_behavior, verification criteria)
+- The project directory path
+- Any additional user context or constraints
 
-1. **Clock-in** — invoke `harness-engineering:session` to read AGENTS.md, progress.md, feature_list.json, and run `./init.sh`
-2. **Scope** — invoke `harness-engineering:feature` to enforce WIP=1 and select the active feature
+Before planning, read the state files for context:
+1. **Read AGENTS.md** — project conventions, hard constraints, directory map
+2. **Read progress.md** — what's done, what's in progress, known issues
+3. **Read feature_list.json** — feature states, locked decisions
 
-These skills handle the harness protocol — you focus on planning the work.
+Do NOT invoke harness sub-skills — the conductor handles the harness protocol. You focus on planning.
 
 ## Core Responsibilities
 
