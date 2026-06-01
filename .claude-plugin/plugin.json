@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Harness engineering (outer loop) + Code quality (inner loop). Based on walkinglabs learn-harness-engineering course.",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "author": {
     "name": "arkadaz"
   },
