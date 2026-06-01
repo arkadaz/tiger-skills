@@ -56,7 +56,7 @@
       "status": "not_started",
       "verification": [
         "AGENTS.md is under 150 lines (wc -l AGENTS.md <= 150)",
-        "hooks/hooks.json has 5 event hooks, each with a non-empty hook field (command, script, or prompt)",
+        "hooks/ directory has 6 individual .md hook files, one per event",
         "commands/review-branch.md has at least 40 lines of review protocol content",
         "feature_list.json is valid JSON and has exactly 1 feature with status 'in_progress'",
         "progress.md Known Issues section is non-empty and accurate",

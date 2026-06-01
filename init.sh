@@ -37,7 +37,7 @@ echo ""
 # ── Layer 1: JSON validity ──────────────────────────────────────────
 echo "── Layer 1: JSON validity ──"
 
-JSON_FILES=".claude-plugin/plugin.json .claude-plugin/marketplace.json feature_list.json hooks/hooks.json .mcp.json"
+JSON_FILES=".claude-plugin/plugin.json .claude-plugin/marketplace.json feature_list.json .mcp.json"
 for f in $JSON_FILES; do
     if [ ! -f "$f" ]; then
         fail "$f is missing"
@@ -138,17 +138,16 @@ print(p.get('autoDiscovery',{}).get('commands',['commands/'])[0].strip())
         fail "Command path broken: $CMD_PATH"
     fi
 
-    # hooks — defined directly in plugin.json (not autoDiscovery)
-    HOOK_COUNT=$(pyrun "
-import json
-p = json.load(open('.claude-plugin/plugin.json'))
-hooks = p.get('hooks', [])
-print(len(hooks))
-" || echo "0")
-    if [ "$HOOK_COUNT" -gt 0 ]; then
-        pass "Hooks defined in plugin.json: $HOOK_COUNT hooks"
+    # hooks — individual .md files in hooks/ directory
+    if [ -d "hooks" ]; then
+        HOOK_COUNT=$(find hooks -name '*.md' -type f 2>/dev/null | wc -l)
+        if [ "$HOOK_COUNT" -gt 0 ]; then
+            pass "Hook files found: hooks/ ($HOOK_COUNT hooks)"
+        else
+            fail "No hook files found in hooks/"
+        fi
     else
-        fail "No hooks found in plugin.json"
+        fail "hooks/ directory missing"
     fi
 else
     echo "  (skipping path resolution — no Python or no plugin.json)"
