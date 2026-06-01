@@ -1,0 +1,87 @@
+{
+  "project": "tiger-skills",
+  "last_updated": "2026-06-01",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "Work has not begun.",
+    "in_progress": "The feature is the current active task.",
+    "blocked": "Work cannot continue until a documented blocker is resolved.",
+    "passing": "Required verification has passed and evidence is recorded."
+  },
+  "features": [
+    {
+      "id": "harness-rewrite",
+      "priority": 1,
+      "area": "harness-engineering",
+      "title": "Rewrite harness-engineering from scratch based on walkinglabs",
+      "user_visible_behavior": "Harness-engineering skill follows the walkinglabs 5-subsystem model (Instructions, Environment, State, Scope, Verification) with 6 sub-skills (bootstrap, session, feature, verify, review, diagnose). All old references deleted. New references: five-subsystems.md, diagnostic-loop.md, minimal-pack.md, session-lifecycle.md, verification-pipeline.md, scope-control.md.",
+      "status": "in_progress",
+      "verification": [
+        "skills/harness-engineering/SKILL.md exists and its frontmatter name is 'harness-engineering'",
+        "All 6 sub-skill directories (bootstrap, session, feature, verify, review, diagnose) exist under skills/ with a SKILL.md in each",
+        "All 6 reference files exist under skills/harness-engineering/references/ (five-subsystems.md, diagnostic-loop.md, minimal-pack.md, session-lifecycle.md, verification-pipeline.md, scope-control.md)",
+        "None of the 7 old references exist (doc-first.md, hooks.md, repo-system.md, session-discipline.md, task-management.md, verification.md, workflow.md)",
+        "plugin.json autoDiscovery.skills includes all 7 harness-engineering skill paths"
+      ],
+      "evidence": [],
+      "notes": "Files created. init.sh still has placeholder commands \u00e2\u20ac\u201d verification cannot run. See Known Issues in progress.md."
+    },
+    {
+      "id": "code-quality-rewrite",
+      "priority": 2,
+      "area": "code-quality",
+      "title": "Rewrite code-quality with sub-skills",
+      "user_visible_behavior": "Code-quality skill acts as a router with 5 sub-skills: review (independent review agent), audit (design principle audit), fix (known fix patterns), python (Python rules), rust (Rust rules). Main SKILL.md lists all 16 principles and 13 patterns, then routes to sub-skills.",
+      "status": "not_started",
+      "verification": [
+        "skills/code-quality/SKILL.md frontmatter name is 'code-quality' and description mentions sub-skills",
+        "All 5 sub-skill directories exist with SKILL.md (review, audit, fix, python, rust)",
+        "skills/code-quality/SKILL.md lists exactly 16 design principles",
+        "Cross-file counts are consistent: code-quality:review SKILL.md and references/review-agent.md both reference the same total item count (27)",
+        "plugin.json autoDiscovery.skills includes all 6 code-quality skill paths"
+      ],
+      "evidence": [],
+      "notes": "Sub-skill files created but cross-file number inconsistencies found. Blocked by harness-rewrite completion."
+    },
+    {
+      "id": "project-cleanup",
+      "priority": 3,
+      "area": "project",
+      "title": "Clean up project files and align everything",
+      "user_visible_behavior": "AGENTS.md updated to reflect new structure. hooks/hooks.json has functional hooks with commands. commands/review-branch.md has real content. feature_list.json tracks real features with WIP=1 enforced. progress.md is current and truthful. marketplace.json has correct skill count. No unused code or files.",
+      "status": "not_started",
+      "verification": [
+        "AGENTS.md is under 150 lines (wc -l AGENTS.md <= 150)",
+        "hooks/hooks.json has 5 event hooks, each with a non-empty hook field (command, script, or prompt)",
+        "commands/review-branch.md has at least 40 lines of review protocol content",
+        "feature_list.json is valid JSON and has exactly 1 feature with status 'in_progress'",
+        "progress.md Known Issues section is non-empty and accurate",
+        "marketplace.json description says '13 skills total' (not 12)"
+      ],
+      "evidence": [],
+      "notes": "Blocked by harness-rewrite and code-quality-rewrite completion."
+    },
+    {
+      "id": "agents-update",
+      "priority": 4,
+      "area": "agents",
+      "title": "Update agents to reference new harness-engineering and code-quality sub-skills",
+      "user_visible_behavior": "All 5 agents (planner, generator, executor, healer, code-architect) reference the new sub-skill names and walkinglabs patterns. Code-architect has a defined position in the agent workflow. No agent reimplements functionality that a sub-skill already provides.",
+      "status": "not_started",
+      "verification": [
+        "planner.md references harness-engineering:session for clock-in and harness-engineering:feature for scope",
+        "generator.md references code-quality:python and code-quality:rust by exact skill name",
+        "executor.md references harness-engineering:verify instead of duplicating the verification pipeline inline",
+        "healer.md references harness-engineering:diagnose instead of duplicating the diagnostic loop inline",
+        "code-architect.md references code-quality:audit and code-quality:review by exact skill name",
+        "planner.md workflow diagram shows code-architect as an optional consultation step (5-agent workflow, not 4)"
+      ],
+      "evidence": [],
+      "notes": "Blocked by all feature completions above."
+    }
+  ]
+}

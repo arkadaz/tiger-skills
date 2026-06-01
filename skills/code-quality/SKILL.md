@@ -1,167 +1,86 @@
 ---
 name: code-quality
-description: Enforce code quality when writing, reviewing, refactoring, or auditing code in ANY language. Use this skill whenever the user mentions code quality, clean code, design principles, software design, SOLID, refactoring, code review, wants to improve code, or asks about writing well-designed code. Supports Python and Rust with language-specific rules. Also use when the user says "make this better", "improve this", "clean up this code", or any variation suggesting code improvement. This skill is rigid — its rules must be followed, not negotiated.
+description: Enforce code quality when writing, reviewing, refactoring, or auditing code in ANY language. Based on 16 design principles and 13 design patterns from Software Design for Python Programmers by Ronald Mak. Use when the user mentions code quality, clean code, design principles, SOLID, refactoring, code review, or wants to improve code. Supports Python and Rust with language-specific rules. This skill is rigid — its rules must be followed, not negotiated.
 ---
 
 # Code Quality
 
-Enforces design principles from *Software Design for Python Programmers* by Ronald Mak, plus language-specific rules for types, validation, logging, and clean code. Supports **Python** and **Rust**.
+Based on *Software Design for Python Programmers* by Ronald Mak (Manning Publications, 2026). Language-agnostic principles with Python and Rust enforcement rules.
 
-## Relationship to harness-engineering
+## How This Skill Works — Router Model
 
-This skill is the **inner loop** — applied during implementation. Load [harness-engineering](../harness-engineering/SKILL.md) for the **outer loop** (session discipline, spec-before-code, verification pipeline). The two skills hand off at specific points:
-- **Phase 5 BEFORE** — harness requires passing the comprehension gate (read all principles + language rules) before any code is written
-- **Phase 5 DURING** — all code must comply with code-quality rules (13 design principles + language-specific rules)
-- **Phase 6 Step 3** — harness spawns an independent code-quality review agent (per `references/review-agent.md`) to audit the diff
-- **Phase 6 GATE** — code quality review must pass (0 MAJOR/BLOCKING findings) before completion
+This skill is a **router**. Load the principles here, then invoke sub-skills for specific tasks:
 
-## Language Detection
-
-Detect the project language from file extensions, Cargo.toml/pyproject.toml, or user context:
-- `.py`, `pyproject.toml`, `requirements.txt` → Python — load [references/python-rules.md](references/python-rules.md)
-- `.rs`, `Cargo.toml` → Rust — load [references/rust-rules.md](references/rust-rules.md)
-- Mixed project → load both
-
-## Five Non-Negotiables (Language-Agnostic)
-
-1. **Explore before implement.**
-2. **Types first.** Every type annotation fully parameterized. No bare `dict`/`list`/`set`/`tuple`. Never untyped data flowing through business logic.
-3. **Lint and type-check every change.** Zero errors tolerated.
-4. **Logs always.** Never `print()` / `println!()` for operational output.
-5. **No water.** Every line earns its place.
-
-## Comprehension Gate — READ BEFORE WRITING CODE
-
-**Before writing, modifying, or reviewing any code, the agent MUST fully read and understand ALL applicable rules AND discover all existing types in the codebase.** Skimming the checklist is not reading. "I get the idea" is not understanding. The reference files exist because the rules cannot be summarized in a checklist — the agent must read them.
-
-### Mandatory Reading Sequence
-
-Execute in strict order. Do not skip any step. Do not write code until all steps complete. **If you think you already know the rules from a previous session, you're wrong — read them again. Rules evolve, and memory degrades.**
-
-1. **Discover project types (Codebase Type Discovery)** — BEFORE reading any reference file, find and read ALL existing type definitions in the project. This is the single most important step. Agents that skip this write `cfg: Any` when `AppConfig` exists 3 files away.
-
-   **Execute these searches IN ORDER:**
-   ```
-   a. Glob for model/type files:  **/*.py (or **/*.rs) — focus on models/, types/, schemas/, core/ directories
-   b. Grep for type definitions:  "class.*BaseModel|class.*TypedDict|@dataclass|class.*Enum|NewType|TypeAlias|type .*=" 
-   c. Grep for config types:      "class.*Config|class.*Settings|class.*Options"
-   d. Grep for driver/client types: "class.*Driver|class.*Client|class.*Connection|class.*Session"
-   e. Read EVERY file that matches — not just the class name, the FULL file with all fields and methods
-   ```
-
-   **Build a Type Inventory** — after reading, you MUST be able to answer:
-   - What is the config type? (e.g., `AppConfig`, `Settings`, `PipelineConfig`)
-   - What are the driver/client types? (e.g., `Neo4jDriver`, `AsyncDriver`, `HttpClient`)
-   - What domain models exist? (e.g., `Checkpoint`, `EntityRow`, `UserRecord`)
-   - What enums exist? (e.g., `OrderStatus`, `AgentKey`, `PipelinePhase`)
-   - What type aliases exist? (e.g., `JsonValue`, `UserId`)
-
-   **Rule — No `Any`, ever. Two cases:**
-   - **Type exists in the codebase** → use it. `Any` when a real type exists = BLOCKING violation.
-   - **Type does NOT exist** → CREATE it first, then use it. `Any` is never acceptable — if you need a type and it doesn't exist, that means you must define a Pydantic model, dataclass, TypedDict, Enum, Protocol, or NewType BEFORE writing the function that needs it. A function with `Any` tells the reader nothing about what it accepts or returns. A function with `CommitteeResult` tells them everything.
-
-   **The "create-before-use" rule applies to return types too.** If a function returns a dict, list of tuples, or any structured data — define a type for it. The reader should never have to read the function body to understand what it returns.
-
-   ```python
-   # WRONG — returns untyped dict, caller has no idea what keys exist
-   def analyze_ticker(ticker: str) -> dict[str, Any]:
-       return {"score": 0.85, "signals": ["bullish"], "timestamp": now()}
-
-   # CORRECT — create the type, now caller knows exactly what they get
-   class TickerAnalysis(BaseModel):
-       score: float
-       signals: list[str]
-       timestamp: datetime
-
-   def analyze_ticker(ticker: str) -> TickerAnalysis:
-       return TickerAnalysis(score=0.85, signals=["bullish"], timestamp=now())
-   ```
-
-2. **Read all project documentation** — Read every `.md` file that provides context about the codebase:
-   - `AGENTS.md` / `CLAUDE.md` — project conventions, hard constraints, architecture
-   - `PROGRESS.md` — what's done, what's in progress, known issues
-   - `DECISIONS.md` — locked architectural choices
-   - `docs/GRAPH.md` — code flow connections
-   - `docs/codebase-map.md` — file roles and dependencies
-   - `docs/business/*.md` — domain rules
-   - `docs/specs/*.md` — feature specifications (at least the relevant one)
-
-   **Why:** These files contain context that prevents you from re-inventing existing patterns, contradicting locked decisions, or misunderstanding domain rules. An agent that doesn't read them will build the wrong thing.
-
-3. **Read design principles** — [references/design-principles.md](references/design-principles.md). Every principle. Every violation signal. Every fix. All 13. Do not skim the table — read the full text for each principle. Understanding WHY a principle exists is what prevents you from violating it.
-4. **Read language rules** — [references/python/rules.md](references/python/rules.md) or [references/rust/rules.md](references/rust/rules.md). Naming conventions (no leading-underscore on ANY name), Pydantic/serde at boundaries, fully parameterized generics (no bare dict/list/set/tuple), enums for all fixed choices, structured logging, flat functions (no nested def), empty `__init__.py`, config injection, one-way imports, no water.
-5. **Read language examples** — [references/python/examples.md](references/python/examples.md) or [references/rust/examples.md](references/rust/examples.md). See each principle and pattern in real code. The examples show correct implementation — copy the pattern, not just the concept.
-6. **If designing new components/architecture:** Read [references/design-patterns.md](references/design-patterns.md). Pattern selection guide, when to use which pattern, the cheat sheet.
-
-### Comprehension Self-Check
-
-Before writing ANY code, the agent must answer YES to ALL seven questions:
-
-- [ ] Can I list every type in this project's Type Inventory? (config types, driver types, domain models, enums, type aliases)
-- [ ] For the code I'm about to write, do I know the EXACT type for every parameter? (not `Any`, not `object` — the real type)
-- [ ] Can I name all 13 design principles and what violation each prevents?
-- [ ] Can I recognize at least one violation signal for each principle?
-- [ ] Do I know all 11 tooling rules (types, DI, enums, naming, logging, exceptions, lint, type-check, no-water, flat-functions, init-files)?
-- [ ] Do I know what code I'm about to write and which rules are most relevant to it?
-- [ ] If I encountered a violation while reviewing, do I know the correct fix pattern?
-
-**If ANY answer is NO:** Re-read the relevant reference file or re-run the type discovery. Do not write code until all seven are YES.
-
-### Gate Rule
-
-**Do not write, modify, or review a single line of code until the mandatory reading sequence is complete AND the comprehension self-check passes all seven items.** The agent's first response after loading this skill must include: "Type inventory: [N types discovered]. Read [N] reference files. Read [N] doc files. Comprehension check: [PASS/FAIL]." Only then may code work begin.
-
-### Quick Reference
-
-Once the comprehension gate passes, use these as reminders while implementing:
-
-| Reference | Use When |
+| Sub-Skill | Use When |
 |-----------|----------|
-| [references/design-principles.md](references/design-principles.md) | Checking your code against all 13 principles |
-| [references/design-patterns.md](references/design-patterns.md) | Choosing a pattern for new architecture |
-| [references/python/rules.md](references/python/rules.md) | Python — every line must comply |
-| [references/rust/rules.md](references/rust/rules.md) | Rust — every line must comply |
-| [references/python/examples.md](references/python/examples.md) | Python — need a reference implementation |
-| [references/rust/examples.md](references/rust/examples.md) | Rust — need a reference implementation |
-| [references/review-agent.md](references/review-agent.md) | After implementing — spawn independent review |
+| `code-quality:review` | Reviewing a diff for quality violations — independent review agent |
+| `code-quality:audit` | Auditing existing code for design principle violations |
+| `code-quality:fix` | Fixing specific violations with known fix patterns |
+| `code-quality:python` | Python-specific rules — types, DI, enums, naming, logging, project structure |
+| `code-quality:rust` | Rust-specific rules — traits, ownership, error handling, module structure |
 
-## Audit Checklist (Quick Reference)
+## 16 Design Principles
 
-When reviewing code, check all 13 [design principles](references/design-principles.md) plus these 12 tooling items:
+| # | Principle | Summary |
+|---|-----------|---------|
+| 1 | **Single Responsibility** | Each class/module has exactly one reason to change |
+| 2 | **Encapsulate What Varies** | Isolate code that can change from code that won't |
+| 3 | **Least Knowledge** (Law of Demeter) | Expose only what others need |
+| 4 | **Don't Repeat Yourself (DRY)** | No duplicate code — one authoritative representation |
+| 5 | **Open-Closed** | Open for extension, closed for modification |
+| 6 | **Code to the Interface** | Depend on abstractions, not concretions |
+| 7 | **Liskov Substitution** | Subtypes must fully substitute their supertypes |
+| 8 | **Composition over Inheritance** | HAS-A over IS-A |
+| 9 | **Least Astonishment** | No surprises — behavior matches name |
+| 10 | **Lazy Evaluation** | Defer expensive work until needed |
+| 11 | **Class Invariant** | Condition must remain true across state changes |
+| 12 | **Precondition** | What must be true before calling |
+| 13 | **Postcondition** | What must be true after returning |
+| 14 | **Delegation** | Delegate tasks to the best-suited class |
+| 15 | **Factory** | Encapsulate object creation |
+| 16 | **Defensive Programming** | Guard against invalid states at every boundary |
 
-1. **Type discovery done** — agent read all existing types in the codebase BEFORE writing code. If `AppConfig` exists and the code says `cfg: Any`, the agent skipped type discovery — BLOCKING violation.
-2. Types — Pydantic/serde at boundaries, fully parameterized generics, no `Any`/`object` as inner type parameter (replace with: TypedDict/Pydantic/dataclass for data, Callable/Protocol for callables, NewType for primitives, Enum/Literal for fixed sets). **`Any` when a real type exists in the codebase = BLOCKING, not just a style issue.**
-3. DI — external dependencies (driver, client, connection, session) constructor-injected, never passed as function parameters
-4. Enums — all fixed choice sets are enums, including factory/registry keys (no magic strings)
-5. Naming — no leading-underscore on ANY name (functions, methods, variables, attributes); `__init__.py` must be empty
-6. Logging — structured logging, no print()/println!()
-7. No bare except — specific exceptions only
-8. Lint clean — project linter passes
-9. Type check clean — project type checker passes
-10. No water — every line earns its place
-11. Flat functions — no nested `def` inside `def`; every function at module level or class method
-12. Init files — `__init__.py` present in every package directory, always empty
+## 13 Design Patterns
 
-### `Any` Is Never Acceptable — Create or Use
+| Category | Pattern | When |
+|----------|---------|------|
+| Behavioral | **Template Method** | Fixed algorithm steps, some vary by context |
+| Behavioral | **Strategy** | Multiple interchangeable algorithms |
+| Behavioral | **Observer** | One produces data, many consume it |
+| Behavioral | **State** | Object behavior depends on its state |
+| Behavioral | **Visitor** | Different algorithms on a collection of mixed types |
+| Behavioral | **Iterator** | Traverse collections without exposing implementation |
+| Creational | **Factory Method** | Subclass decides what to create |
+| Creational | **Abstract Factory** | Families of related objects |
+| Creational | **Singleton** | At most one instance |
+| Structural | **Adapter** | Incompatible interfaces need to work together |
+| Structural | **Facade** | Complex subsystem needs simple interface |
+| Structural | **Composite** | Part-whole hierarchy, treat uniformly |
+| Structural | **Decorator** | Add responsibilities dynamically at runtime |
 
-**`Any` is banned from all function signatures, return types, and variable annotations.** There are zero valid uses of `Any` in business logic. If you think you need `Any`, you are wrong — you need to create a type.
+## Five Non-Negotiables
 
-| Situation | Severity | Required Action |
-|-----------|----------|-----------------|
-| `Any` used, matching type EXISTS in project (e.g., `cfg: Any` when `AppConfig` exists) | **BLOCKING** | Use the existing type. Agent skipped type discovery. |
-| `Any` used, no matching type exists — but data has known structure | **BLOCKING** | Create the type FIRST (Pydantic/dataclass/TypedDict), then use it. The structure is known — `Any` is laziness. |
-| `Any` as return type (e.g., `-> dict[str, Any]`, `-> list[Any]`) | **BLOCKING** | Create a named return type. Callers must know what they receive without reading the function body. |
-| `Any` in truly generic utility (JSON parser, cache, serializer) | MINOR | Replace with `JsonValue` union type if possible. Document why `Any` is unavoidable. |
+1. **Explore before implement** — read existing code, docs, and types first
+2. **Types first** — every type annotation fully parameterized, no `Any` in business logic
+3. **Lint and type-check every change** — zero errors tolerated
+4. **Logs always** — never `print()` for operational output
+5. **No water** — every line earns its place
 
-**How to create the right type:**
+## Language Routing
 
-| Data shape | Create this | Example |
-|------------|------------|---------|
-| Structured data with known fields | `class X(BaseModel)` or `@dataclass` | API response, DB row, config, checkpoint result |
-| Read-only record from external source | `class X(TypedDict)` | Query result, parsed JSON with known keys |
-| Fixed set of string/int values | `class X(Enum)` | Status codes, categories, pipeline phases |
-| Primitive with domain meaning | `NewType("X", str)` | `UserId`, `Ticker`, `FilePath` |
-| Callable with specific signature | `Callable[[Args], Return]` or `Protocol` | Handler, resolver, validator |
-| Multiple possible return shapes | `X \| Y` union or `class X(BaseModel)` with optional fields | Success/error result, polymorphic response |
+- `.py` files → invoke `code-quality:python`
+- `.rs` files → invoke `code-quality:rust`
+- Mixed project → invoke both
+- Design/architecture questions → invoke `code-quality:audit`
+- Reviewing a diff → invoke `code-quality:review`
+- Fixing violations → invoke `code-quality:fix`
 
-**The test:** Can a new developer read ONLY the function signature and understand what it accepts and returns? If the answer is no, the types are wrong.
+## Reference Files
+
+| Reference | When |
+|-----------|------|
+| [references/design-principles.md](references/design-principles.md) | Full principle details with violation signals and fix patterns |
+| [references/design-patterns.md](references/design-patterns.md) | Pattern selection guide and one-liner cheat sheet |
+| [references/review-agent.md](references/review-agent.md) | Independent review agent spawn instructions |
+| [references/python/rules.md](references/python/rules.md) | Python — types, DI, enums, naming, logging, project structure |
+| [references/rust/rules.md](references/rust/rules.md) | Rust — traits, ownership, error handling, module structure |

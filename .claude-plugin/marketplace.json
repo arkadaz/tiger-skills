@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "arkadaz",
-  "description": "tiger-skills: harness-engineering (outer loop conductor) orchestrates superpowers skills with state tracking + code-quality (inner loop) enforces design principles on every line",
+  "description": "tiger-skills: harness-engineering (outer loop) based on walkinglabs 5-subsystem model + code-quality (inner loop) based on Mak's 16 design principles. 13 skills total \u00e2\u20ac\u201d 6 harness sub-skills (bootstrap, session, feature, verify, review, diagnose) + 5 code-quality sub-skills (review, audit, fix, python, rust) + 2 conductor skills.",
   "owner": {
     "name": "arkadaz"
   },
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Two skills that work as one system. harness-engineering (outer loop): 8-phase conductor that orchestrates superpowers skills (brainstorming, writing-plans, TDD, subagent-driven-development, systematic-debugging, verification-before-completion) with bootstrap gate, session discipline, auto-track 8 harness files, 3-layer verification pipeline, and 7-point completion gate layered on top. code-quality (inner loop): 13 design principles + 11 tooling rules with comprehension gate, DI enforcement, 5-case type fix, independent review agent.",
+      "description": "Harness engineering + code quality skills system. Harness-engineering: 7 skills based on walkinglabs learn-harness-engineering course \u00e2\u20ac\u201d 5-subsystem model (Instructions, Environment, State, Scope, Verification), minimal harness pack, diagnostic loop, session lifecycle. Code-quality: 6 skills based on Mak's Software Design for Python Programmers \u00e2\u20ac\u201d 16 design principles, 13 design patterns, Python/Rust language rules, independent review. 5 agents in 5-agent workflow (Planner \u00e2\u2020\u2019 Generator \u00e2\u2020\u2019 Executor \u00e2\u2020\u2019 Healer + Code Architect).",
       "author": {
         "name": "arkadaz"
       },
@@ -16,7 +16,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/arkadaz/tiger-skills.git",
-        "sha": "3e92402d93aad31a4d5f3e777b141f079c5f4e46"
+        "sha": "dffe0340"
       },
       "homepage": "https://github.com/arkadaz/tiger-skills"
     }

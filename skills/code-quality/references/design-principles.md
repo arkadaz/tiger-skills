@@ -82,28 +82,50 @@ Defer expensive work until the result is actually needed.
 
 **Fix:** Cache results on first access, use iterators or generators for sequences, and defer loading until the value is actually needed.
 
-## 11. Class Invariant, Precondition, Postcondition
+## 11. Class Invariant Principle
 
-- **Precondition:** What MUST be true before calling a function.
-- **Postcondition:** What MUST be true after it returns.
-- **Invariant:** What MUST remain true across all state changes.
+A given condition for an object MUST remain true as it changes state during run time.
 
-**Violation signals:** Object constructed in invalid state. Setter allows invalid transitions. Function validates what the caller should have validated.
+**Violation signals:** Object constructed in invalid state. Setter allows invalid transitions. Object left in inconsistent state after mutation.
 
-**Fix:** Assert preconditions and postconditions at function entry and exit, and verify invariants in every mutating method.
+**Fix:** Verify invariants in the constructor and in every mutating method. Raise an exception if the invariant is violated.
 
-## 12. Delegation Principle
+## 12. Precondition Principle
 
-Delegate tasks to the module best suited to perform them.
+A given condition MUST be true before calling a function or method.
+
+**Violation signals:** Function validates what the caller should have validated. Caller passes invalid arguments and function behaves unpredictably.
+
+**Fix:** Assert preconditions at function entry. Document what callers must ensure before calling.
+
+## 13. Postcondition Principle
+
+A given condition MUST be true upon return from calling a function or method.
+
+**Violation signals:** Function returns without ensuring its contract. Caller receives unexpected results.
+
+**Fix:** Assert postconditions before returning. Verify the function delivered what it promised.
+
+## 14. Delegation Principle
+
+A class should delegate a task to another class that is better suited to perform the task.
 
 **Violation signals:** Module doing work that belongs to another. Reaching into another object's data.
 
 **Fix:** Move the work into the module that owns the data and call the delegate from the original site.
 
-## 13. Factory Principle
+## 15. Factory Principle
 
-Encapsulate object creation in a dedicated factory.
+Encapsulate object creation in a dedicated factory function or method.
 
 **Violation signals:** if/else chains returning different concrete types scattered through code. Caller knows which concrete type to instantiate.
 
 **Fix:** Create a factory function or struct with a registry so the caller passes a key and receives the correct implementation.
+
+## 16. Defensive Programming
+
+Guard against invalid states and invalid inputs at every boundary.
+
+**Violation signals:** No validation of constructor parameters. Setter allows invalid values. External data enters business logic unchecked.
+
+**Fix:** Validate all inputs at system boundaries. Use Pydantic/serde at I/O boundaries. Never allow an object to enter an invalid state.

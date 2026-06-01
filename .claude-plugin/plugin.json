@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Code-quality (inner loop) and harness-engineering (outer loop) skills that work as one system. harness-engineering is an 8-phase conductor that orchestrates superpowers skills (brainstorming, writing-plans, TDD, subagent-driven-development, systematic-debugging, verification-before-completion) with harness-specific state tracking, session discipline, and verification gates layered on top. code-quality enforces 13 design principles + 11 tooling rules with a comprehension gate and independent review agent.",
-  "version": "2.5.2",
+  "description": "Harness engineering (outer loop) + Code quality (inner loop). Based on walkinglabs learn-harness-engineering course.",
+  "version": "4.0.0",
   "author": {
     "name": "arkadaz"
   },
@@ -9,18 +9,47 @@
   "repository": "https://github.com/arkadaz/tiger-skills",
   "license": "MIT",
   "keywords": [
-    "skills",
-    "code-quality",
     "harness-engineering",
-    "superpowers",
+    "code-quality",
+    "skills",
+    "agents",
+    "subagent-workflow",
     "design-principles",
-    "solid",
+    "verification",
+    "session-discipline",
+    "feature-tracking",
+    "bootstrap",
+    "diagnostic-loop",
+    "code-review",
+    "tdd",
     "python",
     "rust",
-    "tdd",
-    "workflow",
-    "verification",
-    "brainstorming",
-    "subagent"
-  ]
+    "walkinglabs"
+  ],
+  "autoDiscovery": {
+    "skills": [
+      "skills/harness-engineering/",
+      "skills/harness-engineering-bootstrap/",
+      "skills/harness-engineering-session/",
+      "skills/harness-engineering-feature/",
+      "skills/harness-engineering-verify/",
+      "skills/harness-engineering-review/",
+      "skills/harness-engineering-diagnose/",
+      "skills/code-quality/",
+      "skills/code-quality-review/",
+      "skills/code-quality-audit/",
+      "skills/code-quality-fix/",
+      "skills/code-quality-python/",
+      "skills/code-quality-rust/"
+    ],
+    "agents": [
+      "agents/"
+    ],
+    "commands": [
+      "commands/"
+    ],
+    "hooks": [
+      "hooks/hooks.json"
+    ]
+  }
 }

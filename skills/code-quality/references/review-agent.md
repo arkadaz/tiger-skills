@@ -61,7 +61,7 @@ Every review must follow this exact template:
 - **Date:** <YYYY-MM-DD>
 - **Files reviewed:**
   - `src/module/file.py` (N lines changed)
-- **Audit score:** <passed>/19 items
+- **Audit score:** <passed>/27 items
 - **Severity:** <CLEAN / MINOR / MAJOR / BLOCKING>
 
 ## Violations Found
@@ -87,7 +87,7 @@ Every review must follow this exact template:
 
 ## What the Review Agent Checks
 
-The review agent must check all items from the [audit checklist](../SKILL.md#audit-checklist-quick-reference): 13 design principles + 12 tooling items = 25 checks total.
+The review agent must check all items from the [audit checklist](../SKILL.md#audit-checklist-quick-reference): 16 design principles + 11 tooling items = 27 checks total.
 
 **CRITICAL — Type Discovery Check:** Before reviewing, the review agent MUST also run its own codebase type discovery (Grep for all type definitions in the project). When reviewing, if the agent sees `cfg: Any` or `driver: Any`, it must search whether a real type exists (e.g., `AppConfig`, `Neo4jDriver`). If a real type exists and was not used, this is a **BLOCKING** violation — not MAJOR, BLOCKING. The implementation agent skipped type discovery.
 
