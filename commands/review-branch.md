@@ -1,7 +1,3 @@
----
-description: Review a branch — run verification pipeline, spawn independent code quality review, check spec compliance, and produce a review report with evidence.
----
-
 # Review Branch
 
 Review the current branch against all harness quality gates before merging.
