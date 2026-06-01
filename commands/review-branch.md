@@ -1,5 +1,4 @@
 ---
-name: review-branch
 description: Review a branch — run verification pipeline, spawn independent code quality review, check spec compliance, and produce a review report with evidence.
 ---
 

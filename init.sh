@@ -138,17 +138,17 @@ print(p.get('autoDiscovery',{}).get('commands',['commands/'])[0].strip())
         fail "Command path broken: $CMD_PATH"
     fi
 
-    # hooks
-    HOOKS_PATH=$(pyrun "
+    # hooks — defined directly in plugin.json (not autoDiscovery)
+    HOOK_COUNT=$(pyrun "
 import json
 p = json.load(open('.claude-plugin/plugin.json'))
-print(p.get('autoDiscovery',{}).get('hooks',['hooks/'])[0].strip())
-" || echo "")
-    if [ -n "$HOOKS_PATH" ] && [ -f "$HOOKS_PATH" ]; then
-        HOOK_COUNT=$(pyrun "import json; print(len(json.load(open('$HOOKS_PATH')).get('hooks',[])))" || echo "?")
-        pass "Hooks path resolves: $HOOKS_PATH ($HOOK_COUNT hooks)"
-    elif [ -n "$HOOKS_PATH" ]; then
-        fail "Hooks path broken: $HOOKS_PATH"
+hooks = p.get('hooks', [])
+print(len(hooks))
+" || echo "0")
+    if [ "$HOOK_COUNT" -gt 0 ]; then
+        pass "Hooks defined in plugin.json: $HOOK_COUNT hooks"
+    else
+        fail "No hooks found in plugin.json"
     fi
 else
     echo "  (skipping path resolution — no Python or no plugin.json)"
