@@ -13,11 +13,7 @@
         "name": "arkadaz"
       },
       "category": "development",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/arkadaz/tiger-skills.git",
-        "sha": "60a8311"
-      },
+      "source": "./",
       "homepage": "https://github.com/arkadaz/tiger-skills"
     }
   ]
