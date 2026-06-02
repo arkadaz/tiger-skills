@@ -37,6 +37,7 @@ User Request → Conductor (this file) → Route to Sub-Skill or Spawn Agent →
 
 | Sub-Skill | Use When |
 |-----------|----------|
+| `harness-engineering:grill` | **Phase 0 — Requirements Discovery.** Interview user relentlessly about a new feature/goal until shared understanding is reached. Write a spec for human review. NO planning or code until the spec is approved. |
 | `harness-engineering:bootstrap` | Setting up a new project for agents, creating AGENTS.md, feature_list.json, progress.md, init.sh from scratch |
 | `harness-engineering:session` | Starting or ending a session — clock-in reads all state, clock-out updates all state and leaves clean |
 | `harness-engineering:feature` | Managing feature lifecycle — not_started → active → passing/blocked, WIP=1 enforcement |
@@ -81,13 +82,16 @@ USER GOAL → PLANNER (Opus) → CODE ARCHITECT (Opus, optional) → GENERATOR (
 The full workflow for any non-trivial task:
 
 ```
-SESSION START → bootstrap check → read state → pick feature → SCOPE (one feature)
+NEW FEATURE/GOAL → GRILL (interview relentlessly → write spec → HUMAN APPROVAL)
+    → SESSION START → bootstrap check → read state → pick feature → SCOPE (one feature)
     → PLAN (spawn planner agent) → ARCHITECT (spawn code-architect, optional)
     → GENERATE (spawn generator agent) → EXECUTE (spawn executor agent)
     → [ON FAILURE: HEAL (spawn healer agent) → GENERATE → EXECUTE — max 3 loops]
     → VERIFY (harness-engineering:verify) → REVIEW (independent review agent)
     → TRACK (update state) → SESSION END (clean state)
 ```
+
+**Phase 0 (Grill) runs only for new features or goals without an approved spec.** For features that already have a spec in `feature_list.json` or `specs/`, start at Phase 1.
 
 ## Reference Files
 
@@ -128,6 +132,26 @@ These four files are the minimum viable harness. Check for each one:
 ## The Outer Loop — Conductor Protocol
 
 Once the bootstrap gate passes, every user task flows through these phases.
+
+---
+
+---
+## Phase 0: GRILL — Requirements Discovery (For New Features)
+
+**Invoke `harness-engineering:grill`** when the user describes a new feature or goal that doesn't yet have an approved spec.
+
+The grill sub-skill runs the requirements discovery protocol:
+
+1. **Interview relentlessly** — one question at a time, across five dimensions: Problem Space, Happy Path, Error Cases, Constraints, Acceptance Criteria
+2. **Present structured choices** — when there are genuine alternatives, offer 2-4 options with trade-offs and a recommendation
+3. **Sharpen fuzzy language** — "fast" → specific latency, "nice UI" → concrete elements, "works with X" → exact integration
+4. **Cross-reference with code** — explore the codebase before asking the user; surface contradictions immediately
+5. **Write a spec** — when all five dimensions pass their exit gates, write `specs/<feature-id>.md`
+6. **Wait for human approval** — the spec is `awaiting_review` until the human says "approved"
+
+**Gate:** Spec written to `specs/<feature-id>.md`, reviewed by human, status is `approved`. Feature entry added to `feature_list.json` with `status: "not_started"` and a `spec_file` link.
+
+**CRITICAL:** Do NOT proceed to Phase 1 until the human approves the spec. The grill gate is mechanical, not advisory. No implementation without an approved spec.
 
 ---
 
@@ -179,6 +203,7 @@ The conductor spawns each agent in sequence. Each agent works independently — 
 
 Spawn the planner agent using the Agent tool. Give it:
 - The active feature from `feature_list.json` (ID, title, user_visible_behavior, verification criteria)
+- The approved spec file from `specs/<feature-id>.md` (if it exists — read it first)
 - The project directory path
 - Any additional user context or constraints
 
@@ -187,10 +212,11 @@ Spawn agent: planner
 Prompt: "Plan the implementation for [feature ID]: [feature title].
 
 Feature behavior: [user_visible_behavior from feature_list.json]
+Spec file: specs/<feature-id>.md (read this for full context, decisions, and acceptance criteria)
 Verification criteria: [verification steps from feature_list.json]
 Project directory: [path]
 
-Read AGENTS.md, progress.md, and feature_list.json for context.
+Read AGENTS.md, progress.md, feature_list.json, and the spec file for full context.
 Explore the codebase to understand existing types, patterns, and architecture.
 For non-trivial features, consult the code-architect agent during design.
 
@@ -453,9 +479,10 @@ The diagnostic loop from walkinglabs Lecture 01:
 | Phase | What Happens | Who Does the Work |
 |-------|-------------|-------------------|
 | 0. Bootstrap | Create AGENTS.md, feature_list.json, progress.md, init.sh | Conductor via `harness-engineering:bootstrap` |
+| 0. Grill | Interview relentlessly, write spec, get human approval | Conductor via `harness-engineering:grill` — for new features only |
 | 1. Session Start | Clock-in: read all state, verify environment | Conductor via `harness-engineering:session` |
 | 2. Scope | Pick one feature, WIP=1, define done | Conductor via `harness-engineering:feature` |
-| 3a. Plan | Decompose goal into structured blueprint | **`planner` agent** (opus), optionally consults `code-architect` |
+| 3a. Plan | Decompose goal into structured blueprint (reads approved spec) | **`planner` agent** (opus), optionally consults `code-architect` |
 | 3b. Architect | Architecture review, SOLID audit | **`code-architect` agent** (opus) — optional, for non-trivial features |
 | 3c. Generate | Write all code, tests, configs following TDD + code-quality | **`generator` agent** (sonnet) |
 | 3d. Execute | Run 3-layer verification pipeline, collect evidence | **`executor` agent** (sonnet) |
@@ -471,9 +498,14 @@ The diagnostic loop from walkinglabs Lecture 01:
 ```
 CONDUCTOR (this session, any model)
     │
+    ├─ Phase 0: Grill (sub-skill) — for new features
+    │   ├─ Interview relentlessly (5 dimensions)
+    │   ├─ Write spec → specs/<feature-id>.md
+    │   └─ HUMAN APPROVAL GATE
+    │
     ├─ Phase 1-2: Clock-in + Scope (sub-skills)
     │
-    ├─ Phase 3a: Spawn PLANNER (opus) → gets blueprint
+    ├─ Phase 3a: Spawn PLANNER (opus) → reads spec, gets blueprint
     ├─ Phase 3b: Spawn CODE-ARCHITECT (opus) → gets architecture review [optional]
     ├─ Phase 3c: Spawn GENERATOR (sonnet) → writes all code
     ├─ Phase 3d: Spawn EXECUTOR (sonnet) → runs verification

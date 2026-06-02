@@ -7,6 +7,7 @@
 - **Last updated:** 2026-06-01
 
 ## Completed
+- [x] Added Phase 0 Grill skill (harness-engineering-grill) — requirements discovery before planning, based on Matt Pocock's grill-with-docs/grill-me patterns. 2026-06-02
 - [x] Rewrote harness-engineering SKILL.md from scratch based on walkinglabs 5-subsystem model
 - [x] Created 6 harness-engineering sub-skills (bootstrap, session, feature, verify, review, diagnose)
 - [x] Created 6 new reference files (five-subsystems, diagnostic-loop, minimal-pack, session-lifecycle, verification-pipeline, scope-control)

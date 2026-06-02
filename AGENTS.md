@@ -37,6 +37,7 @@ A feature is complete only when:
 ```
 skills/
 ├── harness-engineering/       — Conductor skill + references (walkinglabs-based 5-subsystem model)
+├── harness-engineering-grill/ — Phase 0: Requirements discovery, relentless interview, spec writing
 ├── harness-engineering-bootstrap/ — Create AGENTS.md, feature_list.json, progress.md, init.sh
 ├── harness-engineering-session/   — Clock-in/clock-out discipline
 ├── harness-engineering-feature/   — Feature lifecycle, WIP=1, state machine
@@ -49,6 +50,7 @@ skills/
 ├── code-quality-fix/          — Known fix patterns for each violation type
 ├── code-quality-python/       — Python rules: types, DI, enums, naming, logging
 ├── code-quality-rust/         — Rust rules: traits, ownership, errors, modules
+specs/                     — Approved feature specifications (one per feature)
 agents/                    — 5 custom sub-agents (planner, generator, executor, healer, code-architect)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
