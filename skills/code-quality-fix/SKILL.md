@@ -73,43 +73,53 @@ Apply known fix patterns for each design principle and tooling rule violation.
 **Signal:** No validation of constructor parameters, external data enters business logic unchecked
 **Fix:** Validate all inputs at boundaries. Use Pydantic/serde at I/O boundaries. Never allow invalid state.
 
-## Tooling Rule Fix Patterns
+## Tooling Rule Fix Patterns (language-neutral)
 
-### Types — No Bare Generics
-**Signal:** `dict`, `list`, `set`, `tuple` without `[...]`
-**Fix:** Parameterize: `dict[str, str]`, `list[OrderItem]`, `set[str]`, `tuple[float, float]`
+These are the 11 tooling-rule intents. Invoke `code-quality:language` to translate each into the idiom of the language in front of you; Python and Rust examples shown.
 
-### Types — No Any
-**Signal:** `Any` in type annotation
-**Fix:** Search for real type. If exists, use it. If not, create one (Pydantic/dataclass/TypedDict/Protocol).
+### Types — no escape hatch where a real type exists
+**Signal:** the language's "any" (`Any`/`object`, `any`, `interface{}`, `dynamic`, `Box<dyn Any>`) or an unparameterized generic where the structure is known.
+**Fix:** find the real type; if none exists for known-structured data, create it first. *Py:* `dict[str,str]`, dataclass/Pydantic. *Rust:* newtype / domain struct instead of `serde_json::Value`.
 
-### DI — Constructor Injection
-**Signal:** `driver`, `client`, `connection`, `session` as function parameter
-**Fix:** Move to `__init__` parameter. Class owns the dependency. Methods use `self.driver`.
+### DI — inject, don't thread
+**Signal:** a dependency (`driver`, `client`, `connection`, `session`) passed into every function.
+**Fix:** move it to construction. *Py:* `__init__` param → `self.driver`. *Rust:* struct field / generic trait bound.
 
-### Enums
-**Signal:** Magic string `"pending"` used in branching
-**Fix:** Create `class Status(Enum): PENDING = "pending"`. Use everywhere.
+### Enums — no magic values
+**Signal:** a magic string/int used in branching.
+**Fix:** model the fixed set as the language's enum/sum type and use it everywhere. *Py:* `class Status(Enum)`. *Rust:* `enum Status` + exhaustive `match`.
 
-### Naming
-**Signal:** `_private` attribute, `camelCase` in Python
-**Fix:** Remove leading underscore. Use snake_case for Python, snake_case for Rust.
+### Naming — idiomatic for the language
+**Signal:** wrong-language casing, or privacy-by-underscore where not idiomatic.
+**Fix:** apply the language's style guide. *Py:* `snake_case`, no leading `_`. *Rust:* `snake_case` fns, `PascalCase` types.
 
-### Logging
-**Signal:** `print()` in business logic
-**Fix:** `import logging; logger = logging.getLogger(__name__); logger.info(...)`
+### Logging — no raw stdout
+**Signal:** the raw print primitive in business logic (`print`, `println!`, `console.log`, `fmt.Println`).
+**Fix:** use the project's logging library with structured fields.
 
-### No Bare Except
-**Signal:** `except:` or `except Exception:`
-**Fix:** Catch specific exception type. Document why catching it.
+### Errors — no swallowing
+**Signal:** catch-all/ignored errors, or crash-on-error in library code.
+**Fix:** handle specifically with the language's mechanism. *Py:* specific `except`. *Rust:* propagate with `?`, no `unwrap()` in libs.
 
-### Flat Functions
-**Signal:** `def` inside `def`
-**Fix:** Extract to module level. Pass needed data as parameters.
+### I/O validation — parse, don't trust
+**Signal:** external data flowing into logic unvalidated.
+**Fix:** validate into domain types at the boundary (Pydantic / serde / zod / struct tags).
 
-### No Water
-**Signal:** Comment restating code, unused import, dead else branch
-**Fix:** Delete. If a line doesn't carry its weight, it doesn't belong.
+### Flat functions
+**Signal:** nested function definitions / deep nesting where a flatter form exists.
+**Fix:** extract to module-level / free functions; pass data as parameters.
+
+### Lint, type-check, format
+**Signal:** the project's toolchain reports errors/warnings.
+**Fix:** run the repo's own linter + type checker + formatter; drive to zero.
+
+### Module / entry hygiene
+**Signal:** logic in package entry points; outward/circular imports.
+**Fix:** entry points re-export only; make imports flow inward.
+
+### No water
+**Signal:** comment restating code, unused import, dead branch.
+**Fix:** delete. If a line doesn't carry its weight, it doesn't belong.
 
 ## Fix Protocol
 

@@ -1,83 +1,56 @@
 # Claude Progress
 
 ## Current State
-- **Latest commit:** dffe034 (Update marketplace sha)
+- **Latest commit:** b7dc6d9 (Simplify marketplace.json descriptions) — harness-enforcement work uncommitted in working tree
 - **Branch:** main
-- **Verification:** passing (`./init.sh` — 49/49 checks pass, 2026-06-01)
-- **Last updated:** 2026-06-01
+- **Verification:** passing (`./init.sh` — 56/56 checks, 2026-06-04)
+- **Last updated:** 2026-06-04
 
 ## Completed
-- [x] Added Phase 0 Grill skill (harness-engineering-grill) — requirements discovery before planning, based on Matt Pocock's grill-with-docs/grill-me patterns. 2026-06-02
-- [x] Rewrote harness-engineering SKILL.md from scratch based on walkinglabs 5-subsystem model
-- [x] Created 6 harness-engineering sub-skills (bootstrap, session, feature, verify, review, diagnose)
-- [x] Created 6 new reference files (five-subsystems, diagnostic-loop, minimal-pack, session-lifecycle, verification-pipeline, scope-control)
-- [x] Deleted 7 old harness-engineering reference files
-- [x] Rewrote code-quality SKILL.md as router with sub-skill routing
-- [x] Created 5 code-quality sub-skills (review, audit, fix, python, rust)
-- [x] Updated plugin.json with all new skill paths (v4.0.0)
-- [x] Updated AGENTS.md to reflect new structure
-- [x] Filled commands/review-branch.md with review protocol
-- [x] Updated feature_list.json with real features, WIP=1 enforced
-- [x] Fixed init.sh — now runs real validation: JSON validity, skill/agent frontmatter, path resolution, harness health
+- [x] harness-grill — Phase 0 grill skill, now wired as GATE 1 (Spec Gate). 2026-06-02
+- [x] harness-rewrite — walkinglabs 5-subsystem structure + sub-skills + references. 2026-06-01
+- [x] **harness-enforcement (this session)** — converted the harness from descriptive to mechanical:
+  - feature_list.json upgraded to the kanban schema (`tasks[]`, `depends_on`/`blocks`, `acceptance_criteria`, `task_status_legend`, `link_semantics`) and all entries migrated
+  - conductor SKILL.md rewritten as a hard **Gate Sequence** with GATE 1 Spec Gate (grill), GATE 2 live ledger, GATE 5 persist-blueprint-into-tasks[], and a proof-of-invocation table
+  - all 5 agents given a mandatory skill gate + proof line; planner emits Persisted Task Breakdown (JSON); architect runs code-quality:audit by default for non-trivial; fixed planner's contradictory "clock in yourself" rules and executor's duplicated escalation header
+  - 2 new hooks: `spec-gate.md` (UserPromptSubmit) and `pre-agent-spawn.md` (PreToolUse/Agent)
+  - init.sh Layer 6 added: link integrity, reciprocity, acyclicity, task validity
+  - schema propagated to feature sub-skill, minimal-pack, bootstrap, grill; AGENTS.md + README updated; spec written to specs/harness-enforcement.md
+  - **agent expansion (5 → 8 agents):** added explorer (GATE 5a recon), reviewer (GATE 11 independent check), scribe (single writer of feature_list.json + progress.md); wired all three into the conductor; added the Board Update contract so agents drive the board without concurrent writes; updated existing agents' diagrams to the 8-agent pipeline; plugin v4.4.0
+  - **harness-enforcement → passing** (verified, init.sh 58/58 at the time); WIP slot released to code-quality-language
+- [x] **code-quality-language (this session):** made code-quality language-agnostic. Same 16 principles + 13 patterns; the 11 tooling rules restated as language-neutral *intents* applied by inferring each language's idioms from the repo. Replaced code-quality:python + code-quality:rust with ONE code-quality:language skill (Python and Rust kept as the two worked examples in references/). De-Pythonized the router/audit/fix/review sub-skills; generator + conductor now invoke code-quality:language. 14 → 13 skills; plugin v4.5.0. User forks: structure=universal-only (infer per language), seed=python+rust only.
 
 ## In Progress
-- [ ] harness-rewrite (85% — all files created, verification criteria met, cross-file inconsistencies remain)
-  - **Active since:** 2026-06-01
-  - **Remaining:** Fix number inconsistencies in code-quality review files, update agents to reference new skill names, fix hooks.json, fix marketplace skill count, fix code-architect role
+- [ ] code-quality-language (95% — code complete, ./init.sh 56/56 green; remaining: user review + commit)
+  - **Active since:** 2026-06-04
+  - **Blocked by:** nothing
+- harness-enforcement: passing (verified), commit pending user — working tree holds both features' changes uncommitted
 
 ## Known Issues
-- **Cross-file number inconsistency** — code-quality:review SKILL.md says "25 items (13+12)" but actually lists 27 items (16+11). references/review-agent.md says "/19 items" in template. The code-quality router lists 16 principles but the review sub-skill says 13.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** skills/code-quality-review/SKILL.md:30, skills/code-quality/references/review-agent.md:64
+- **code-quality:review cross-file count inconsistency** — review SKILL.md vs references/review-agent.md disagree on item totals (should be 27 = 16+11).
+  - **Discovered:** 2026-06-01 — **Fix location:** skills/code-quality-review/SKILL.md, skills/code-quality/references/review-agent.md — tracked as feature `code-quality-rewrite`
+- **.mcp.json has empty mcpServers** — referenced by plugin.json autoDiscovery but contains no servers.
+  - **Discovered:** 2026-06-01 — **Fix location:** .mcp.json — tracked as feature `project-cleanup`
+- **harness-engineering:review vs code-quality:review overlap** — both spawn independent reviewers; "which when" still under-specified.
+  - **Discovered:** 2026-06-01 — **Fix location:** the two review SKILL.md files
 
-- **Agents don't reference new sub-skill names** — planner.md references no skills. generator.md doesn't name code-quality:python/rust. executor.md duplicates verification instead of invoking harness-engineering:verify. healer.md duplicates diagnostic loop instead of invoking harness-engineering:diagnose. code-architect.md duplicates audit instead of invoking code-quality:audit.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** agents/planner.md, agents/generator.md, agents/executor.md, agents/healer.md, agents/code-architect.md
-
-- **hooks.json has no executable hook scripts** — 5 hook entries exist with descriptions but no commands/scripts to enforce them.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** hooks/hooks.json
-
-- **marketplace.json says "12 skills total" but 13 exist** — autoDiscovery lists 13 skill directories.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** .claude-plugin/marketplace.json:4
-
-- **code-architect agent has no defined position in agent workflow** — planner/healer/generator/executor all say "4-agent workflow" but code-architect is a 5th agent with no integration protocol.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** agents/planner.md:10, agents/code-architect.md
-
-- **Diagnose SKILL.md duplicates references/diagnostic-loop.md** — both contain same 5-layer attribution model. DRY violation.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** skills/harness-engineering-diagnose/SKILL.md (should reference, not duplicate)
-
-- **harness-engineering:review and code-quality:review overlap** — both spawn independent review agents checking design principles. No definition of which to invoke when.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** skills/harness-engineering-review/SKILL.md, skills/code-quality-review/SKILL.md
-
-- **.mcp.json has empty mcpServers** — plugin.json references it for auto-discovery but it contains no servers.
-  - **Discovered:** 2026-06-01
-  - **Fix location:** .mcp.json
-
-- **claude-progress.md previously claimed "Known Issues: None"** — was false (now corrected).
-  - **Discovered:** 2026-06-01
-  - **Status:** Fixed in this commit
+## Resolved This Session
+- Agents now reference and are REQUIRED to invoke their sub-skills (was: soft suggestions, skipped).
+- code-architect now has a defined gate (GATE 6) and runs code-quality:audit by default for non-trivial features.
+- hooks now functional and complete (8 files); grill is mechanically triggered.
+- feature_list.json is no longer flat — tickets link and the plan persists.
 
 ## Failure Log
 
 | Date | Task | Failure | Layer | Fix | Recurred? |
 |------|------|---------|-------|-----|-----------|
-| 2026-06-01 | WIP=1 | 3 features marked in_progress | State | Sequenced features, only harness-rewrite active | No |
-| 2026-06-01 | Verification | init.sh was a no-op placeholder | Verification | Rewrote init.sh with real JSON/frontmatter/path checks | No |
-| 2026-06-01 | State | claude-progress.md claimed no known issues | State | Updated with real known issues | No |
-| 2026-06-01 | Cross-file | Review item counts disagree (13/16/19/25/27) | Instructions | Fix in progress | — |
+| 2026-06-03 | Workflow | Steps dropped mid-run (plan/state updates skipped) | Scope/State | Gate Sequence + live ledger + persist tasks[] | No |
+| 2026-06-03 | Trigger | Invoking harness-engineering skipped grill | Instructions | GATE 1 Spec Gate + spec-gate hook | No |
+| 2026-06-03 | Agents | Agents skipped required skills (e.g. design audit) | Instructions | Mandatory skill gate + proof line per agent | No |
+| 2026-06-01 | Verification | init.sh was a no-op placeholder | Verification | Rewrote init.sh with real checks (now 6 layers) | No |
 
 ## Next Steps (ordered by priority)
-1. Fix number inconsistencies in code-quality:review SKILL.md and review-agent.md reference
-2. Update all 5 agents to reference new sub-skill names
-3. Make hooks.json functional with executable hook scripts
-4. Fix marketplace.json skill count (12 → 13)
-5. Define code-architect position in the agent workflow
-6. Resolve review skill overlap between harness-engineering and code-quality
-7. DRY up diagnose sub-skill vs reference
-8. Populate or remove .mcp.json
-9. Commit all changes
+1. User reviews the harness-enforcement changes, then commit
+2. code-quality-rewrite — fix the cross-file count inconsistency (depends_on: harness-rewrite)
+3. project-cleanup — .mcp.json, final count alignment (depends_on: harness-enforcement)
+4. Resolve the harness vs code-quality review overlap

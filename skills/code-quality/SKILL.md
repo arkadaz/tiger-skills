@@ -1,11 +1,11 @@
 ---
 name: code-quality
-description: Enforce code quality when writing, reviewing, refactoring, or auditing code in ANY language. Based on 16 design principles and 13 design patterns from Software Design for Python Programmers by Ronald Mak. Use when the user mentions code quality, clean code, design principles, SOLID, refactoring, code review, or wants to improve code. Supports Python and Rust with language-specific rules. This skill is rigid — its rules must be followed, not negotiated.
+description: Enforce code quality when writing, reviewing, refactoring, or auditing code in ANY language. Based on 16 design principles and 13 design patterns from Software Design for Python Programmers by Ronald Mak. Use when the user mentions code quality, clean code, design principles, SOLID, refactoring, code review, or wants to improve code. Language-agnostic — applies the same rules to any language by inferring its idioms from the codebase. This skill is rigid — its rules must be followed, not negotiated.
 ---
 
 # Code Quality
 
-Based on *Software Design for Python Programmers* by Ronald Mak (Manning Publications, 2026). Language-agnostic principles with Python and Rust enforcement rules.
+Based on *Software Design for Python Programmers* by Ronald Mak (Manning Publications, 2026). The 16 principles and 13 patterns are universal; the tooling rules are applied to **any** language by inferring its idioms (Python and Rust are the worked examples).
 
 ## How This Skill Works — Router Model
 
@@ -13,11 +13,10 @@ This skill is a **router**. Load the principles here, then invoke sub-skills for
 
 | Sub-Skill | Use When |
 |-----------|----------|
+| `code-quality:language` | Writing/reviewing code in any language — the 11 tooling rules, applied via that language's inferred idioms |
 | `code-quality:review` | Reviewing a diff for quality violations — independent review agent |
 | `code-quality:audit` | Auditing existing code for design principle violations |
 | `code-quality:fix` | Fixing specific violations with known fix patterns |
-| `code-quality:python` | Python-specific rules — types, DI, enums, naming, logging, project structure |
-| `code-quality:rust` | Rust-specific rules — traits, ownership, error handling, module structure |
 
 ## 16 Design Principles
 
@@ -58,22 +57,25 @@ This skill is a **router**. Load the principles here, then invoke sub-skills for
 | Structural | **Composite** | Part-whole hierarchy, treat uniformly |
 | Structural | **Decorator** | Add responsibilities dynamically at runtime |
 
-## Five Non-Negotiables
+## Five Non-Negotiables (every language)
 
 1. **Explore before implement** — read existing code, docs, and types first
-2. **Types first** — every type annotation fully parameterized, no `Any` in business logic
-3. **Lint and type-check every change** — zero errors tolerated
-4. **Logs always** — never `print()` for operational output
+2. **Types first** — use the language's strongest typing; never its "any" escape hatch where a real type exists
+3. **Lint, type-check, and format every change** — run the project's own toolchain, zero errors
+4. **Logs always** — use the project's logging library, never the raw print primitive for operational output
 5. **No water** — every line earns its place
 
-## Language Routing
+## Language Handling — works on any language
 
-- `.py` files → invoke `code-quality:python`
-- `.rs` files → invoke `code-quality:rust`
-- Mixed project → invoke both
-- Design/architecture questions → invoke `code-quality:audit`
-- Reviewing a diff → invoke `code-quality:review`
-- Fixing violations → invoke `code-quality:fix`
+There is no per-language routing. For code in **any** language:
+
+1. Invoke `code-quality:language`.
+2. It infers the **Language Profile** from the repo (type system, enum mechanism, DI idiom, logging lib, error model, I/O validation, linter/formatter/test runner, module layout) by reading manifests and existing code.
+3. It applies the same 11 tooling rules through that language's idioms, and runs the project's own lint/type/format/test commands as evidence.
+
+Python and Rust ship as worked examples (`references/python/`, `references/rust/`); every other language follows the same rule numbers and intents via inference. Don't ask the user what the repo already answers; mirror the tools the project already uses.
+
+Other routes: design/architecture questions → `code-quality:audit`; reviewing a diff → `code-quality:review`; fixing violations → `code-quality:fix`.
 
 ## Reference Files
 
@@ -82,5 +84,5 @@ This skill is a **router**. Load the principles here, then invoke sub-skills for
 | [references/design-principles.md](references/design-principles.md) | Full principle details with violation signals and fix patterns |
 | [references/design-patterns.md](references/design-patterns.md) | Pattern selection guide and one-liner cheat sheet |
 | [references/review-agent.md](references/review-agent.md) | Independent review agent spawn instructions |
-| [references/python/rules.md](references/python/rules.md) | Python — types, DI, enums, naming, logging, project structure |
-| [references/rust/rules.md](references/rust/rules.md) | Rust — traits, ownership, error handling, module structure |
+| [references/python/rules.md](references/python/rules.md) | Python worked example — types, DI, enums, naming, logging, structure |
+| [references/rust/rules.md](references/rust/rules.md) | Rust worked example — traits, ownership, errors, module structure |

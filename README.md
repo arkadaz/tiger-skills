@@ -1,18 +1,21 @@
 # tiger-skills
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code. 13 skills, 5 agents, 6 hooks — one plugin.
+Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 13 skills, 8 agents, 8 hooks — one plugin.
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
 
 ## How It Works
 
+The conductor runs a **Gate Sequence** on every request — mechanical, not advisory, with a live ledger it ticks off so no step is dropped:
+
 ```
-SESSION START → bootstrap check → read state → pick feature → SCOPE →
-IMPLEMENT (with code-quality rules) → VERIFY (layered pipeline) →
-REVIEW (independent agent) → TRACK (update state) → SESSION END (clean)
+GATE 0 bootstrap → GATE 1 SPEC GATE (no spec → grill first) → GATE 2 ledger →
+clock in → SCOPE (WIP=1) → PLAN (persist tasks into feature_list.json) →
+[architect] → GENERATE → EXECUTE → [heal ×3] → VERIFY → REVIEW →
+TRACK (tasks + acceptance_criteria + commit) → clock out
 ```
 
-**The outer loop** (harness-engineering) ensures the agent knows what to work on, stays in scope, verifies before claiming completion, and leaves a clean state. **The inner loop** (code-quality) ensures every line of code follows 16 design principles and language-specific rules.
+**The outer loop** (harness-engineering) ensures the agent grills out a spec before building, knows what to work on, keeps the plan in the repo (not just chat), stays in scope, verifies before claiming completion, and leaves a clean state. **The inner loop** (code-quality) ensures every line of code follows 16 design principles and language-specific rules — and every agent must prove it invoked its required skill.
 
 ## How to Use
 
@@ -22,6 +25,7 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 | You say... | Skill that activates |
 |------------|---------------------|
+| "I want to add X" / "can we build…" / a feature idea | `harness-engineering:grill` (Spec Gate — interviews you, writes a spec, waits for approval) |
 | "Set up this project for AI agents" | `harness-engineering:bootstrap` |
 | "What are we working on?" / "Start a session" | `harness-engineering:session` |
 | "Let's work on feature X" | `harness-engineering:feature` |
@@ -31,14 +35,15 @@ You don't need to remember skill names. Just describe what you want, and the rig
 | "Improve this code" / "Make this cleaner" | `code-quality` (router, delegates to sub-skills) |
 | "Audit this for design violations" | `code-quality:audit` |
 | "Fix these violations" | `code-quality:fix` |
-| "Write Python code" / "Review this .py file" | `code-quality:python` |
-| "Write Rust code" / "Review this .rs file" | `code-quality:rust` |
+| "Write/review code in any language" (Python, Rust, TS, Go, Java, C#, …) | `code-quality:language` (infers the language's idioms) |
 
 ### The Full Workflow
 
-**Phase 1 — Start a session:** Just start working. The SessionStart hook reminds Claude to clock in — read `AGENTS.md`, `progress.md`, `feature_list.json`, and run `./init.sh`.
+**Phase 0 — Grill (Spec Gate):** Describe a new feature and Claude interviews you relentlessly across five dimensions (problem, happy path, errors, constraints, acceptance), one question at a time, then writes `specs/<feature-id>.md` and waits for your approval. The `spec-gate` hook makes this mechanical — no planning or code without an approved spec. Bug fixes and one-line edits skip it.
 
-**Phase 2 — Pick a feature:** Say what you want to build. Claude reads `feature_list.json`, enforces WIP=1, and picks the highest-priority feature.
+**Phase 1 — Start a session:** Just start working. The SessionStart hook reminds Claude to clock in — read `AGENTS.md`, `progress.md`, `feature_list.json`, and run `./init.sh`. For multi-step work Claude keeps a **live phase ledger** it ticks off so no step is dropped.
+
+**Phase 2 — Pick a feature:** Say what you want to build. Claude reads `feature_list.json`, enforces WIP=1, and picks the highest-priority feature whose `depends_on` are all `passing`. The planner's blueprint is **persisted into the feature's `tasks[]`** (kanban sub-tickets) so the plan lives in the repo, not just in chat.
 
 **Phase 3 — Build:** Claude writes code. The Explore-before-code hook ensures it reads existing types and functions first. Code-quality rules enforce types, DI, enums, logging, and flat functions on every line.
 
@@ -46,7 +51,7 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 **Phase 5 — Review:** For non-trivial changes, Claude spawns an independent review agent that audits against all 16 design principles + 11 tooling rules. The agent that wrote the code cannot be the sole judge.
 
-**Phase 6 — Wrap up:** Claude updates `progress.md` and `feature_list.json`. The pre-push hook blocks pushes until state files are current. The Stop hook reminds Claude to leave a clean restart path.
+**Phase 6 — Wrap up:** Claude flips each `tasks[]` entry and `acceptance_criteria` item to done with evidence, marks the feature `passing` only when all of them are, and updates `progress.md`. The pre-push hook blocks pushes until state files are current. The Stop hook reminds Claude to leave a clean restart path.
 
 ### Slash Commands
 
@@ -85,14 +90,13 @@ tiger-skills/
 │   ├── harness-engineering-verify/     — Layered verification, evidence before claims
 │   ├── harness-engineering-review/     — Independent review (separate doer from checker)
 │   ├── harness-engineering-diagnose/   — Five-layer failure attribution
-│   ├── code-quality/                   — Router: 16 principles, 13 patterns
+│   ├── code-quality/                   — Router: 16 principles, 13 patterns (language-agnostic)
+│   ├── code-quality-language/          — Universal tooling rules; infers any language (Python/Rust = examples)
 │   ├── code-quality-review/            — Independent code quality review agent (27 items)
 │   ├── code-quality-audit/             — Design principle audit with ranked report
 │   ├── code-quality-fix/               — Known fix patterns for each violation type
-│   ├── code-quality-python/            — Python rules: types, DI, enums, naming, logging
-│   ├── code-quality-rust/              — Rust rules: traits, ownership, errors, modules
-├── agents/                             — 5 custom sub-agents (planner, generator, executor, healer, code-architect)
-├── hooks/                               — 6 event-driven hook files
+├── agents/                             — 8 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)
+├── hooks/                               — 8 event-driven hook files
 ├── commands/review-branch.md           — Branch review command
 ├── .claude-plugin/                     — Plugin manifest + marketplace config
 ├── init.sh                             — Verification (49 checks, 5 layers)
@@ -133,11 +137,10 @@ Every complete harness has five subsystems:
 | Skill | When to Use |
 |-------|------------|
 | `code-quality` | **Router** — load principles here, route to sub-skills for specific tasks |
+| `code-quality:language` | Universal tooling rules for **any** language — infers its idioms (Python/Rust are worked examples) |
 | `code-quality:review` | Independent review against 16 principles + 11 tooling rules (27 items) |
 | `code-quality:audit` | Full design principle audit with ranked violation report |
 | `code-quality:fix` | Apply known fix patterns for specific violation types |
-| `code-quality:python` | Python rules — types, DI, enums, naming, logging, project structure |
-| `code-quality:rust` | Rust rules — traits, ownership, error handling, module structure |
 
 ## 16 Design Principles
 
@@ -164,32 +167,44 @@ Every complete harness has five subsystems:
 
 ## Hooks
 
-6 event-driven hooks enforce the harness gates mechanically:
+8 event-driven hooks enforce the harness gates mechanically:
 
 | Event | What It Does |
 |-------|-------------|
+| `UserPromptSubmit` | **Spec gate** — build request + no approved spec → invoke `grill` first |
 | `SessionStart` | Clock-in reminder — read state files, run `./init.sh` |
 | `PreToolUse` (Write/Edit) | Bootstrap gate — warn if harness files don't exist |
 | `PreToolUse` (Write/Edit) | Explore-before-code — remind to discover types first |
+| `PreToolUse` (Agent) | **Pre-agent-spawn gate** — confirm spec + ledger + WIP=1 before spawning the pipeline |
 | `PreToolUse` (git commit) | Pre-commit check — confirm verification ran |
 | `PreToolUse` (git push) | Pre-push check — confirm state files updated |
 | `Stop` | Clock-out reminder — 8-item exit checklist |
 
 ## Agents
 
-5 custom sub-agents in a defined workflow:
+8 custom sub-agents in a defined workflow:
 
 ```
-Planner (Opus) → Code Architect (Opus, optional) → Generator (Sonnet) → Executor (Sonnet) → Healer (Opus)
+Explorer → Planner → [Code Architect] → Generator → Executor → [Healer] → Reviewer → Scribe
+              ↑                              │            │          │
+              └──────── feedback loop ───────┴───────── (heal / review loops) ┘
+Scribe = single writer of feature_list.json + progress.md (applies every agent's Board Update)
 ```
 
-| Agent | Model | Role |
-|-------|-------|------|
-| `planner` | opus | Decompose goals into structured blueprints |
-| `code-architect` | opus | Architecture review, SOLID compliance, pattern selection |
-| `generator` | sonnet | Write code from blueprints following TDD + code-quality |
-| `executor` | sonnet | Run verification pipelines, collect evidence |
-| `healer` | opus | Diagnose failures, prescribe fixes, close the feedback loop |
+| Agent | Model | Role | Required-skill proof line |
+|-------|-------|------|---------------------------|
+| `explorer` | sonnet | Read-only recon; build the Type Inventory for the planner | `Type Inventory built: YES` |
+| `planner` | opus | Decompose goals into blueprints; emit `tasks[]` | `code-architect consulted: YES/NO` |
+| `code-architect` | opus | Architecture review, SOLID, pattern selection | `code-quality:audit invoked: YES` |
+| `generator` | sonnet | Write code from blueprints (TDD + code-quality) | `code-quality:language invoked: YES` |
+| `executor` | sonnet | Run verification pipelines, collect evidence | `harness-engineering:verify invoked: YES` |
+| `healer` | opus | Diagnose failures, prescribe fixes | `harness-engineering:diagnose invoked: YES` |
+| `reviewer` | opus | Independent check vs. spec + 16 principles (never wrote the code) | `code-quality:review invoked: YES` |
+| `scribe` | sonnet | Single writer of `feature_list.json` + `progress.md` | `feature_list.json valid after write: YES` |
+
+**Proof of invocation:** every agent must begin its report with its proof line. The conductor rejects a handoff without one and re-spawns the agent — this is what stops agents from skipping their required skill (e.g. the architect actually running the 16-principle design audit instead of eyeballing it).
+
+**Board Update contract:** agents never edit the board directly. Each emits a `Board Update` block (`task T2 → passing`, `acceptance_criteria AC3 → done`) and the **scribe** — the single writer — applies it, refusing anything that breaks an invariant (feature `passing` only when all tasks pass and all criteria are done; WIP=1; links reciprocal and acyclic). One writer = no drift.
 
 ## Install
 

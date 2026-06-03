@@ -46,6 +46,8 @@ Rules:
 - Use the exact state machine: `not_started` → `in_progress` → `passing`, with `blocked` as side exit
 - **Populate with REAL features** — read the README, git log, or ask the user what features exist/are planned
 - Each feature MUST have: `user_visible_behavior` (happy path + error cases), `verification` (specific steps), `status` (one of four)
+- Include the kanban fields: `depends_on`/`blocks` (ticket links, reciprocal, acyclic), `acceptance_criteria` (`{id,text,done}`), and an empty `tasks[]` (the planner fills it later from its blueprint)
+- Include `task_status_legend` and `link_semantics` at the top level (see minimal-pack template)
 - Leave the `evidence` array empty — that gets filled as features pass verification
 
 ### Step 4: Create progress.md

@@ -44,14 +44,13 @@ For each of the 16 principles, ask the diagnostic question:
 | 15 | Factory | Is object creation scattered where a factory would centralize it? |
 | 16 | Defensive Programming | Are boundaries unguarded against invalid inputs? |
 
-### 4. Check Language-Specific Rules
+### 4. Check the Tooling Rules
 
-For Python: invoke or load `code-quality:python` rules (types, DI, enums, naming, logging, project structure).
-For Rust: invoke or load `code-quality:rust` rules (traits, ownership, error handling, module structure).
+Invoke `code-quality:language`. It infers the Language Profile from the repo and applies the 11 tooling rules (types, DI, enums, naming, logging, error handling, I/O validation, flat functions, lint/type/format, module hygiene, no water) through that language's idioms. Works for any language — Python and Rust are the worked examples.
 
-### 5. Check Layer Discipline (Python/TypeScript)
+### 5. Check Layer Discipline
 
-Imports must flow inward:
+Imports must flow inward (applies in any layered codebase):
 ```
 api/ → services/ → repositories/ → models/
 ```

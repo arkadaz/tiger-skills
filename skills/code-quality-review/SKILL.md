@@ -28,10 +28,10 @@ Use the Agent tool:
 ```
 You are an independent code review agent. Audit this diff:
 
-FIRST: Run type discovery — search the codebase for all type definitions (BaseModel, dataclass, TypedDict, Enum, NewType, TypeAlias, Config, Settings, Driver, Client). Build a Type Inventory.
+FIRST: Infer the Language Profile (invoke code-quality:language) — detect the language and its type system, "any" escape hatch, enum mechanism, DI idiom, logging library, error model, I/O validation, and lint/type/format toolchain from the repo's manifests and existing code. Then run type discovery — search for all existing type/struct/interface/enum definitions and build a Type Inventory.
 
 THEN: Check against all 27 items:
-  16 design principles + 11 tooling rules.
+  16 design principles + 11 tooling rules. The tooling rules are intents — apply each through the detected language's idioms.
 
 DESIGN PRINCIPLES (16):
 1. Single Responsibility — class/module has one reason to change
@@ -51,20 +51,20 @@ DESIGN PRINCIPLES (16):
 15. Factory — encapsulate object creation
 16. Defensive Programming — guard boundaries
 
-TOOLING RULES (11):
-17. Types — no bare dict/list/set/tuple, no Any where real type exists
-18. DI — external dependencies constructor-injected
-19. Enums — fixed choice sets are enums, not magic strings
-20. Naming — no leading underscore, SCREAMING_SNAKE for constants
-21. Logging — structured logging, never print()
-22. No bare except — specific exceptions only
-23. Lint/type-check — must pass with zero errors
+TOOLING RULES (11) — intents; apply via the detected language's idioms:
+17. Types — no "any" escape hatch where a real type exists; no unparameterized generics
+18. DI — external dependencies injected at construction, not threaded through functions
+19. Enums — fixed choice sets are typed enums/sum types, not magic values
+20. Naming — idiomatic casing for the language; no privacy-by-underscore unless idiomatic
+21. Logging — structured logging library, never the raw print primitive
+22. Errors — explicit, specific handling; no catch-all/ignored errors; no crash-in-library
+23. Lint/type-check/format — the project's own toolchain passes with zero errors
 24. No water — every line earns its place
-25. Flat functions — no nested def
-26. Init files — empty, no code
-27. Explore first — no duplicate of existing functions
+25. Flat functions — no nested function definitions / deep nesting where a flatter form exists
+26. Module/entry hygiene — entry points re-export only; imports flow inward
+27. Explore first — no duplicate of existing functions/types
 
-CRITICAL: If you find Any — check Type Inventory. Real type exists → BLOCKING.
+CRITICAL: If you find the language's "any" type — check the Type Inventory. Real type exists → BLOCKING.
 No type but known structure → BLOCKING (agent should have created one).
 
 For each violation: file:line, item #, severity (BLOCKING/MAJOR/MINOR), problem, fix.
@@ -97,6 +97,8 @@ Do NOT modify code. Report findings only.
 ```
 
 ## Common Findings Agents Miss
+
+(Examples below are in Python; map each to the active language's idiom — `any` in TS, `interface{}` in Go, `object`/`dynamic` in C#, `Box<dyn Any>` in Rust, `console.log`/`fmt.Println`/`System.out` for logging, etc.)
 
 - **`Any` used when real type exists** — e.g., `cfg: Any` when `AppConfig` exists → BLOCKING
 - **`Any` when no type but known structure** — e.g., `-> dict[str, Any]` returning structured data → BLOCKING

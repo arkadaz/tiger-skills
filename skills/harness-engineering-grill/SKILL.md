@@ -322,7 +322,7 @@ The `specs/` directory holds approved feature specifications. Each file is one f
 
 ## Integration with feature_list.json
 
-When the spec is approved, create a feature entry:
+When the spec is approved, create a feature entry using the full kanban schema:
 
 ```json
 {
@@ -333,6 +333,12 @@ When the spec is approved, create a feature entry:
   "user_visible_behavior": "<Happy path + error cases from spec>",
   "spec_file": "specs/<feature-id>.md",
   "status": "not_started",
+  "depends_on": ["<features that must be passing first>"],
+  "blocks": ["<features this one unblocks>"],
+  "acceptance_criteria": [
+    {"id": "AC1", "text": "<Acceptance criterion from spec>", "done": false}
+  ],
+  "tasks": [],
   "verification": [
     "<Acceptance criteria from spec, converted to verification steps>"
   ],
@@ -341,7 +347,10 @@ When the spec is approved, create a feature entry:
 }
 ```
 
-The `spec_file` field links back to the full spec. The `user_visible_behavior` is a condensed version — the full detail lives in the spec file.
+- The `spec_file` field links back to the full spec. The `user_visible_behavior` is a condensed version — the full detail lives in the spec file.
+- Turn each acceptance criterion from the spec into one `acceptance_criteria` entry (`done: false`).
+- Set `depends_on`/`blocks` from the spec's Constraints ("must not break", "depends on") — reciprocal and acyclic.
+- Leave `tasks[]` **empty** — it stays empty until the planner runs and the conductor persists the blueprint into it. The grill produces the ticket; the planner fills its checklist.
 
 ## Grill Completion Checklist
 

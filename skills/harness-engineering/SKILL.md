@@ -3,7 +3,7 @@ name: harness-engineering
 description: Build and maintain the harness around AI coding agents — the five subsystems that make agents reliable. Use when setting up a project for AI agents, improving agent workflows, making agents more reliable, creating or updating AGENTS.md / CLAUDE.md / feature_list.json / progress.md, session management, feature tracking, verification pipelines, or diagnosing agent failures. This skill is rigid — its rules must be followed, not negotiated.
 ---
 
-# Harness Engineering
+# Harness Engineering — Conductor
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs. Build everything outside the model that makes AI coding agents reliable.
 
@@ -11,529 +11,388 @@ Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness
 
 ## Core Thesis
 
-**The same model produces fundamentally different output in a bare environment vs. one with a complete harness.** When the model fails on a task you know it can handle, check the harness first — not the model. Model capability and execution reliability are two separate dimensions.
+**The same model produces fundamentally different output in a bare environment vs. one with a complete harness.** When the model fails on a task you know it can handle, check the harness first — not the model.
 
-## The Five Subsystems
+## How to read this skill
 
-A complete harness has five subsystems. Missing any one means an incomplete harness.
+This skill is the **conductor**. On **every request** you run the **Gate Sequence** below, top to bottom. The Gate Sequence is mechanical, not advisory:
 
-| Subsystem | Question It Answers | Minimal Artifact | walkinglabs Lecture |
-|-----------|-------------------|------------------|---------------------|
-| **Instructions** | What should the agent know? | `AGENTS.md` or `CLAUDE.md` | L02, L03, L04 |
-| **Environment** | Can the agent run and verify work? | `init.sh`, `pyproject.toml` / `package.json` | L02, L06 |
-| **State** | What happened last session? | `progress.md`, `feature_list.json` | L05, L08, L12 |
-| **Scope** | What exactly should the agent work on? | Feature boundaries + definition of done | L07, L08 |
-| **Verification** | How does the agent know it's correct? | Verification commands in AGENTS.md | L09, L10, L11 |
-
-## How This Skill Works — Conductor Model
-
-This skill is the **conductor**. It orchestrates both sub-skills (for harness operations) and sub-agents (for implementation work). The conductor never delegates control — it invokes a sub-skill or spawns a sub-agent, that component runs and returns, control comes back here for state updates.
+- You do **not** skip a gate silently. If a gate does not apply (e.g. no failure → no heal), you mark it skipped on the ledger with a one-line reason.
+- You keep a **live ledger** (GATE 2) of the gates for the current task and tick each one as you pass it. The ledger is the cure for "the agent loses track of what to do."
+- Each gate has an **exit condition**. You do not advance until it is met.
+- The conductor never delegates control. It invokes a sub-skill or spawns an agent; that component returns; control comes back here for the state update.
 
 ```
-User Request → Conductor (this file) → Route to Sub-Skill or Spawn Agent → Return → State Update
+User Request → Gate Sequence (this file) → each gate updates the ledger + state
 ```
 
-### Sub-Skills — When to Invoke Each
+---
 
-| Sub-Skill | Use When |
-|-----------|----------|
-| `harness-engineering:grill` | **Phase 0 — Requirements Discovery.** Interview user relentlessly about a new feature/goal until shared understanding is reached. Write a spec for human review. NO planning or code until the spec is approved. |
-| `harness-engineering:bootstrap` | Setting up a new project for agents, creating AGENTS.md, feature_list.json, progress.md, init.sh from scratch |
-| `harness-engineering:session` | Starting or ending a session — clock-in reads all state, clock-out updates all state and leaves clean |
-| `harness-engineering:feature` | Managing feature lifecycle — not_started → active → passing/blocked, WIP=1 enforcement |
-| `harness-engineering:verify` | Running verification before claiming completion — evidence before assertions always |
-| `harness-engineering:review` | Spawning an independent review — separate the doer from the checker |
-| `harness-engineering:diagnose` | Something failed — attribute failure to one of five layers, fix that layer, retry |
+## THE GATE SEQUENCE — run on every request, in order
 
-### The 5-Agent Pipeline — When Each Agent Does Its Own Work
+| Gate | Name | What it does | Exit condition |
+|------|------|--------------|----------------|
+| **0** | BOOTSTRAP | The 4 harness files exist? | All of AGENTS.md, feature_list.json, progress.md, init.sh exist with real content |
+| **1** | SPEC GATE | Build request + no approved spec? → **invoke `harness-engineering:grill` NOW** | The request maps to a feature with an approved spec, OR it is a bug/question/precise-edit that needs no spec |
+| **2** | LEDGER | Create the live phase ledger for this task | A checklist of the gates that apply exists and is visible |
+| **3** | CLOCK IN | `harness-engineering:session` clock-in | All state files read, environment healthy, understanding announced |
+| **4** | SCOPE | `harness-engineering:feature` — WIP=1 | Exactly one feature `in_progress`, definition of done written |
+| **5** | EXPLORE & PLAN | Spawn `explorer` (recon) → `planner` (blueprint) → `scribe` **persists `tasks[]`** | Blueprint reviewed AND its task breakdown written into the feature's `tasks[]` by the scribe |
+| **6** | ARCHITECT | Spawn `code-architect` when triggers fire | Architecture approved, OR gate marked skipped with reason |
+| **7** | GENERATE | Spawn `generator` → `scribe` applies its Board Update | Handoff received with proof line; scribe flipped the tasks to `passing` |
+| **8** | EXECUTE | Spawn `executor` → `scribe` records evidence | All layers pass with fresh evidence, OR escalation to GATE 9 |
+| **9** | HEAL | Spawn `healer` on executor failure (max 3 loops) | Executor passes, or user escalation |
+| **10** | VERIFY | `harness-engineering:verify` — conductor re-runs | Verification command ran THIS session, 0 failures |
+| **11** | REVIEW | Spawn `reviewer` (independent) — loop to GATE 7 on non-APPROVED | Reviewer verdict APPROVED; BLOCKING/MAJOR findings fixed |
+| **12** | TRACK | `scribe` writes feature + tasks + acceptance_criteria + `progress.md`; conductor commits | All state files current, work committed |
+| **13** | CLOCK OUT | `harness-engineering:session` clock-out | 8-item exit checklist passes |
 
-This plugin defines 5 specialized sub-agents. The conductor spawns them in a defined pipeline for implementation work. **Each agent works independently in its own context** — the conductor passes it a task, it does its work, and it hands results back.
+**Phase 0 (Grill) and GATES 5–9 only run for implementation work.** A pure question or a one-line precise edit runs GATE 0 → GATE 1 (skip) → answer. Use the decision table in GATE 5 to choose pipeline vs. direct path.
+
+---
+
+## GATE 0 — BOOTSTRAP (do this first, always)
+
+Before answering, before reading any reference, before ANY other action — check whether the four harness files exist.
+
+| # | File | If missing |
+|---|------|------------|
+| 1 | `AGENTS.md` or `CLAUDE.md` | Create it — `harness-engineering:bootstrap` |
+| 2 | `feature_list.json` | Create it — `harness-engineering:bootstrap` |
+| 3 | `progress.md` | Create it — `harness-engineering:bootstrap` |
+| 4 | `init.sh` | Create it — `harness-engineering:bootstrap` |
+
+**Gate rule:** if any file is missing, the ENTIRE response is: report which are missing, create them all (via `harness-engineering:bootstrap`), report done. No other action until the gate passes.
+
+---
+
+## GATE 1 — SPEC GATE (this is what makes grill mechanical)
+
+**Before any planning or code, decide: does this request need a spec, and does it have one?**
 
 ```
-USER GOAL → PLANNER (Opus) → CODE ARCHITECT (Opus, optional) → GENERATOR (Sonnet) → EXECUTOR (Sonnet) → HEALER (Opus)
-                ↑                                                                                    │
-                └──────────────────────────── feedback loop ─────────────────────────────────────────┘
+Is the request a BUILD request? (add / build / implement / create / "I want…" / "can we…" / a feature idea)
+├── NO  (bug fix, factual question, precise one-line edit, research) → skip grill, continue to GATE 2
+└── YES
+     ├── A feature with status≠not_started-without-spec AND an approved spec (spec_file present, spec Status: approved) already covers it?
+     │      → continue to GATE 2
+     └── No approved spec covers it?
+            → INVOKE `harness-engineering:grill` NOW. Do not plan. Do not write code.
+              Grill writes specs/<feature-id>.md, gets HUMAN approval, then adds the
+              feature to feature_list.json. Only then continue to GATE 2.
 ```
 
-| Agent | Model | When It Does Its Work | What It Produces |
-|-------|-------|----------------------|-----------------|
-| **planner** | opus | After scope is defined — before any code is written | Structured blueprint with task breakdown, dependencies, verification criteria |
-| **code-architect** | opus | Optionally during planning, or during healing for structural diagnosis | Architecture review with SOLID audit, layer compliance, pattern recommendations |
-| **generator** | sonnet | After the blueprint is approved — writes all implementation code | Working code, tests, configs, scripts. A handoff report with verification results |
-| **executor** | sonnet | After the generator hands off — runs verification | Fresh verification evidence (pass) or escalation report (fail) |
-| **healer** | opus | When the executor reports a failure | Root cause diagnosis, exact fix instructions, harness improvement suggestions |
+**What counts as "needs a spec":** anything that adds or changes user-visible behavior. When unsure, grill — the cost of a short interview is far below the cost of building the wrong thing.
 
-**Decision — pipeline vs. direct path:**
+**Anti-triggers (skip grill):** reported bug → `harness-engineering:diagnose`; question about the codebase → explore and answer; a precise unambiguous instruction ("rename X to Y in file.ts") → just do it under the normal gates.
 
-| Task Type | Use Pipeline? | Why |
-|-----------|--------------|-----|
-| New module, class, or endpoint | **Full pipeline** (Planner → Generator → Executor) | Benefits from separate planning, implementation, and verification roles |
-| Feature spanning 3+ files | **Full pipeline** + Code Architect | Architectural risk is high — independent design review |
-| Bug fix (single file, root cause known) | **Direct path** | Planning overhead is waste |
-| Typo, formatting, config value | **Direct path** | No pipeline needed |
-| Refactoring (behavior-preserving) | **Planner → Generator → Executor** (skip Code Architect) | Need plan but not architecture review |
-| Unknown failure / regression | **Healer** (standalone) | Need diagnosis before any fix |
-| Research / exploration | **Direct path** | Agents build things — research happens inline |
+**This gate is mechanical, not advisory.** Invoking `harness-engineering` does not let you jump to coding — a new build request always passes through grill first.
 
-**The pipeline rule:** when in doubt, use the pipeline. The overhead of spawning agents is minimal compared to the cost of unplanned, unreviewed, unverified code.
+---
 
-### Orchestration Pattern
+## GATE 2 — LEDGER (the cure for dropped steps)
 
-The full workflow for any non-trivial task:
+Create a **live phase ledger** for this task: a visible checklist of the gates that apply, which you tick off as you go.
+
+- Use your task/todo list (`TaskCreate` one entry per applicable gate, `TaskUpdate` to `in_progress`/`completed` as you move). If task tools are unavailable, write the ledger as a checklist in your reply and restate it after each gate.
+- Mark each gate `done`, `skipped (reason)`, or `blocked` as you pass it. **Never advance leaving a gate silently unmarked.**
+- The ledger is per-task working memory; the durable record is `feature_list.json` (`tasks[]`) and `progress.md`. Keep both in sync.
+
+**Why this gate exists:** long multi-gate tasks drift — the agent does the plan, writes code, then forgets to persist tasks or update state. A ticked ledger plus persisted `tasks[]` means a dropped step is visible immediately.
+
+---
+
+## GATE 3 — CLOCK IN
+
+**Invoke `harness-engineering:session`** (clock-in): read AGENTS.md, progress.md, feature_list.json; review `git log --oneline -5`; run `./init.sh`; fix any baseline failure before new work; announce understanding. Exit: state files read, environment healthy.
+
+## GATE 4 — SCOPE
+
+**Invoke `harness-engineering:feature`**: read feature_list.json, enforce WIP=1, pick the highest-priority `not_started` whose `depends_on` are all `passing` (or continue the active one), mark it `in_progress`, write the definition of done. Exit: exactly one feature `in_progress`.
+
+---
+
+## GATE 5 — EXPLORE & PLAN (and persist the blueprint so it cannot evaporate)
+
+Use the decision table to choose the path:
+
+| Task Type | Path |
+|-----------|------|
+| New module, class, or endpoint | Full pipeline (Explorer → Planner → Generator → Executor) |
+| Feature spanning 3+ files | Full pipeline **+ Code Architect** |
+| Refactoring (behavior-preserving) | Explorer → Planner → Generator → Executor (skip Architect) |
+| Bug fix (single file, root cause known) | Direct path |
+| Typo, formatting, config value | Direct path |
+| Unknown failure / regression | `healer` standalone |
+| Research / exploration | Direct path (inline) |
+
+**When in doubt, use the pipeline.** For the direct path, do the work inline, then go to GATE 10.
+
+**Step 5a — EXPLORE (spawn `explorer`)** — for non-trivial or unfamiliar code. Read-only recon that grounds the plan in reality:
 
 ```
-NEW FEATURE/GOAL → GRILL (interview relentlessly → write spec → HUMAN APPROVAL)
-    → SESSION START → bootstrap check → read state → pick feature → SCOPE (one feature)
-    → PLAN (spawn planner agent) → ARCHITECT (spawn code-architect, optional)
-    → GENERATE (spawn generator agent) → EXECUTE (spawn executor agent)
-    → [ON FAILURE: HEAL (spawn healer agent) → GENERATE → EXECUTE — max 3 loops]
-    → VERIFY (harness-engineering:verify) → REVIEW (independent review agent)
-    → TRACK (update state) → SESSION END (clean state)
+Spawn agent: explorer
+Prompt: "Recon the codebase for [feature ID]: [feature title].
+Spec file: specs/<feature-id>.md. Project directory: [path].
+Produce a Recon Report: Type Inventory (existing types/functions/constants with file:line),
+Module Map, Existing Patterns to Follow, Integration Points, Already Exists — Do NOT Duplicate, Risks.
+You are read-only — never write code or state."
 ```
 
-**Phase 0 (Grill) runs only for new features or goals without an approved spec.** For features that already have a spec in `feature_list.json` or `specs/`, start at Phase 1.
+If the change is trivial, mark 5a `skipped (trivial)` on the ledger.
 
-## Reference Files
-
-Load these as needed. Follow the walkinglabs principle: **give a map, not an encyclopedia** — load only what the current task requires.
-
-| Reference | When to Load |
-|-----------|-------------|
-| [references/five-subsystems.md](references/five-subsystems.md) | Understanding the complete harness model, auditing an existing harness |
-| [references/diagnostic-loop.md](references/diagnostic-loop.md) | Something failed — root cause analysis across the five layers |
-| [references/minimal-pack.md](references/minimal-pack.md) | Creating harness files from scratch — templates and file contents |
-| [references/session-lifecycle.md](references/session-lifecycle.md) | Clock-in/clock-out routines, 16-step agent lifecycle |
-| [references/verification-pipeline.md](references/verification-pipeline.md) | Designing verification — layered pipeline, evidence recording |
-| [references/scope-control.md](references/scope-control.md) | WIP=1, definition of done, feature boundaries, placeholder ban |
-
----
-
-## Bootstrap Gate — DO THIS FIRST
-
-**Before answering the user, before reading any reference, before ANY other action — check whether harness files exist.** A project without these files has no harness. Creating them is the agent's first and only job.
-
-### The Minimal Harness Pack (walkinglabs)
-
-These four files are the minimum viable harness. Check for each one:
-
-| # | File | Purpose | If Missing |
-|---|------|---------|-------------|
-| 1 | `AGENTS.md` or `CLAUDE.md` | Instructions: startup path, working rules, definition of done | **Create it** — use [references/minimal-pack.md](references/minimal-pack.md) template |
-| 2 | `feature_list.json` | State: machine-readable feature tracking | **Create it** — use [references/minimal-pack.md](references/minimal-pack.md) template |
-| 3 | `progress.md` | State: session log, verified status, next steps | **Create it** — use [references/minimal-pack.md](references/minimal-pack.md) template |
-| 4 | `init.sh` | Environment: install + verify + start | **Create it** — use [references/minimal-pack.md](references/minimal-pack.md) template |
-
-**Gate rule:** If any of these four files are missing, the agent's ENTIRE response is: report which files are missing, create them all using the templates, then report done. Do NOT take any other action until the bootstrap gate passes.
-
-**Gate passes when:** All four files exist on disk with real content (not placeholders). Only then proceed to Phase 1.
-
----
-
-## The Outer Loop — Conductor Protocol
-
-Once the bootstrap gate passes, every user task flows through these phases.
-
----
-
----
-## Phase 0: GRILL — Requirements Discovery (For New Features)
-
-**Invoke `harness-engineering:grill`** when the user describes a new feature or goal that doesn't yet have an approved spec.
-
-The grill sub-skill runs the requirements discovery protocol:
-
-1. **Interview relentlessly** — one question at a time, across five dimensions: Problem Space, Happy Path, Error Cases, Constraints, Acceptance Criteria
-2. **Present structured choices** — when there are genuine alternatives, offer 2-4 options with trade-offs and a recommendation
-3. **Sharpen fuzzy language** — "fast" → specific latency, "nice UI" → concrete elements, "works with X" → exact integration
-4. **Cross-reference with code** — explore the codebase before asking the user; surface contradictions immediately
-5. **Write a spec** — when all five dimensions pass their exit gates, write `specs/<feature-id>.md`
-6. **Wait for human approval** — the spec is `awaiting_review` until the human says "approved"
-
-**Gate:** Spec written to `specs/<feature-id>.md`, reviewed by human, status is `approved`. Feature entry added to `feature_list.json` with `status: "not_started"` and a `spec_file` link.
-
-**CRITICAL:** Do NOT proceed to Phase 1 until the human approves the spec. The grill gate is mechanical, not advisory. No implementation without an approved spec.
-
----
-
-### Phase 1: SESSION START — Clock In
-
-**Invoke `harness-engineering:session`** for the clock-in sequence.
-
-The session sub-skill handles:
-1. Read ALL state files (AGENTS.md, progress.md, feature_list.json)
-2. Review recent git log (understand recent changes)
-3. Run `./init.sh` (verify environment is healthy)
-4. If baseline verification fails, fix BEFORE starting new work
-5. Announce understanding: project state, locked decisions, current task
-
-**Gate:** All state files read, environment healthy, agent knows exactly what to work on.
-
----
-
-### Phase 2: SCOPE — Pick ONE Feature
-
-**Invoke `harness-engineering:feature`** to select and scope the work.
-
-The feature sub-skill handles:
-1. Read `feature_list.json` — what's done, what's in progress
-2. WIP=1 check — only ONE feature active at a time
-3. Pick highest-priority `not_started` feature (or continue active)
-4. Mark feature `active`
-5. Define explicit completion criteria (definition of done)
-
-**Gate:** Exactly one feature is `active`. Exact completion criteria are written down.
-
----
-
-### Phase 3: IMPLEMENT — Spawn the Agent Pipeline
-
-**This is the core phase. Use the decision table above to choose pipeline vs. direct path.**
-
-#### Direct Path (simple tasks only)
-
-For typo fixes, config values, single-line bug fixes — do the work inline. Then proceed to Phase 4.
-
-#### Full Pipeline (non-trivial work)
-
-The conductor spawns each agent in sequence. Each agent works independently — you wait for its result, read it, then hand off to the next agent.
-
----
-
-**Step 3a — PLAN: Spawn the `planner` agent**
-
-Spawn the planner agent using the Agent tool. Give it:
-- The active feature from `feature_list.json` (ID, title, user_visible_behavior, verification criteria)
-- The approved spec file from `specs/<feature-id>.md` (if it exists — read it first)
-- The project directory path
-- Any additional user context or constraints
+**Step 5b — PLAN (spawn `planner`)**, handing it the Recon Report:
 
 ```
 Spawn agent: planner
 Prompt: "Plan the implementation for [feature ID]: [feature title].
-
-Feature behavior: [user_visible_behavior from feature_list.json]
-Spec file: specs/<feature-id>.md (read this for full context, decisions, and acceptance criteria)
-Verification criteria: [verification steps from feature_list.json]
+Feature behavior: [user_visible_behavior]
+Spec file: specs/<feature-id>.md (read it for decisions and acceptance criteria)
+Recon Report: [paste the explorer's report]
+Verification criteria: [from feature_list.json]
 Project directory: [path]
 
-Read AGENTS.md, progress.md, feature_list.json, and the spec file for full context.
-Explore the codebase to understand existing types, patterns, and architecture.
+Read AGENTS.md, progress.md, feature_list.json, and the spec. Use the Recon Report — do not re-explore from scratch.
 For non-trivial features, consult the code-architect agent during design.
-
-Produce a blueprint with task breakdown, dependencies, and verification steps.
-Use the blueprint output format: Context → Task Breakdown → Execution Phases → Risks."
+Produce a blueprint: Context → Task Breakdown → Execution Phases → Risks.
+End with a 'Persisted Task Breakdown (JSON)' block: an array of tasks ready for the feature's
+tasks[] — each {id,title,agent,status:'not_started',files,depends_on,verification}."
 ```
 
-**The planner returns a blueprint.** Read it. The blueprint must have:
-- Task breakdown table (ID, task, complexity, agent, files, dependencies, verification)
-- Execution phases with parallelism noted
-- Risks and mitigations
+**The planner returns a blueprint.** Read it. It must have: a task breakdown table, execution phases, risks. If vague, send it back with specific questions — do not proceed on a weak blueprint.
 
-If the blueprint is vague or incomplete, send it back to the planner with specific questions. Do NOT proceed to generation until the blueprint is solid.
+**Step 5c — PERSIST (spawn `scribe`, this is the fix for lost plans):** hand the planner's `Persisted Task Breakdown (JSON)` to the scribe as a Board Update; the scribe writes it into the active feature's `tasks[]`. The plan now lives in the repo, not just in chat. Tick GATE 5 on the ledger.
 
-**Gate:** Blueprint reviewed and approved by the conductor.
+**Exit:** blueprint approved AND `tasks[]` written to `feature_list.json` by the scribe.
 
 ---
 
-**Step 3b — ARCHITECT (optional): Spawn the `code-architect` agent**
+## GATE 6 — ARCHITECT (required when triggers fire — not "optional")
 
-Required when:
-- The feature creates a new module or package
-- The feature spans 3+ files
-- The feature introduces a new architectural pattern
-- The planner's risk assessment flagged structural concerns
+Spawn `code-architect` **whenever any trigger is true** (this is mechanical):
+
+- the feature creates a new module or package, OR
+- the feature spans 3+ files, OR
+- it introduces a new architectural pattern, OR
+- the planner's risk assessment flagged a structural concern.
+
+If none are true, mark GATE 6 `skipped (trivial change, no structural risk)` on the ledger and continue. Otherwise:
 
 ```
 Spawn agent: code-architect
 Prompt: "Review the architecture for this blueprint:
-
-[Paste the planner's blueprint here]
-
-Audit the proposed architecture against SOLID principles, layer discipline,
-and pattern selection. Read existing code before recommending.
-
-Produce an architecture review with violations, pattern recommendations, and verdict.
-Use the output format: Summary → Violations → Pattern Recommendations → Verdict."
+[blueprint]
+FIRST invoke code-quality:audit for the 16-principle design audit, THEN map findings to patterns.
+Produce: Summary → Violations (file:line) → Pattern Recommendations → Verdict.
+Begin your report with the proof line: 'code-quality:audit invoked: YES — N principles checked, M violations'."
 ```
 
-If the code-architect returns CHANGES REQUESTED or REJECTED, send the review back to the planner to adapt the blueprint. Loop until APPROVED or APPROVED WITH CHANGES.
+If the verdict is CHANGES REQUESTED / REJECTED, send it back to the planner to adapt the blueprint (and re-persist `tasks[]`). Loop until APPROVED or APPROVED WITH CHANGES.
 
-**Gate:** Architecture approved (or step skipped for simple features).
+**Exit:** architecture approved, and the architect's report contains the `code-quality:audit invoked: YES` proof line.
 
 ---
 
-**Step 3c — GENERATE: Spawn the `generator` agent**
-
-Give the generator the approved blueprint:
+## GATE 7 — GENERATE
 
 ```
 Spawn agent: generator
-Prompt: "Implement this blueprint. Follow all code-quality rules and TDD discipline.
-
-Blueprint:
-[paste the full blueprint from the planner, including any code-architect revisions]
-
+Prompt: "Implement this blueprint. Follow code-quality rules and TDD.
+Blueprint + persisted tasks[]: [paste]
 Project directory: [path]
-
-Before writing code:
-1. Read AGENTS.md for project conventions and hard constraints
-2. Read feature_list.json and progress.md for context
-3. Invoke the appropriate code-quality skill (code-quality:python or code-quality:rust)
-4. Discover project types — build a Type Inventory before writing function signatures
-
-During implementation:
-- TDD: write failing test first, then minimal code, then refactor
-- Code quality: types everywhere, DI, enums, no bare except, flat functions, no water
-- No placeholders: every function complete, no pass/TODO/NotImplementedError
-
-After all tasks complete, produce a Generator Handoff:
-- Completed tasks with commit hashes
-- Files changed
-- Verification: lint, type-check, and test results (Layer 1 and 2 passing)
-- Notes: any env vars or dependencies added"
+Before writing: read AGENTS.md, feature_list.json, progress.md; invoke code-quality:language
+(it infers the language's idioms from the repo); build a Type Inventory.
+During: TDD (failing test → minimal code → refactor); types everywhere; DI; enums; no bare
+except; flat functions; no placeholders.
+Produce a Generator Handoff: completed task IDs + commits, files changed, Layer 1+2 results,
+notes. Begin the handoff with the proof line:
+'code-quality:language invoked: YES — language: <X>, N violations found, N fixed'."
 ```
 
-**The generator writes code and produces a handoff.** The handoff must show:
-- All tasks from the blueprint completed
-- Layer 1 (lint + type-check) passing
-- Layer 2 (unit tests) passing
-- No placeholders, no debug artifacts
+**The generator returns a handoff** ending in a `Board Update` block (e.g. `task T1 → passing`). It must show: all blueprint tasks complete, Layer 1 (lint+type) passing, Layer 2 (tests) passing, no placeholders, AND the `code-quality:language invoked: YES` proof line. If the proof line is missing or self-verification fails, send it back — do not proceed.
 
-If the generator reports unresolved issues, do NOT proceed. Send back specific instructions.
-
-**Gate:** Generator handoff received, self-verification passing.
+**State write (via scribe):** hand the generator's `Board Update` to the `scribe`, which flips each completed task in `tasks[]` to `passing`. The conductor does not edit `feature_list.json` itself. Tick GATE 7. **Exit:** handoff received with proof line, scribe confirmed the task updates.
 
 ---
 
-**Step 3d — EXECUTE: Spawn the `executor` agent**
-
-The executor independently verifies what the generator built:
+## GATE 8 — EXECUTE
 
 ```
 Spawn agent: executor
 Prompt: "Verify the implementation independently.
-
-Generator handoff:
-[paste the generator's handoff]
-
-Blueprint verification criteria:
-[paste verification steps from the blueprint]
-
-Project directory: [path]
-
-Run the full 3-layer verification pipeline:
-1. Layer 1: Static analysis (ruff + mypy / clippy) — expect 0 errors
-2. Layer 2: Runtime tests (pytest / cargo test) — expect all passing
-3. Layer 3: E2E / smoke tests if the feature crosses component boundaries
-
-The Iron Law applies: never claim completion without fresh verification evidence from THIS session.
-
-If all layers pass: report success with full output as evidence.
-If any layer fails: produce an Executor Escalation with exact error output, commit hash, and files involved."
+Generator handoff: [paste]   Verification criteria: [paste]   Project directory: [path]
+Invoke harness-engineering:verify and run all 3 layers (static → tests → E2E if cross-component).
+Iron Law: never claim completion without fresh evidence from THIS session.
+Pass → report success with full output. Fail → Executor Escalation (exact error, commit, files).
+Begin your report with the proof line: 'harness-engineering:verify invoked: YES — layers run: 1,2[,3]'."
 ```
 
-**Two outcomes:**
+| Executor result | Conductor action |
+|-----------------|------------------|
+| PASS (all layers green) | Hand the executor's `Board Update` (evidence line) to the `scribe`, go to GATE 10 |
+| FAIL (any layer red) | Go to GATE 9 (Heal) |
 
-| Executor Result | Conductor Action |
-|----------------|-----------------|
-| **PASS** — all layers green | Proceed to Phase 4 (Verify) |
-| **FAIL** — any layer red | Proceed to Step 3e (Healer) |
-
-**Gate:** Executor reports all layers passing, OR escalation sent to healer.
+**Exit:** executor reports all layers passing with the proof line and the scribe recorded the evidence, or escalation sent to healer.
 
 ---
 
-**Step 3e — HEAL (on failure): Spawn the `healer` agent**
-
-Only when the executor reports a failure:
+## GATE 9 — HEAL (only on executor failure, max 3 loops)
 
 ```
 Spawn agent: healer
-Prompt: "Diagnose and prescribe a fix for this failure.
-
-Executor escalation:
-[paste the executor's escalation report]
-
-Planner blueprint:
-[paste the original blueprint]
-
-Project directory: [path]
-
-Follow the diagnostic protocol:
-1. Investigate — read the failing output, source files, spec, and blueprint
-2. Reproduce — confirm the failure is real
-3. Classify — map to one of five harness layers (Instructions/Environment/State/Scope/Verification)
-4. Determine root cause — specific file:line references
-5. Prescribe the fix — tell the generator exactly what to change
-
-Produce a Healer Diagnosis with:
-- Root cause layer and explanation
-- Exact fix instructions (file, line, change, expected result)
-- Additional checks to verify
-- Harness improvement: could this failure class have been prevented?"
+Prompt: "Diagnose and prescribe a fix.
+Executor escalation: [paste]   Blueprint: [paste]   Project directory: [path]
+Invoke harness-engineering:diagnose. Investigate → reproduce → classify to one of five layers
+→ root cause (file:line) → exact fix instructions → harness-improvement note.
+Begin with the proof line: 'harness-engineering:diagnose invoked: YES — layer: <X>'."
 ```
 
-After the healer responds:
-1. Read the diagnosis
-2. **Spawn the `generator` again** with: the original blueprint + the healer's fix instructions + "Apply these fixes"
-3. **Spawn the `executor` again** with the new generator handoff
-4. **Max 3 healing loops** — if the same failure persists after 3 cycles, escalate to the user with full diagnostic history
-
-**Gate (after healer loop):** Executor reports all layers passing, or user escalation.
+After the healer responds: (1) spawn `generator` again with blueprint + healer fix + "apply these fixes"; (2) spawn `executor` again. **Max 3 healing loops** — then escalate to the user with full diagnostic history. **Exit:** executor passes, or user escalation.
 
 ---
 
-### Phase 4: VERIFY — Evidence Before Claims
+## GATE 10 — VERIFY
 
-**Invoke `harness-engineering:verify`** before claiming ANY completion.
+**Invoke `harness-engineering:verify`.** Even if the executor already produced evidence, the conductor re-runs the top-level verification command — two independent verifications. Iron Law: never claim completion without fresh evidence from THIS session. **Exit:** command ran THIS session, 0 failures, evidence recorded.
 
-The verification sub-skill enforces the walkinglabs Iron Law:
+## GATE 11 — REVIEW
 
-> Never claim completion without fresh verification evidence from THIS session.
-
-1. **IDENTIFY:** What command proves this claim?
-2. **RUN:** Execute the FULL command (fresh, complete, this session)
-3. **READ:** Full output, check exit code, count failures
-4. **VERIFY:** Does output confirm the claim?
-5. **ONLY THEN:** Make the claim
-
-**Note:** If the full pipeline ran (Phase 3), the executor already produced verification evidence. The conductor still re-runs the top-level verification command to confirm the executor's findings — two independent verifications, not one.
-
-**Gate:** Verification command ran THIS session, output shows ZERO failures, evidence recorded.
-
----
-
-### Phase 5: REVIEW — Independent Check
-
-**Invoke `harness-engineering:review`** for non-trivial changes.
-
-The review sub-skill enforces the walkinglabs principle: **separate the doer from the checker.** Agents systematically over-rate their own output. An independent review agent must audit the work.
-
-**Required for:** New modules, functions >15 lines, API endpoints, changes spanning 3+ files.
-**Optional for:** Single-line bug fixes, typos, config values.
-
-**Note:** The generator, executor, and healer agents are all "doers" in this context. The review agent spawned here is independent of all of them — it has not seen the code before.
-
-**Gate:** Review passed (or not required). All BLOCKING and MAJOR findings fixed.
-
----
-
-### Phase 6: TRACK — Update State
-
-After implementation and verification pass, update ALL state files:
-
-1. **`progress.md`** — mark completed, update in-progress, list next steps
-2. **`feature_list.json`** — mark feature `passing`, record evidence
-3. **git commit** — descriptive message, safe state for next session
-
----
-
-### Phase 7: SESSION END — Clock Out
-
-**Invoke `harness-engineering:session`** for the clock-out sequence.
-
-The session sub-skill enforces the walkinglabs exit checklist:
+Spawn the `reviewer` agent for non-trivial changes (new modules, functions >15 lines, API endpoints, 3+ files):
 
 ```
-Session Exit Checklist:
-- [ ] init.sh passes (install + verify)
-- [ ] progress.md updated (completed, in-progress, next steps)
-- [ ] feature_list.json updated (feature states accurate)
-- [ ] All work committed with descriptive messages
-- [ ] No debug code, print(), commented-out code, stale TODOs
-- [ ] No temporary files, debug logs, scratch scripts
-- [ ] Standard startup path works (./init.sh)
-- [ ] Next session can start without guessing
+Spawn agent: reviewer
+Prompt: "Review independently. You did NOT write this code.
+Diff/commits: [list]   Spec: specs/<feature-id>.md   Acceptance criteria: [paste]   Project dir: [path]
+FIRST invoke code-quality:review (27 items) and harness-engineering:review (spec/harness compliance).
+Produce findings (file:line, severity), a spec-compliance table, a verdict, and a Board Update.
+Begin with the proof line: 'code-quality:review invoked: YES — 27 items checked, K BLOCKING, M MAJOR'."
 ```
 
-**Gate:** All 8 items pass. Repo is safe for the next session.
+The reviewer is independent of the generator/executor/healer — it has not seen the code being written.
+
+| Reviewer verdict | Conductor action |
+|------------------|------------------|
+| APPROVED / APPROVED WITH CHANGES | Hand its `Board Update` to the scribe, go to GATE 12 |
+| CHANGES REQUESTED / REJECTED | Loop back to GATE 7 (generator) with the findings, max 3 loops, then escalate |
+
+**Exit:** reviewer verdict APPROVED (or review not required); all BLOCKING/MAJOR findings fixed.
+
+## GATE 12 — TRACK (close the loop in the repo)
+
+Update ALL durable state — this is the other half of the "don't lose things" fix. The **scribe** writes the board and log; the conductor commits:
+
+1. **Spawn `scribe`** with the accumulated Board Updates. It flips remaining `tasks[]` to `passing`, flips `acceptance_criteria` `done: true` with evidence, sets the feature `passing` **only when every task is passing and every criterion is done**, records `evidence`, and updates `progress.md` (completed, in-progress, known issues, next steps). The scribe refuses any write that breaks an invariant.
+2. **git commit** (conductor) — descriptive message, safe restart state.
+
+**Exit:** scribe confirmed `feature_list.json valid after write: YES`, all state files current, work committed.
+
+## GATE 13 — CLOCK OUT
+
+**Invoke `harness-engineering:session`** (clock-out): the 8-item exit checklist (init.sh passes, progress.md + feature_list.json updated by the scribe, work committed, no debug artifacts/temp files, startup works, next session ready). **Exit:** all 8 pass.
 
 ---
 
-## The Diagnostic Loop (When Something Fails)
+## Proof-of-invocation — why agents stop skipping their skills
 
-**Invoke `harness-engineering:diagnose`.** Never respond to a failure by saying "the model isn't good enough."
+Every spawned agent must begin its report with a **proof line** showing it invoked its required skill. The conductor rejects a handoff without one and re-spawns. This is what makes "the agent must review against design principles" actually happen.
 
-The diagnostic loop from walkinglabs Lecture 01:
+| Agent | Required skill | Proof line it must emit |
+|-------|----------------|-------------------------|
+| explorer | (read-only recon) | `Type Inventory built: YES — N existing types catalogued` |
+| planner | (consult code-architect for non-trivial) | `code-architect consulted: YES/NO — <reason>` |
+| code-architect | `code-quality:audit` | `code-quality:audit invoked: YES — N principles checked, M violations` |
+| generator | `code-quality:language` | `code-quality:language invoked: YES — language: <X>, N violations found, N fixed` |
+| executor | `harness-engineering:verify` | `harness-engineering:verify invoked: YES — layers run: 1,2[,3]` |
+| healer | `harness-engineering:diagnose` | `harness-engineering:diagnose invoked: YES — layer: <X>` |
+| reviewer | `code-quality:review` + `harness-engineering:review` | `code-quality:review invoked: YES — 27 items checked, K BLOCKING, M MAJOR` |
+| scribe | (validates board after write) | `feature_list.json valid after write: YES — applied N deltas` |
 
-1. **Execute** — run verification, observe the failure
-2. **Attribute** — which of the five layers caused it?
-3. **Fix** — fix that layer of the harness
-4. **Retry** — re-execute verification
-5. **Never fail the same way twice** — if a failure class recurs, the harness fix was wrong
+## The Board Update contract — how agents drive the kanban
 
-### Five-Layer Attribution
+Agents do not edit `feature_list.json` directly (one writer = no drift). Instead, every agent that changes the board ends its handoff with a `Board Update` block, and the **scribe** applies it:
 
-| Layer | Question | Example Failure | Harness Fix |
-|-------|----------|----------------|-------------|
-| **Instructions** | Was the task unclear? | "Built X but spec said Y" | Clarify AGENTS.md, add explicit rules |
-| **Environment** | Were there env issues? | "Module not found: pydantic" | Fix init.sh, add missing dependency |
-| **State** | Was state lost between sessions? | "Re-implemented existing feature" | Update progress.md, read it on clock-in |
-| **Scope** | Did the agent overreach? | "Fixed the bug but also refactored 3 files" | Tighten definition of done, enforce WIP=1 |
-| **Verification** | Were there no verification methods? | "Code looks right" (but doesn't work) | Add explicit verification commands, run them |
+```
+## Board Update
+- task <ID> → <not_started|in_progress|blocked|passing> [reason if blocked]
+- acceptance_criteria <ID> → done (evidence: <text>)
+- evidence: <line appended to the feature's evidence[]>
+- tasks[]: <planner's Persisted Task Breakdown JSON, on first persist>
+```
+
+The scribe is the **single writer** of `feature_list.json` and `progress.md`. It applies deltas verbatim but refuses any that break an invariant (feature `passing` only when all tasks pass and all criteria are done; WIP=1; reciprocal/acyclic links). This is how the agents genuinely *operate* the board without five of them writing it at once.
 
 ---
 
-## Quick Reference
+## Reference Files
 
-| Phase | What Happens | Who Does the Work |
-|-------|-------------|-------------------|
-| 0. Bootstrap | Create AGENTS.md, feature_list.json, progress.md, init.sh | Conductor via `harness-engineering:bootstrap` |
-| 0. Grill | Interview relentlessly, write spec, get human approval | Conductor via `harness-engineering:grill` — for new features only |
-| 1. Session Start | Clock-in: read all state, verify environment | Conductor via `harness-engineering:session` |
-| 2. Scope | Pick one feature, WIP=1, define done | Conductor via `harness-engineering:feature` |
-| 3a. Plan | Decompose goal into structured blueprint (reads approved spec) | **`planner` agent** (opus), optionally consults `code-architect` |
-| 3b. Architect | Architecture review, SOLID audit | **`code-architect` agent** (opus) — optional, for non-trivial features |
-| 3c. Generate | Write all code, tests, configs following TDD + code-quality | **`generator` agent** (sonnet) |
-| 3d. Execute | Run 3-layer verification pipeline, collect evidence | **`executor` agent** (sonnet) |
-| 3e. Heal | Diagnose root cause, prescribe fix, close feedback loop | **`healer` agent** (opus) — only on executor failure, max 3 loops |
-| 4. Verify | Evidence before claims, fresh verification | Conductor via `harness-engineering:verify` |
-| 5. Review | Independent review — separate doer from checker | Conductor via `harness-engineering:review` (spawns review agent) |
-| 6. Track | Update progress.md, feature_list.json, commit | Conductor |
-| 7. Session End | Clock-out: 8-item exit checklist | Conductor via `harness-engineering:session` |
-| On Failure | Attribute to layer → fix harness → retry | Conductor via `harness-engineering:diagnose`, or `healer` agent for code failures |
+Load only what the current gate requires — give a map, not an encyclopedia.
 
-### Agent Pipeline Summary
+| Reference | When to Load |
+|-----------|-------------|
+| [references/five-subsystems.md](references/five-subsystems.md) | Auditing or explaining the complete harness model |
+| [references/diagnostic-loop.md](references/diagnostic-loop.md) | Something failed — root-cause analysis across five layers |
+| [references/minimal-pack.md](references/minimal-pack.md) | Creating harness files — templates (includes the kanban feature schema) |
+| [references/session-lifecycle.md](references/session-lifecycle.md) | Clock-in/clock-out routines |
+| [references/verification-pipeline.md](references/verification-pipeline.md) | Designing the layered verification pipeline |
+| [references/scope-control.md](references/scope-control.md) | WIP=1, definition of done, placeholder ban |
 
-```
-CONDUCTOR (this session, any model)
-    │
-    ├─ Phase 0: Grill (sub-skill) — for new features
-    │   ├─ Interview relentlessly (5 dimensions)
-    │   ├─ Write spec → specs/<feature-id>.md
-    │   └─ HUMAN APPROVAL GATE
-    │
-    ├─ Phase 1-2: Clock-in + Scope (sub-skills)
-    │
-    ├─ Phase 3a: Spawn PLANNER (opus) → reads spec, gets blueprint
-    ├─ Phase 3b: Spawn CODE-ARCHITECT (opus) → gets architecture review [optional]
-    ├─ Phase 3c: Spawn GENERATOR (sonnet) → writes all code
-    ├─ Phase 3d: Spawn EXECUTOR (sonnet) → runs verification
-    ├─ Phase 3e: Spawn HEALER (opus) → diagnoses failure [on executor fail]
-    │       └─ Back to 3c (max 3 loops)
-    │
-    ├─ Phase 4-5: Verify + Review (sub-skills)
-    ├─ Phase 6-7: Track + Clock-out (conductor)
-    │
-    └─ DONE
-```
+---
 
-## Hard Constraints (Non-Negotiable)
+## The Diagnostic Loop (when something fails)
 
-These come directly from walkinglabs:
+**Invoke `harness-engineering:diagnose`.** Never respond to a failure with "the model isn't good enough."
 
-1. **Check the harness first** — when the model fails on a task it should handle, the problem is in the harness
-2. **Evidence before claims** — never say "done" or "passing" without fresh verification output
-3. **WIP = 1** — exactly one feature active. No exceptions without explicit user approval
-4. **No placeholders** — `pass`, `TODO`, `NotImplementedError` are forbidden in committed code
-5. **Leave a clean state** — every session ends with the repo restartable from `./init.sh`
-6. **Separate doer from checker** — the agent that wrote the code cannot be the sole judge of its quality
-7. **Repo is the system of record** — if it's not in the repo, it doesn't exist for the agent
-8. **Spawn agents for non-trivial work** — the conductor must spawn the planner, generator, and executor agents. Do NOT do their work inline. The pipeline exists for a reason: independent planning, implementation, and verification produce better results than one agent doing everything.
+| Layer | Question | Example | Harness Fix |
+|-------|----------|---------|-------------|
+| **Instructions** | Task unclear? | "Built X but spec said Y" | Clarify AGENTS.md, add explicit rules |
+| **Environment** | Env issue? | "Module not found" | Fix init.sh, add dependency |
+| **State** | State lost between sessions? | "Re-implemented existing feature" | Update progress.md / feature_list.json, read on clock-in |
+| **Scope** | Agent overreached? | "Fixed the bug + refactored 3 files" | Tighten definition of done, WIP=1 |
+| **Verification** | No verification method? | "Looks right" (but isn't) | Add explicit verification commands, run them |
+
+Loop: Execute → Attribute → Fix the layer → Retry → never fail the same way twice.
+
+---
+
+## Sub-skills and agents at a glance
+
+| Component | Role |
+|-----------|------|
+| `harness-engineering:grill` | GATE 1 — requirements discovery, write spec, human approval |
+| `harness-engineering:bootstrap` | GATE 0 — create the four harness files |
+| `harness-engineering:session` | GATE 3 / 13 — clock-in / clock-out |
+| `harness-engineering:feature` | GATE 4 — WIP=1, kanban tickets, definition of done |
+| `harness-engineering:verify` | GATE 8 / 10 — layered verification, evidence before claims |
+| `harness-engineering:review` | GATE 11 — independent review (separate doer from checker) |
+| `harness-engineering:diagnose` | GATE 9 / failures — attribute to one of five layers |
+| `explorer` (sonnet) | GATE 5a — read-only recon; builds the Type Inventory for the planner |
+| `planner` (opus) | GATE 5b — blueprint; emits the persisted tasks[] |
+| `code-architect` (opus) | GATE 6 — design review; runs code-quality:audit |
+| `generator` (sonnet) | GATE 7 — writes code under code-quality + TDD |
+| `executor` (sonnet) | GATE 8 — runs verification, collects evidence |
+| `healer` (opus) | GATE 9 — diagnoses failure, prescribes fix |
+| `reviewer` (opus) | GATE 11 — independent review; runs code-quality:review |
+| `scribe` (sonnet) | GATE 5c/7/8/12 — single writer of feature_list.json + progress.md |
+
+---
+
+## Hard Constraints (non-negotiable)
+
+1. **Run the Gate Sequence** — every request flows through the gates in order; no gate skipped silently.
+2. **Spec before build** — a build request with no approved spec goes through grill first (GATE 1).
+3. **Keep the ledger** — maintain a live phase ledger (GATE 2); persist the plan into `tasks[]` (GATE 5).
+4. **Proof of invocation** — every agent emits its required-skill proof line, or its handoff is rejected.
+5. **Evidence before claims** — never say "done"/"passing" without fresh verification output.
+6. **WIP = 1** — exactly one feature `in_progress`. No exceptions without explicit user approval.
+7. **No placeholders** — `pass`, `TODO`, `NotImplementedError` are forbidden in committed code.
+8. **Separate doer from checker** — the independent `reviewer` agent (which never wrote the code) audits non-trivial work; the doer is not the sole judge of its quality.
+9. **Single writer of state** — only the `scribe` writes `feature_list.json` and `progress.md`; every other agent sends it a Board Update. One writer = no drift.
+10. **Repo is the system of record** — if it's not in the repo (feature_list.json, progress.md, specs/), it doesn't exist.
+11. **Leave a clean state** — every session ends restartable from `./init.sh`.
 
 ## Further Reading
 
 - [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) — full 12-lecture course
-- [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) — curated resources
+- [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering)
 - OpenAI: "Harness Engineering — Leveraging Codex in an Agent-First World"
 - Anthropic: "Effective Harnesses for Long-Running Agents"

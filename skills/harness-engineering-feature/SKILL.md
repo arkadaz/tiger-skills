@@ -86,6 +86,58 @@ Specific, executable steps. Each step must produce a clear pass/fail.
 
 Exactly one of four values. Agents CANNOT self-declare `passing` — verification must run and pass.
 
+## Kanban Fields — Links, Tasks, Acceptance Criteria
+
+A feature is a **ticket**, not a flat line. Beyond the three required fields, every feature carries four kanban fields so the plan survives across the pipeline and tickets relate to one another.
+
+```json
+{
+  "id": "search-feature",
+  "depends_on": ["auth-feature"],
+  "blocks": ["export-feature"],
+  "acceptance_criteria": [
+    {"id": "AC1", "text": "Empty query returns 400", "done": false}
+  ],
+  "tasks": [
+    {"id": "T1", "title": "Add /search route", "agent": "generator",
+     "status": "passing", "files": ["api/search.py"], "depends_on": [],
+     "verification": "GET /search?q=a returns 200"},
+    {"id": "T2", "title": "Full-text query", "agent": "generator",
+     "status": "in_progress", "files": ["services/search.py"], "depends_on": ["T1"],
+     "verification": "Query 'widget' returns matching rows"}
+  ]
+}
+```
+
+### `depends_on` / `blocks` — ticket links
+
+- **`depends_on`**: this feature cannot START until every listed id is `passing`.
+- **`blocks`**: the listed ids cannot start until THIS feature is `passing`. Keep it the reciprocal of `depends_on` — if A `depends_on` B, then B `blocks` A.
+- Links exist between **features** and between **tasks within a feature** (`task.depends_on` references sibling task ids).
+- **Cycle ban:** the dependency graph must be acyclic. A depends_on B depends_on A is a bug — `init.sh` will flag dangling ids; you must not introduce cycles.
+
+### `tasks[]` — kanban sub-tickets (the persisted blueprint)
+
+This is the field that stops the plan from evaporating. The **planner writes its blueprint task breakdown here** (one task per blueprint row). Each task is a small ticket:
+
+| Field | Meaning |
+|-------|---------|
+| `id` | `T1`, `T2`, … unique within the feature |
+| `title` | what the task delivers |
+| `agent` | which agent owns it (`generator`, `executor`, …) |
+| `status` | one of the four states — same machine as features |
+| `files` | files the task touches |
+| `depends_on` | sibling task ids that must be `passing` first |
+| `verification` | the one check that proves this task done |
+
+**Who writes tasks:** the planner produces them; the **conductor persists them** into `feature_list.json` and flips each task's `status` as the generator/executor complete it. Tasks inherit the feature state machine — `not_started → in_progress → passing`, `blocked` as the side exit. A task cannot be `passing` without its verification met.
+
+**A feature is `passing` only when every task is `passing` and every acceptance criterion is `done`.**
+
+### `acceptance_criteria[]` — the checkable definition of done
+
+Each item is `{id, text, done}`. `done` flips to `true` only when evidence is recorded for it. Acceptance criteria are the human-readable "is it actually finished?" list; tasks are the work breakdown. Both must be satisfied to mark the feature `passing`.
+
 ## State Transitions
 
 | Transition | Who/What Authorizes | Condition |

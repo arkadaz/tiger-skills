@@ -89,6 +89,18 @@ Machine-readable feature state. The source of truth for what's done and what's n
     "blocked": "Work cannot continue until a documented blocker is resolved.",
     "passing": "Required verification has passed and evidence is recorded."
   },
+  "task_status_legend": {
+    "not_started": "Subtask not yet picked up.",
+    "in_progress": "Subtask is being worked on right now.",
+    "blocked": "Subtask cannot continue until a documented blocker clears.",
+    "passing": "Subtask is implemented and its verification passed."
+  },
+  "link_semantics": {
+    "depends_on": "Cannot start until the listed ids reach status 'passing'.",
+    "blocks": "The listed ids cannot start until this one reaches 'passing'. Reciprocal of depends_on.",
+    "tasks": "Kanban sub-tickets — the planner writes them from its blueprint; the conductor flips their status.",
+    "acceptance_criteria": "Checkable definition of done; each item flips done=true only when its evidence is recorded."
+  },
   "features": [
     {
       "id": "feature-001",
@@ -96,7 +108,17 @@ Machine-readable feature state. The source of truth for what's done and what's n
       "area": "[domain-area]",
       "title": "[Feature title]",
       "user_visible_behavior": "[What the user sees — include happy path AND error cases]",
+      "spec_file": "specs/feature-001.md",
       "status": "not_started",
+      "depends_on": [],
+      "blocks": [],
+      "acceptance_criteria": [
+        {"id": "AC1", "text": "[Checkable definition-of-done item]", "done": false}
+      ],
+      "tasks": [
+        {"id": "T1", "title": "[Subtask]", "agent": "generator", "status": "not_started",
+         "files": ["[path]"], "depends_on": [], "verification": "[the one check that proves it done]"}
+      ],
       "verification": [
         "[Step 1 — specific action to verify]",
         "[Step 2]"
@@ -131,6 +153,16 @@ not_started → in_progress → passing
 3. **state** — Exactly one of: `not_started`, `in_progress`, `blocked`, `passing`.
 
 Missing any one = incomplete specification.
+
+### The Kanban Fields (every feature is a ticket)
+
+In addition to the three required fields, each feature carries:
+
+- **`depends_on` / `blocks`** — ticket links. `depends_on` lists ids that must be `passing` before this can start; `blocks` is the reciprocal. The graph must be acyclic.
+- **`tasks[]`** — kanban sub-tickets. The **planner persists its blueprint here** so the plan does not evaporate after the planner returns. Each task has `id, title, agent, status, files, depends_on, verification` and runs on the same four-state machine.
+- **`acceptance_criteria[]`** — `{id, text, done}` checkable definition of done.
+
+A feature is `passing` only when **every task is `passing` and every acceptance criterion is `done`** with evidence. See [skills/harness-engineering-feature/SKILL.md](../../harness-engineering-feature/SKILL.md) for the full kanban rules.
 
 ---
 

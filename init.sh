@@ -215,6 +215,103 @@ else
     fail "init.sh is not executable"
 fi
 
+# ── Layer 6: Feature graph & kanban schema ───────────────────────────
+echo ""
+echo "── Layer 6: Feature graph & kanban schema ──"
+
+if [ -n "$PYTHON" ] && [ -f feature_list.json ]; then
+    # Every feature carries the kanban fields
+    if pyrun "
+import json,sys
+fs=json.load(open('feature_list.json')).get('features',[])
+req=['depends_on','blocks','acceptance_criteria','tasks']
+bad=[f.get('id','?') for f in fs if any(k not in f for k in req)]
+sys.exit(1 if bad else 0)
+"; then
+        pass "Every feature has kanban fields (depends_on, blocks, acceptance_criteria, tasks)"
+    else
+        fail "Some feature is missing kanban fields (depends_on/blocks/acceptance_criteria/tasks)"
+    fi
+
+    # No dangling feature link ids
+    DANGLING=$(pyrun "
+import json
+fs=json.load(open('feature_list.json')).get('features',[])
+ids={f.get('id') for f in fs}
+bad=set()
+for f in fs:
+    for k in ('depends_on','blocks'):
+        for r in f.get(k,[]):
+            if r not in ids: bad.add(r)
+print(','.join(sorted(x for x in bad if x)))
+" || echo "?")
+    if [ -z "$DANGLING" ]; then
+        pass "All feature depends_on/blocks ids resolve"
+    elif [ "$DANGLING" = "?" ]; then
+        fail "Could not parse feature links"
+    else
+        fail "Dangling feature link ids: $DANGLING"
+    fi
+
+    # blocks must be the reciprocal of depends_on
+    if pyrun "
+import json,sys
+fs=json.load(open('feature_list.json')).get('features',[])
+dep={f.get('id'):set(f.get('depends_on',[])) for f in fs}
+blk={f.get('id'):set(f.get('blocks',[])) for f in fs}
+ok=True
+for a in dep:
+    for b in dep[a]:
+        if b in blk and a not in blk[b]: ok=False
+sys.exit(0 if ok else 1)
+"; then
+        pass "blocks is the reciprocal of depends_on"
+    else
+        fail "blocks/depends_on not reciprocal (if A depends_on B, then B must block A)"
+    fi
+
+    # Feature dependency graph must be acyclic
+    if pyrun "
+import json,sys
+fs=json.load(open('feature_list.json')).get('features',[])
+dep={f.get('id'):list(f.get('depends_on',[])) for f in fs}
+color={k:0 for k in dep}
+def dfs(n):
+    color[n]=1
+    for m in dep.get(n,[]):
+        if m not in color: continue
+        if color[m]==1: return True
+        if color[m]==0 and dfs(m): return True
+    color[n]=2; return False
+sys.exit(1 if any(color[n]==0 and dfs(n) for n in dep) else 0)
+"; then
+        pass "Feature dependency graph is acyclic"
+    else
+        fail "Feature dependency graph has a cycle"
+    fi
+
+    # Task statuses valid and task deps resolve within their own feature
+    if pyrun "
+import json,sys
+d=json.load(open('feature_list.json'))
+legend=set(d.get('task_status_legend',{}).keys()) or {'not_started','in_progress','blocked','passing'}
+ok=True
+for f in d.get('features',[]):
+    tids={t.get('id') for t in f.get('tasks',[])}
+    for t in f.get('tasks',[]):
+        if t.get('status') not in legend: ok=False
+        for r in t.get('depends_on',[]):
+            if r not in tids: ok=False
+sys.exit(0 if ok else 1)
+"; then
+        pass "Task statuses valid and task depends_on resolve within their feature"
+    else
+        fail "A task has an invalid status or a depends_on that is not a sibling task id"
+    fi
+else
+    echo "  (skipping feature graph checks — no Python or no feature_list.json)"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────
 echo ""
 echo "──────────────────────────────────────────"
