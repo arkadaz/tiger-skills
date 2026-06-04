@@ -23,10 +23,12 @@ This skill activates when the user:
 - Asks "what would it take to..."
 
 **Anti-triggers** — do NOT grill when:
-- The feature already has a complete, approved spec in `feature_list.json`
+- The feature already has a **human-approved** spec — one the user explicitly said "yes" to in an earlier turn. A spec file marked `Status: approved` that you or bootstrap wrote this session is NOT approved; it's a draft, and you still grill.
 - The user is reporting a bug (diagnose, don't grill)
 - The user asks a factual question about the codebase (explore, don't grill)
 - The user gives a precise, unambiguous instruction ("rename getCwd to getCurrentWorkingDirectory in file.ts")
+
+**Starting from a pasted or pre-written spec (common — don't let it skip you):** When the user pastes a detailed spec, that is a strong _draft_ and your starting point, not a finished, approved one. Do not write it to `specs/` stamped approved and move on. Instead: read it, confirm the parts that are clear (don't re-ask what the draft already answers — rule 2), then drive its **own open questions to closure** (the pasted spec in the failure this fixes even had a "section 13: Open questions" list that was never resolved), and finish by presenting the spec for an explicit human "yes" before you set `Status: approved`. A complete-looking paste makes grill _fast_, not skippable.
 
 ## Position in the Harness
 

@@ -75,6 +75,8 @@ Before answering, before reading any reference, before ANY other action — chec
 
 **Gate rule:** if any file is missing, the ENTIRE response is: report which are missing, create them all (via `harness-engineering-bootstrap`), report done. No other action until the gate passes.
 
+**Bootstrap stays in its lane:** it creates ONLY the four files above. It does **not** write anything to `specs/`, does **not** stamp any spec `Status: approved`, and any features it seeds start `not_started` with no approved spec. If the user pasted a spec or feature idea, bootstrap does not consume it as "done" — that text is carried into GATE 1 as grill input. Authoring and approving specs is grill's job (GATE 1), never bootstrap's.
+
 ---
 
 ## GATE 1 — SPEC GATE (this is what makes grill mechanical)
@@ -85,13 +87,21 @@ Before answering, before reading any reference, before ANY other action — chec
 Is the request a BUILD request? (add / build / implement / create / "I want…" / "can we…" / a feature idea)
 ├── NO  (bug fix, factual question, precise one-line edit, research) → skip grill, continue to GATE 2
 └── YES
-     ├── A feature with status≠not_started-without-spec AND an approved spec (spec_file present, spec Status: approved) already covers it?
+     ├── A HUMAN-approved spec already covers it? (spec_file present, AND the human
+     │   explicitly approved it in an earlier turn — see the approval rule below)
      │      → continue to GATE 2
-     └── No approved spec covers it?
+     └── Otherwise (no spec, OR a spec exists but no human approved it this/any session)?
             → INVOKE `harness-engineering-grill` NOW. Do not plan. Do not write code.
               Grill writes specs/<feature-id>.md, gets HUMAN approval, then adds the
               feature to feature_list.json. Only then continue to GATE 2.
 ```
+
+**What "approved" means — and the self-approval ban (this is the hole that lets grill get skipped):**
+
+- A spec is **approved only when a human said "yes" to it in the conversation.** The `Status:` line in a spec file is a _record_ of that human decision, never a substitute for it.
+- **You may never write `Status: approved` yourself.** Only grill sets it, and only _after_ it has shown the spec to the human and received an explicit approval in the same session. A spec you (or bootstrap) authored or edited this session is a **draft**, not an approved spec — it does not satisfy this gate.
+- **A spec the user pasted into the prompt is grill INPUT, not approval.** A complete-looking pasted spec does not mean grill is done — it means grill starts from a strong draft. Grill still runs to resolve the spec's own open questions and obtain explicit human sign-off. (In the failure this rule fixes, the conductor took a pasted spec, wrote it to `specs/` stamped `approved`, and skipped grill — never do this.)
+- When in doubt about whether approval happened, it didn't. Run grill.
 
 **What counts as "needs a spec":** anything that adds or changes user-visible behavior. When unsure, grill — the cost of a short interview is far below the cost of building the wrong thing.
 
