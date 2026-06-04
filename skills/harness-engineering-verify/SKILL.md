@@ -1,6 +1,6 @@
 ---
 name: harness-engineering-verify
-description: Verification before completion — the Iron Law: never claim completion without fresh verification evidence from THIS session. Run the layered pipeline (static → unit → E2E), record evidence, pass the completion gate. Use before claiming ANY work is done.
+description: Verification before completion — the Iron Law is to never claim completion without fresh verification evidence from THIS session. Run the layered pipeline (static → unit → E2E), record evidence, pass the completion gate. Use before claiming ANY work is done.
 ---
 
 # Verification — Evidence Before Claims
