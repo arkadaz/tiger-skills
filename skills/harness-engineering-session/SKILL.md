@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:session
+name: harness-engineering-session
 description: Session clock-in and clock-out discipline — read all state files at start, update all state files at end, leave a clean restart path. Use when starting or ending any coding session.
 ---
 

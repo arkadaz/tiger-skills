@@ -10,13 +10,13 @@ Identify what to review:
 - `git log main..HEAD --oneline` — commits on this branch
 
 ### 2. Run Verification Pipeline
-Load `harness-engineering:verify` and run all three layers:
+Load `harness-engineering-verify` and run all three layers:
 - Layer 1: Static analysis (lint + type-check)
 - Layer 2: Unit + integration tests
 - Layer 3: E2E / smoke test (if cross-component changes)
 
 ### 3. Spawn Code Quality Review
-Load `code-quality:review` and spawn an independent review agent to audit the diff against all 16 design principles + tooling rules.
+Load `code-quality-review` and spawn an independent review agent to audit the diff against all 16 design principles + tooling rules.
 
 ### 4. Check Spec Compliance
 If a spec exists for the feature, verify every requirement is implemented:

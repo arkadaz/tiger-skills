@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:feature
+name: harness-engineering-feature
 description: Feature lifecycle management — pick one feature, enforce WIP=1, track state through not_started → in_progress → passing/blocked, enforce definition of done. Use when starting work, switching features, or checking feature state.
 ---
 

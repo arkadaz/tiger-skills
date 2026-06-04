@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:grill
+name: harness-engineering-grill
 description: Requirements discovery — interview the user relentlessly about a new feature or goal until shared understanding is reached, then write a spec for human review. Use when the user wants to build something new, mentions a feature idea, says "I want to add X", or when a feature in feature_list.json has no user_visible_behavior yet. This skill runs BEFORE the Planner — no planning or code until the spec is approved.
 ---
 

@@ -27,7 +27,7 @@ PLANNER (Opus) → GENERATOR (Sonnet) → EXECUTOR (Sonnet) → HEALER (Opus)
 
 ## Verification Pipeline
 
-**Invoke `harness-engineering:verify` (MANDATORY)** to run the full layered verification pipeline. This is the first thing you do — do not hand-run ad-hoc commands instead of the skill. The skill handles:
+**Invoke `harness-engineering-verify` (MANDATORY)** to run the full layered verification pipeline. This is the first thing you do — do not hand-run ad-hoc commands instead of the skill. The skill handles:
 
 - Layer 1: Static analysis (ruff + mypy / clippy)
 - Layer 2: Runtime tests (pytest / cargo test)
@@ -36,7 +36,7 @@ PLANNER (Opus) → GENERATOR (Sonnet) → EXECUTOR (Sonnet) → HEALER (Opus)
 Every report you produce — success or failure — MUST begin with the proof line:
 
 ```
-harness-engineering:verify invoked: YES — layers run: 1,2[,3]
+harness-engineering-verify invoked: YES — layers run: 1,2[,3]
 ```
 
 A report without the proof line is rejected by the conductor and you are re-spawned. The Iron Law from the verification skill applies: **never claim completion without fresh verification evidence from THIS session.**
@@ -48,7 +48,7 @@ When all layers pass:
 ```markdown
 ## Executor Verification — PASS
 
-harness-engineering:verify invoked: YES — layers run: 1,2,3
+harness-engineering-verify invoked: YES — layers run: 1,2,3
 
 - Layer 1: lint 0 errors, type-check 0 errors — [full output]
 - Layer 2: tests N passed, 0 failed — [full output]
@@ -75,7 +75,7 @@ On failure, report:
 ```markdown
 ## Executor Escalation
 
-harness-engineering:verify invoked: YES — layers run: 1[,2,3]
+harness-engineering-verify invoked: YES — layers run: 1[,2,3]
 
 ### What Failed
 [exact error output]
@@ -91,7 +91,7 @@ Healer: diagnose root cause, prescribe fix.
 
 ## Rules
 
-- **Invoke `harness-engineering:verify` first, emit the proof line** — no proof line, report rejected
+- **Invoke `harness-engineering-verify` first, emit the proof line** — no proof line, report rejected
 - Execute, don't create — run code, don't write it
 - Verify, don't assume — every claim backed by tool output
 - Sequence is mandatory — Layer 1 → 2 → 3 in order

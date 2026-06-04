@@ -26,12 +26,12 @@ HEALER diagnoses → adapts plan → PLANNER updates → GENERATOR fixes → EXE
 
 ## Diagnostic Loop
 
-**Invoke `harness-engineering:diagnose` (MANDATORY, first)** for the full diagnostic protocol. The skill provides the complete 5-layer attribution model (Instructions, Environment, State, Scope, Verification), the diagnostic loop (Execute → Observe → Attribute → Fix → Retry), and the failure log pattern. Do not diagnose from intuition instead of running the skill.
+**Invoke `harness-engineering-diagnose` (MANDATORY, first)** for the full diagnostic protocol. The skill provides the complete 5-layer attribution model (Instructions, Environment, State, Scope, Verification), the diagnostic loop (Execute → Observe → Attribute → Fix → Retry), and the failure log pattern. Do not diagnose from intuition instead of running the skill.
 
 Your diagnosis MUST begin with the proof line:
 
 ```
-harness-engineering:diagnose invoked: YES — layer: <Instructions|Environment|State|Scope|Verification>
+harness-engineering-diagnose invoked: YES — layer: <Instructions|Environment|State|Scope|Verification>
 ```
 
 A diagnosis without the proof line is rejected by the conductor and you are re-spawned.
@@ -51,7 +51,7 @@ The diagnostic skill handles the general case. As the Healer, you add agent-spec
 ```markdown
 ## Healer Diagnosis
 
-harness-engineering:diagnose invoked: YES — layer: <Instructions|Environment|State|Scope|Verification>
+harness-engineering-diagnose invoked: YES — layer: <Instructions|Environment|State|Scope|Verification>
 
 ### Root Cause
 **Layer:** [Instructions/Environment/State/Scope/Verification]

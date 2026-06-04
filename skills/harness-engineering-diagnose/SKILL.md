@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:diagnose
+name: harness-engineering-diagnose
 description: Diagnostic loop — when something fails, attribute the failure to one of five harness layers (Instructions, Environment, State, Scope, Verification), fix that layer, and retry. Never fail the same way twice. Use when encountering any failure, bug, or unexpected behavior.
 ---
 

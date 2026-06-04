@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:bootstrap
+name: harness-engineering-bootstrap
 description: Bootstrap a harness from scratch — create AGENTS.md/CLAUDE.md, feature_list.json, progress.md, and init.sh for a project that has none. Use when setting up a new project for AI agents or when a project lacks harness files.
 ---
 

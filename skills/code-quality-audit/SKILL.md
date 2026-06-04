@@ -1,5 +1,5 @@
 ---
-name: code-quality:audit
+name: code-quality-audit
 description: Audit existing code for design principle violations — scan files or modules against all 16 design principles, identify violations with file:line references, and produce a ranked audit report. Use when auditing a codebase, reviewing architecture, or checking SOLID compliance.
 ---
 
@@ -46,7 +46,7 @@ For each of the 16 principles, ask the diagnostic question:
 
 ### 4. Check the Tooling Rules
 
-Invoke `code-quality:language`. It infers the Language Profile from the repo and applies the 11 tooling rules (types, DI, enums, naming, logging, error handling, I/O validation, flat functions, lint/type/format, module hygiene, no water) through that language's idioms. Works for any language — Python and Rust are the worked examples.
+Invoke `code-quality-language`. It infers the Language Profile from the repo and applies the 11 tooling rules (types, DI, enums, naming, logging, error handling, I/O validation, flat functions, lint/type/format, module hygiene, no water) through that language's idioms. Works for any language — Python and Rust are the worked examples.
 
 ### 5. Check Layer Discipline
 

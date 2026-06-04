@@ -25,17 +25,17 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 | You say... | Skill that activates |
 |------------|---------------------|
-| "I want to add X" / "can we build…" / a feature idea | `harness-engineering:grill` (Spec Gate — interviews you, writes a spec, waits for approval) |
-| "Set up this project for AI agents" | `harness-engineering:bootstrap` |
-| "What are we working on?" / "Start a session" | `harness-engineering:session` |
-| "Let's work on feature X" | `harness-engineering:feature` |
-| "Is this done?" / "Verify my changes" | `harness-engineering:verify` |
-| "Review my code" | `harness-engineering:review` or `code-quality:review` |
-| "Why did this fail?" / "The agent keeps messing up" | `harness-engineering:diagnose` |
+| "I want to add X" / "can we build…" / a feature idea | `harness-engineering-grill` (Spec Gate — interviews you, writes a spec, waits for approval) |
+| "Set up this project for AI agents" | `harness-engineering-bootstrap` |
+| "What are we working on?" / "Start a session" | `harness-engineering-session` |
+| "Let's work on feature X" | `harness-engineering-feature` |
+| "Is this done?" / "Verify my changes" | `harness-engineering-verify` |
+| "Review my code" | `harness-engineering-review` or `code-quality-review` |
+| "Why did this fail?" / "The agent keeps messing up" | `harness-engineering-diagnose` |
 | "Improve this code" / "Make this cleaner" | `code-quality` (router, delegates to sub-skills) |
-| "Audit this for design violations" | `code-quality:audit` |
-| "Fix these violations" | `code-quality:fix` |
-| "Write/review code in any language" (Python, Rust, TS, Go, Java, C#, …) | `code-quality:language` (infers the language's idioms) |
+| "Audit this for design violations" | `code-quality-audit` |
+| "Fix these violations" | `code-quality-fix` |
+| "Write/review code in any language" (Python, Rust, TS, Go, Java, C#, …) | `code-quality-language` (infers the language's idioms) |
 
 ### The Full Workflow
 
@@ -69,7 +69,7 @@ You don't need to remember skill names. Just describe what you want, and the rig
 → Invokes code-quality: reviews against all 16 principles
 
 "Why does Claude keep re-implementing features we already have?"
-→ harness-engineering:diagnose attributes to State layer, fixes progress.md
+→ harness-engineering-diagnose attributes to State layer, fixes progress.md
 
 "Review my PR before I merge"
 → Runs verification pipeline + independent code quality review
@@ -125,22 +125,22 @@ Every complete harness has five subsystems:
 | Skill | When to Use |
 |-------|------------|
 | `harness-engineering` | **Conductor** — orchestrates the full agent workflow. Start here for any task. |
-| `harness-engineering:bootstrap` | Creating AGENTS.md, feature_list.json, progress.md, init.sh from scratch |
-| `harness-engineering:session` | Clock-in (read state) or clock-out (update state, 8-item exit checklist) |
-| `harness-engineering:feature` | Feature lifecycle — pick one feature, WIP=1, definition of done |
-| `harness-engineering:verify` | Evidence before claims — 3-layer pipeline (static → unit → E2E) |
-| `harness-engineering:review` | Independent harness compliance review — separate doer from checker |
-| `harness-engineering:diagnose` | Attribute failure to 1 of 5 layers, fix the harness, retry |
+| `harness-engineering-bootstrap` | Creating AGENTS.md, feature_list.json, progress.md, init.sh from scratch |
+| `harness-engineering-session` | Clock-in (read state) or clock-out (update state, 8-item exit checklist) |
+| `harness-engineering-feature` | Feature lifecycle — pick one feature, WIP=1, definition of done |
+| `harness-engineering-verify` | Evidence before claims — 3-layer pipeline (static → unit → E2E) |
+| `harness-engineering-review` | Independent harness compliance review — separate doer from checker |
+| `harness-engineering-diagnose` | Attribute failure to 1 of 5 layers, fix the harness, retry |
 
 ### Code Quality (Inner Loop)
 
 | Skill | When to Use |
 |-------|------------|
 | `code-quality` | **Router** — load principles here, route to sub-skills for specific tasks |
-| `code-quality:language` | Universal tooling rules for **any** language — infers its idioms (Python/Rust are worked examples) |
-| `code-quality:review` | Independent review against 16 principles + 11 tooling rules (27 items) |
-| `code-quality:audit` | Full design principle audit with ranked violation report |
-| `code-quality:fix` | Apply known fix patterns for specific violation types |
+| `code-quality-language` | Universal tooling rules for **any** language — infers its idioms (Python/Rust are worked examples) |
+| `code-quality-review` | Independent review against 16 principles + 11 tooling rules (27 items) |
+| `code-quality-audit` | Full design principle audit with ranked violation report |
+| `code-quality-fix` | Apply known fix patterns for specific violation types |
 
 ## 16 Design Principles
 
@@ -195,11 +195,11 @@ Scribe = single writer of feature_list.json + progress.md (applies every agent's
 |-------|-------|------|---------------------------|
 | `explorer` | sonnet | Read-only recon; build the Type Inventory for the planner | `Type Inventory built: YES` |
 | `planner` | opus | Decompose goals into blueprints; emit `tasks[]` | `code-architect consulted: YES/NO` |
-| `code-architect` | opus | Architecture review, SOLID, pattern selection | `code-quality:audit invoked: YES` |
-| `generator` | sonnet | Write code from blueprints (TDD + code-quality) | `code-quality:language invoked: YES` |
-| `executor` | sonnet | Run verification pipelines, collect evidence | `harness-engineering:verify invoked: YES` |
-| `healer` | opus | Diagnose failures, prescribe fixes | `harness-engineering:diagnose invoked: YES` |
-| `reviewer` | opus | Independent check vs. spec + 16 principles (never wrote the code) | `code-quality:review invoked: YES` |
+| `code-architect` | opus | Architecture review, SOLID, pattern selection | `code-quality-audit invoked: YES` |
+| `generator` | sonnet | Write code from blueprints (TDD + code-quality) | `code-quality-language invoked: YES` |
+| `executor` | sonnet | Run verification pipelines, collect evidence | `harness-engineering-verify invoked: YES` |
+| `healer` | opus | Diagnose failures, prescribe fixes | `harness-engineering-diagnose invoked: YES` |
+| `reviewer` | opus | Independent check vs. spec + 16 principles (never wrote the code) | `code-quality-review invoked: YES` |
 | `scribe` | sonnet | Single writer of `feature_list.json` + `progress.md` | `feature_list.json valid after write: YES` |
 
 **Proof of invocation:** every agent must begin its report with its proof line. The conductor rejects a handoff without one and re-spawns the agent — this is what stops agents from skipping their required skill (e.g. the architect actually running the 16-principle design audit instead of eyeballing it).

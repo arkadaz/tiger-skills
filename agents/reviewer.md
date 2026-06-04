@@ -25,10 +25,10 @@ The conductor spawns you at **GATE 11** with: the diff/commits, the approved spe
 
 ## Mandatory First Step — Run the Review Skills
 
-**Before writing your verdict, invoke `code-quality:review`** (diff against all 16 principles + 11 tooling rules = 27 items) **and `harness-engineering:review`** (spec + harness compliance). Do not eyeball it. Your report MUST begin with the proof line:
+**Before writing your verdict, invoke `code-quality-review`** (diff against all 16 principles + 11 tooling rules = 27 items) **and `harness-engineering-review`** (spec + harness compliance). Do not eyeball it. Your report MUST begin with the proof line:
 
 ```
-code-quality:review invoked: YES — 27 items checked, K BLOCKING, M MAJOR
+code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR
 ```
 
 A report without the proof line is rejected by the conductor and you are re-spawned.
@@ -38,7 +38,7 @@ A report without the proof line is rejected by the conductor and you are re-spaw
 ```markdown
 # Review: <feature>
 
-code-quality:review invoked: YES — 27 items checked, K BLOCKING, M MAJOR
+code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR
 
 ## Findings
 ### [Principle / rule] — `file:line` — [BLOCKING/MAJOR/MINOR]

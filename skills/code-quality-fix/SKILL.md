@@ -1,5 +1,5 @@
 ---
-name: code-quality:fix
+name: code-quality-fix
 description: Fix specific code quality violations — apply known fix patterns for each of the 16 design principles and language-specific tooling rules. Use when a review or audit has identified violations that need fixing.
 ---
 
@@ -75,7 +75,7 @@ Apply known fix patterns for each design principle and tooling rule violation.
 
 ## Tooling Rule Fix Patterns (language-neutral)
 
-These are the 11 tooling-rule intents. Invoke `code-quality:language` to translate each into the idiom of the language in front of you; Python and Rust examples shown.
+These are the 11 tooling-rule intents. Invoke `code-quality-language` to translate each into the idiom of the language in front of you; Python and Rust examples shown.
 
 ### Types — no escape hatch where a real type exists
 **Signal:** the language's "any" (`Any`/`object`, `any`, `interface{}`, `dynamic`, `Box<dyn Any>`) or an unparameterized generic where the structure is known.

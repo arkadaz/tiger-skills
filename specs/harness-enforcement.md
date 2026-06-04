@@ -19,10 +19,10 @@ The harness was documented but not enforced: it dropped steps mid-run, `feature_
 
 ### Happy Path
 
-1. User makes a build request → **Spec Gate** fires: no approved spec → `harness-engineering:grill` runs → spec written → human approves → feature added to `feature_list.json`.
+1. User makes a build request → **Spec Gate** fires: no approved spec → `harness-engineering-grill` runs → spec written → human approves → feature added to `feature_list.json`.
 2. Conductor creates a **live phase ledger** and ticks each gate.
 3. Planner produces a blueprint → conductor **persists its `tasks[]`** into the feature.
-4. For non-trivial features the **code-architect runs `code-quality:audit`** and emits a proof line; generator/executor/healer likewise emit proof lines.
+4. For non-trivial features the **code-architect runs `code-quality-audit`** and emits a proof line; generator/executor/healer likewise emit proof lines.
 5. Conductor flips `tasks[]` and `acceptance_criteria` to done with evidence → feature `passing` only when all are done → **Success**.
 
 ### Error Cases
@@ -76,7 +76,7 @@ The harness was documented but not enforced: it dropped steps mid-run, `feature_
 The pipeline grew from 5 agents to 8 so the agents genuinely *operate* the new machinery rather than just feeding it:
 
 - **explorer** (sonnet, read-only) — GATE 5a recon; builds the Type Inventory for the planner.
-- **reviewer** (opus) — GATE 11 independent check; runs `code-quality:review`; promotes review from a skill to a true separate-context checker.
+- **reviewer** (opus) — GATE 11 independent check; runs `code-quality-review`; promotes review from a skill to a true separate-context checker.
 - **scribe** (sonnet) — the **single writer** of `feature_list.json` + `progress.md`; every other agent emits a `Board Update` it applies, enforcing the kanban invariants.
 
 Decision: `integrator` (commit/PR/release) was offered and **declined** — the conductor keeps GATE 12–13.

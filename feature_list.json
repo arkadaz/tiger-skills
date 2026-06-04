@@ -39,13 +39,13 @@
       "depends_on": [],
       "blocks": ["harness-enforcement"],
       "acceptance_criteria": [
-        {"id": "AC1", "text": "harness-engineering-grill/SKILL.md exists with name=harness-engineering:grill", "done": true},
+        {"id": "AC1", "text": "harness-engineering-grill/SKILL.md exists with name=harness-engineering-grill", "done": true},
         {"id": "AC2", "text": "Conductor references grill as Phase 0 / Spec Gate", "done": true},
         {"id": "AC3", "text": "specs/ directory exists for approved specs", "done": true}
       ],
       "tasks": [],
       "verification": [
-        "skills/harness-engineering-grill/SKILL.md exists with valid frontmatter (name=harness-engineering:grill)",
+        "skills/harness-engineering-grill/SKILL.md exists with valid frontmatter (name=harness-engineering-grill)",
         "skills/harness-engineering/SKILL.md references grill as the Spec Gate (GATE 1)",
         "plugin.json autoDiscovery.skills includes skills/harness-engineering-grill/",
         "specs/ directory exists"
@@ -89,7 +89,7 @@
       "priority": 2,
       "area": "harness-engineering",
       "title": "Make the workflow mechanical: gates, live ledger, kanban tasks, agent evidence",
-      "user_visible_behavior": "Invoking harness-engineering on a build request runs a hard Gate Sequence: bootstrap check, then a Spec Gate that invokes grill when no approved spec exists, then a live phase ledger the conductor ticks off so no step is dropped. The planner's task breakdown is persisted into feature_list.json tasks[] (kanban sub-tickets) rather than evaporating in chat. Features link to each other via depends_on/blocks. Each of the 5 agents must invoke its required skill (e.g. code-architect runs code-quality:audit for non-trivial features) and emit a proof-of-invocation evidence line. Two new hooks force grill on build requests and block agent spawns before spec+ledger exist.",
+      "user_visible_behavior": "Invoking harness-engineering on a build request runs a hard Gate Sequence: bootstrap check, then a Spec Gate that invokes grill when no approved spec exists, then a live phase ledger the conductor ticks off so no step is dropped. The planner's task breakdown is persisted into feature_list.json tasks[] (kanban sub-tickets) rather than evaporating in chat. Features link to each other via depends_on/blocks. Each of the 5 agents must invoke its required skill (e.g. code-architect runs code-quality-audit for non-trivial features) and emit a proof-of-invocation evidence line. Two new hooks force grill on build requests and block agent spawns before spec+ledger exist.",
       "spec_file": "specs/harness-enforcement.md",
       "status": "passing",
       "depends_on": ["harness-grill", "harness-rewrite"],
@@ -98,11 +98,11 @@
         {"id": "AC1", "text": "Build request + no approved spec triggers grill before any planning (Spec Gate in conductor + spec-gate hook)", "done": true},
         {"id": "AC2", "text": "feature_list.json features support depends_on/blocks/tasks[]/acceptance_criteria and init.sh validates them", "done": true},
         {"id": "AC3", "text": "Conductor maintains a live phase ledger and persists the planner's task breakdown into feature_list.json tasks[]", "done": true},
-        {"id": "AC4", "text": "Each of the 5 agents has a mandatory skill-invocation gate and emits a proof-of-invocation evidence line; code-architect runs code-quality:audit for non-trivial features", "done": true},
+        {"id": "AC4", "text": "Each of the 5 agents has a mandatory skill-invocation gate and emits a proof-of-invocation evidence line; code-architect runs code-quality-audit for non-trivial features", "done": true},
         {"id": "AC5", "text": "./init.sh passes with the new schema validation", "done": true},
         {"id": "AC6", "text": "Pipeline expanded to 8 agents (explorer, reviewer, scribe added) and wired into the conductor gates", "done": true},
         {"id": "AC7", "text": "scribe is the single writer of feature_list.json + progress.md; every other agent emits a Board Update it applies", "done": true},
-        {"id": "AC8", "text": "reviewer is an independent agent at GATE 11 (runs code-quality:review) and explorer feeds the planner a Recon Report at GATE 5a", "done": true}
+        {"id": "AC8", "text": "reviewer is an independent agent at GATE 11 (runs code-quality-review) and explorer feeds the planner a Recon Report at GATE 5a", "done": true}
       ],
       "tasks": [
         {"id": "T1", "title": "Upgrade feature_list.json schema (tasks[], depends_on/blocks, acceptance_criteria) and migrate entries", "agent": "generator", "status": "passing", "files": ["feature_list.json"], "depends_on": [], "verification": "init.sh parses the file and every link/task validates"},
@@ -122,7 +122,7 @@
         {"id": "T15", "title": "Re-run ./init.sh and record evidence for the 8-agent pipeline", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T10", "T11", "T12", "T13", "T14"], "verification": "./init.sh reports 0 failures with 8 agents"}
       ],
       "verification": [
-        "skills/harness-engineering/SKILL.md contains a 'Gate Sequence' with GATE 1 Spec Gate that invokes harness-engineering:grill",
+        "skills/harness-engineering/SKILL.md contains a 'Gate Sequence' with GATE 1 Spec Gate that invokes harness-engineering-grill",
         "hooks/spec-gate.md exists (event=UserPromptSubmit) and hooks/pre-agent-spawn.md exists (event=PreToolUse, tool=Agent)",
         "feature_list.json validates: every depends_on/blocks id exists; every task.status is in task_status_legend",
         "Each agent file contains a mandatory '<skill> invoked: YES' proof-of-invocation requirement",
@@ -142,13 +142,13 @@
       "priority": 3,
       "area": "code-quality",
       "title": "Resolve cross-file count inconsistencies in code-quality review files",
-      "user_visible_behavior": "code-quality:review SKILL.md and references/review-agent.md report the same item count (16 principles + 11 tooling rules = 27). The router lists exactly 16 principles. No file disagrees on the totals.",
+      "user_visible_behavior": "code-quality-review SKILL.md and references/review-agent.md report the same item count (16 principles + 11 tooling rules = 27). The router lists exactly 16 principles. No file disagrees on the totals.",
       "spec_file": null,
       "status": "not_started",
       "depends_on": ["harness-rewrite"],
       "blocks": [],
       "acceptance_criteria": [
-        {"id": "AC1", "text": "code-quality:review and review-agent.md both say 27 items (16+11)", "done": false},
+        {"id": "AC1", "text": "code-quality-review and review-agent.md both say 27 items (16+11)", "done": false},
         {"id": "AC2", "text": "Router lists exactly 16 principles", "done": false}
       ],
       "tasks": [],
@@ -187,28 +187,28 @@
       "priority": 5,
       "area": "code-quality",
       "title": "Make code-quality language-agnostic — one universal language skill, infer per language",
-      "user_visible_behavior": "code-quality keeps the same 16 design principles + 13 patterns and the same 11 tooling rules, but applies them to ANY language by inferring that language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter). The two per-language skills (code-quality:python, code-quality:rust) are replaced by a single code-quality:language skill; Python and Rust remain as the two worked examples (references/python, references/rust). The router, audit, fix, and review sub-skills are de-Pythonized to neutral intents. The generator agent and conductor invoke code-quality:language.",
+      "user_visible_behavior": "code-quality keeps the same 16 design principles + 13 patterns and the same 11 tooling rules, but applies them to ANY language by inferring that language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter). The two per-language skills (code-quality:python, code-quality:rust) are replaced by a single code-quality-language skill; Python and Rust remain as the two worked examples (references/python, references/rust). The router, audit, fix, and review sub-skills are de-Pythonized to neutral intents. The generator agent and conductor invoke code-quality-language.",
       "spec_file": null,
       "status": "in_progress",
       "depends_on": ["harness-rewrite"],
       "blocks": [],
       "acceptance_criteria": [
-        {"id": "AC1", "text": "Single code-quality:language skill exists; code-quality:python and code-quality:rust removed", "done": true},
+        {"id": "AC1", "text": "Single code-quality-language skill exists; code-quality:python and code-quality:rust removed", "done": true},
         {"id": "AC2", "text": "16 principles + 13 patterns + 11 tooling-rule intents stated language-neutrally; Python and Rust kept as worked examples", "done": true},
-        {"id": "AC3", "text": "Router, audit, fix, review de-Pythonized; generator + conductor invoke code-quality:language", "done": true},
+        {"id": "AC3", "text": "Router, audit, fix, review de-Pythonized; generator + conductor invoke code-quality-language", "done": true},
         {"id": "AC4", "text": "plugin.json/marketplace/README/AGENTS reflect 13 skills with no stale python/rust skill references", "done": true},
         {"id": "AC5", "text": "./init.sh passes (13 skill paths resolve)", "done": true}
       ],
       "tasks": [
         {"id": "T1", "title": "Write code-quality-language universal skill (11 rule-intents + Language Profile inference + py/rust examples)", "agent": "generator", "status": "passing", "files": ["skills/code-quality-language/SKILL.md"], "depends_on": [], "verification": "Skill states neutral intents + inference method"},
-        {"id": "T2", "title": "Rewrite code-quality router: language-agnostic, route to code-quality:language", "agent": "generator", "status": "passing", "files": ["skills/code-quality/SKILL.md"], "depends_on": ["T1"], "verification": "Router has no .py/.rs routing"},
+        {"id": "T2", "title": "Rewrite code-quality router: language-agnostic, route to code-quality-language", "agent": "generator", "status": "passing", "files": ["skills/code-quality/SKILL.md"], "depends_on": ["T1"], "verification": "Router has no .py/.rs routing"},
         {"id": "T3", "title": "De-Pythonize audit, fix, review sub-skills", "agent": "generator", "status": "passing", "files": ["skills/code-quality-audit/SKILL.md", "skills/code-quality-fix/SKILL.md", "skills/code-quality-review/SKILL.md"], "depends_on": ["T1"], "verification": "Tooling rules stated as neutral intents"},
         {"id": "T4", "title": "Remove code-quality-python and code-quality-rust skills; keep references/python|rust", "agent": "generator", "status": "passing", "files": [], "depends_on": ["T1"], "verification": "Two skill dirs gone; references kept"},
         {"id": "T5", "title": "Update plugin.json (paths+v4.5.0), marketplace, README, AGENTS, generator agent, conductor proof line", "agent": "generator", "status": "passing", "files": [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "README.md", "AGENTS.md", "agents/generator.md", "skills/harness-engineering/SKILL.md"], "depends_on": ["T2", "T3", "T4"], "verification": "No stale code-quality:python/:rust references; 13 skills"},
         {"id": "T6", "title": "Run ./init.sh and record evidence", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T1", "T2", "T3", "T4", "T5"], "verification": "./init.sh reports 0 failures with 13 skill paths"}
       ],
       "verification": [
-        "skills/code-quality-language/SKILL.md exists (name=code-quality:language); code-quality-python/ and code-quality-rust/ removed",
+        "skills/code-quality-language/SKILL.md exists (name=code-quality-language); code-quality-python/ and code-quality-rust/ removed",
         "plugin.json autoDiscovery.skills lists code-quality-language and not the python/rust paths",
         "No file references code-quality:python or code-quality:rust",
         "./init.sh reports 0 failures"

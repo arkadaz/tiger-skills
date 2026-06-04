@@ -22,7 +22,7 @@ See `skills/harness-engineering-grill/SKILL.md` for the full spec template and t
 
 ## Rules
 
-- Specs are written by the grill skill (`harness-engineering:grill`)
+- Specs are written by the grill skill (`harness-engineering-grill`)
 - Specs are read by the planner agent during Phase 3a
 - No spec = no planning = no code (the grill gate)
 - Only the human can move a spec from `awaiting_review` to `approved`

@@ -1,5 +1,5 @@
 ---
-name: harness-engineering:review
+name: harness-engineering-review
 description: Independent code review — separate the doer from the checker. Spawn an independent review agent to audit work against design principles, tooling rules, and spec compliance. Use after implementation, before claiming completion.
 ---
 
@@ -11,12 +11,12 @@ From walkinglabs core principle: **separate the doer from the checker.** Agents 
 
 ## Which Review Skill to Use
 
-This skill (`harness-engineering:review`) checks **harness compliance** — did the agent follow the process? For **code quality** (design principles, tooling rules, types), also invoke `code-quality:review`.
+This skill (`harness-engineering-review`) checks **harness compliance** — did the agent follow the process? For **code quality** (design principles, tooling rules, types), also invoke `code-quality-review`.
 
 | What to Check | Skill to Invoke |
 |---------------|----------------|
-| Harness compliance (state files updated, verification ran, clean state) | `harness-engineering:review` (this skill) |
-| Code quality (16 design principles, 11 tooling rules, types, DI, enums) | `code-quality:review` |
+| Harness compliance (state files updated, verification ran, clean state) | `harness-engineering-review` (this skill) |
+| Code quality (16 design principles, 11 tooling rules, types, DI, enums) | `code-quality-review` |
 | Both (full review before merge) | Invoke both — harness first, then code quality |
 
 ## When Review Is Required

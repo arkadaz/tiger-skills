@@ -12,7 +12,7 @@ tiger-skills — a Claude Code plugin providing harness engineering (outer loop)
 ## Working Rules
 
 1. **Run the Gate Sequence** — every request flows through the conductor's gates in order (see `skills/harness-engineering/SKILL.md`): bootstrap → spec gate → ledger → clock-in → scope → plan → … → track → clock-out. No gate is skipped silently.
-2. **Spec before build** — a build request with no approved spec goes through `harness-engineering:grill` first (GATE 1). No planning or code without an approved spec.
+2. **Spec before build** — a build request with no approved spec goes through `harness-engineering-grill` first (GATE 1). No planning or code without an approved spec.
 3. **Keep a live ledger** — for multi-step work, maintain a phase checklist you tick off (GATE 2), and persist the planner's task breakdown into `feature_list.json` `tasks[]` (GATE 5) so nothing is dropped.
 4. **Explore before code** — discover existing types, functions, and patterns BEFORE writing. Never duplicate an existing function, type, or constant.
 5. Work on only one feature at a time (WIP=1)
@@ -65,7 +65,7 @@ hooks/                     — Event-driven hooks
 - Follow the walkinglabs 5-subsystem model (Instructions, Environment, State, Scope, Verification)
 - Every harness file must exist before any other work begins (bootstrap gate)
 - **Spec gate** — no build without an approved spec; grill first
-- **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality:audit invoked: YES`), or its handoff is rejected and it is re-spawned
+- **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality-audit invoked: YES`), or its handoff is rejected and it is re-spawned
 - **Single writer of state** — only the `scribe` agent writes `feature_list.json` and `progress.md`; every other agent emits a Board Update for it to apply
 - **Independent review** — the `reviewer` agent (never wrote the code) audits non-trivial work at GATE 11
 - Evidence before claims — never say "done" without fresh verification

@@ -29,7 +29,7 @@ PLANNER (Opus) → GENERATOR (Sonnet) → EXECUTOR (Sonnet) → HEALER (Opus)
 1. **Read AGENTS.md** — project conventions, hard constraints, directory map
 2. **Read feature_list.json** — what's done, what's in progress, what's next
 3. **Read progress.md** — session log, known issues, current state
-4. **Invoke code-quality rules (MANDATORY)** — invoke `code-quality:language` BEFORE writing any code. It infers the language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter) and applies the 11 tooling rules; all 16 design principles apply regardless of language. You must report this in the handoff proof line — a handoff without it is rejected and you are re-spawned.
+4. **Invoke code-quality rules (MANDATORY)** — invoke `code-quality-language` BEFORE writing any code. It infers the language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter) and applies the 11 tooling rules; all 16 design principles apply regardless of language. You must report this in the handoff proof line — a handoff without it is rejected and you are re-spawned.
 5. **Discover project types** — build a Type Inventory before writing any function signature
 6. **Pass comprehension check** — know every type, principle, and rule before touching code
 
@@ -59,7 +59,7 @@ After completing all tasks:
 ```markdown
 ## Generator Handoff
 
-code-quality:language invoked: YES — language: <detected>, N violations found, N fixed
+code-quality-language invoked: YES — language: <detected>, N violations found, N fixed
 
 ### Completed
 - [x] T1: [title] — commit [hash]
@@ -85,7 +85,7 @@ The first line is the **proof line** — it tells the conductor you actually loa
 
 ## Rules
 
-- **Invoke `code-quality:language` before writing, emit the proof line in the handoff** — no proof line, handoff rejected
+- **Invoke `code-quality-language` before writing, emit the proof line in the handoff** — no proof line, handoff rejected
 - Every function is complete — no `pass`, no `TODO`, no `raise NotImplementedError`
 - Test before code — TDD always
 - Types everywhere — no `Any` ever

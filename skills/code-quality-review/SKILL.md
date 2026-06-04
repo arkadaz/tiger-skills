@@ -1,5 +1,5 @@
 ---
-name: code-quality:review
+name: code-quality-review
 description: Independent code quality review — spawn a review agent to audit a diff against all 16 design principles and language-specific tooling rules. Separate the doer from the checker. Use after implementation, before claiming completion.
 ---
 
@@ -7,7 +7,7 @@ description: Independent code quality review — spawn a review agent to audit a
 
 Independent code review against all 16 design principles + language-specific tooling rules. **The agent that wrote the code cannot be the sole judge of its quality.** Agents systematically over-rate their own output.
 
-**Which review to use:** This skill checks code quality. For harness compliance (state files, verification, clean state), also invoke `harness-engineering:review`. See that skill for a full comparison table. For a complete pre-merge review, invoke both.
+**Which review to use:** This skill checks code quality. For harness compliance (state files, verification, clean state), also invoke `harness-engineering-review`. See that skill for a full comparison table. For a complete pre-merge review, invoke both.
 
 ## When Review Is Required
 
@@ -28,7 +28,7 @@ Use the Agent tool:
 ```
 You are an independent code review agent. Audit this diff:
 
-FIRST: Infer the Language Profile (invoke code-quality:language) — detect the language and its type system, "any" escape hatch, enum mechanism, DI idiom, logging library, error model, I/O validation, and lint/type/format toolchain from the repo's manifests and existing code. Then run type discovery — search for all existing type/struct/interface/enum definitions and build a Type Inventory.
+FIRST: Infer the Language Profile (invoke code-quality-language) — detect the language and its type system, "any" escape hatch, enum mechanism, DI idiom, logging library, error model, I/O validation, and lint/type/format toolchain from the repo's manifests and existing code. Then run type discovery — search for all existing type/struct/interface/enum definitions and build a Type Inventory.
 
 THEN: Check against all 27 items:
   16 design principles + 11 tooling rules. The tooling rules are intents — apply each through the detected language's idioms.

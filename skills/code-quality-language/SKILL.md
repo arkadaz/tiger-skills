@@ -1,5 +1,5 @@
 ---
-name: code-quality:language
+name: code-quality-language
 description: Language-agnostic code quality rules — the same tooling rules applied to ANY programming language by inferring that language's idioms from the codebase. Use when writing, reviewing, or auditing code in any language (Python, Rust, TypeScript, Go, Java, C#, C++, …). Replaces per-language skills with one universal rule set. This skill is rigid — its rules must be followed, not negotiated.
 ---
 
@@ -111,5 +111,5 @@ For any other language, these two are the template: same rule numbers, same inte
 When invoked by an agent, begin the report with:
 
 ```
-code-quality:language invoked: YES — language: <detected>, N violations found, N fixed
+code-quality-language invoked: YES — language: <detected>, N violations found, N fixed
 ```
