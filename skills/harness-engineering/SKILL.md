@@ -28,6 +28,17 @@ User Request → Gate Sequence (this file) → each gate updates the ledger + st
 
 ---
 
+## Invocation names — these skills and agents are plugin-namespaced
+
+This is a **plugin** (`tiger-skills`). Its skills and agents are **always** registered under that namespace, so at the actual call site you MUST use the prefixed name — the bare name does not resolve:
+
+- **Skill tool:** pass `tiger-skills:<skill>` — e.g. `tiger-skills:harness-engineering-grill`, `tiger-skills:harness-engineering-bootstrap`, `tiger-skills:code-quality-audit`.
+- **Agent / Task tool:** set `subagent_type` to `tiger-skills:<agent>` — e.g. `tiger-skills:explorer`, `tiger-skills:planner`, `tiger-skills:scribe`.
+
+The short names used in the prose below (e.g. "spawn the planner", "invoke grill") are for readability. **Always prepend `tiger-skills:` when you actually call the tool.** A bare `explorer` or `harness-engineering-bootstrap` will fail with "not found" — that is the namespace, not a typo.
+
+---
+
 ## THE GATE SEQUENCE — run on every request, in order
 
 | Gate | Name | What it does | Exit condition |
@@ -131,7 +142,7 @@ Use the decision table to choose the path:
 **Step 5a — EXPLORE (spawn `explorer`)** — for non-trivial or unfamiliar code. Read-only recon that grounds the plan in reality:
 
 ```
-Spawn agent: explorer
+Spawn agent: tiger-skills:explorer
 Prompt: "Recon the codebase for [feature ID]: [feature title].
 Spec file: specs/<feature-id>.md. Project directory: [path].
 Produce a Recon Report: Type Inventory (existing types/functions/constants with file:line),
@@ -144,7 +155,7 @@ If the change is trivial, mark 5a `skipped (trivial)` on the ledger.
 **Step 5b — PLAN (spawn `planner`)**, handing it the Recon Report:
 
 ```
-Spawn agent: planner
+Spawn agent: tiger-skills:planner
 Prompt: "Plan the implementation for [feature ID]: [feature title].
 Feature behavior: [user_visible_behavior]
 Spec file: specs/<feature-id>.md (read it for decisions and acceptance criteria)
@@ -179,7 +190,7 @@ Spawn `code-architect` **whenever any trigger is true** (this is mechanical):
 If none are true, mark GATE 6 `skipped (trivial change, no structural risk)` on the ledger and continue. Otherwise:
 
 ```
-Spawn agent: code-architect
+Spawn agent: tiger-skills:code-architect
 Prompt: "Review the architecture for this blueprint:
 [blueprint]
 FIRST invoke code-quality-audit for the 16-principle design audit, THEN map findings to patterns.
@@ -196,7 +207,7 @@ If the verdict is CHANGES REQUESTED / REJECTED, send it back to the planner to a
 ## GATE 7 — GENERATE
 
 ```
-Spawn agent: generator
+Spawn agent: tiger-skills:generator
 Prompt: "Implement this blueprint. Follow code-quality rules and TDD.
 Blueprint + persisted tasks[]: [paste]
 Project directory: [path]
@@ -218,7 +229,7 @@ notes. Begin the handoff with the proof line:
 ## GATE 8 — EXECUTE
 
 ```
-Spawn agent: executor
+Spawn agent: tiger-skills:executor
 Prompt: "Verify the implementation independently.
 Generator handoff: [paste]   Verification criteria: [paste]   Project directory: [path]
 Invoke harness-engineering-verify and run all 3 layers (static → tests → E2E if cross-component).
@@ -239,7 +250,7 @@ Begin your report with the proof line: 'harness-engineering-verify invoked: YES 
 ## GATE 9 — HEAL (only on executor failure, max 3 loops)
 
 ```
-Spawn agent: healer
+Spawn agent: tiger-skills:healer
 Prompt: "Diagnose and prescribe a fix.
 Executor escalation: [paste]   Blueprint: [paste]   Project directory: [path]
 Invoke harness-engineering-diagnose. Investigate → reproduce → classify to one of five layers
@@ -260,7 +271,7 @@ After the healer responds: (1) spawn `generator` again with blueprint + healer f
 Spawn the `reviewer` agent for non-trivial changes (new modules, functions >15 lines, API endpoints, 3+ files):
 
 ```
-Spawn agent: reviewer
+Spawn agent: tiger-skills:reviewer
 Prompt: "Review independently. You did NOT write this code.
 Diff/commits: [list]   Spec: specs/<feature-id>.md   Acceptance criteria: [paste]   Project dir: [path]
 FIRST invoke code-quality-review (27 items) and harness-engineering-review (spec/harness compliance).

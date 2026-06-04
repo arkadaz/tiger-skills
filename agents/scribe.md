@@ -48,7 +48,12 @@ You consume `Board Update` blocks of this shape and apply them verbatim:
 
 ## After Every Write — Validate
 
-Run a JSON validity check on `feature_list.json` (`python -c "import json;json.load(open('feature_list.json'))"`). If the project has `init.sh`, the conductor re-runs its Layer 6 feature-graph checks. Your report MUST end with the proof line:
+Run a JSON validity check on `feature_list.json` using a command that **cannot hang**, native to the OS:
+
+- **Windows (PowerShell):** `Get-Content feature_list.json -Raw | ConvertFrom-Json | Out-Null`
+- **macOS / Linux:** `jq empty feature_list.json` — or `python3 -c "import json;json.load(open('feature_list.json'))"` — or `node -e "require('./feature_list.json')"`
+
+**Never call bare `python` on Windows.** When Python is not installed, Windows routes `python` / `python3` to the Microsoft Store alias stub, which blocks waiting on stdin and freezes the tool indefinitely (a non-terminating command). Use the PowerShell `ConvertFrom-Json` check on Windows. If the project has `init.sh`, the conductor re-runs its Layer 6 feature-graph checks. Your report MUST end with the proof line:
 
 ```
 feature_list.json valid after write: YES — applied N deltas
