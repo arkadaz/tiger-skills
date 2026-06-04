@@ -1,6 +1,6 @@
 {
   "name": "tiger-skills",
-  "description": "Harness engineering (outer loop) + Code quality (inner loop). Based on walkinglabs learn-harness-engineering course.",
+  "description": "Harness engineering (outer loop) + Code quality (inner loop), with an 8-agent pipeline and a deterministic, git-committed Workflow. Based on walkinglabs learn-harness-engineering course.",
   "version": "4.6.0",
   "author": {
     "name": "arkadaz"

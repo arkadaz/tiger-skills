@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Harness engineering + code quality skills. 13 skills, 8 agents, 8 hooks.",
+      "description": "Harness engineering + code quality skills. 13 skills, 8 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow.",
       "author": {
         "name": "arkadaz"
       },
