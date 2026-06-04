@@ -1,6 +1,6 @@
 # tiger-skills
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 13 skills, 8 agents, 8 hooks — one plugin.
+Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 13 skills, 8 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin.
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
 
@@ -57,7 +57,29 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 | Command | What it does |
 |---------|-------------|
-| `/review-branch` | Review the current branch — runs verification pipeline, spawns code quality review, checks spec compliance, produces a report |
+| `/tiger-skills:review-branch` | Review the current branch — runs verification pipeline, spawns code quality review, checks spec compliance, produces a report |
+| `/tiger-skills:install-workflow` | Copy the bundled deterministic Workflow into this project's `.claude/workflows/` so the team gets it on clone |
+
+### Deterministic Workflow — run the pipeline the same way every time
+
+The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 8 agents identically on every run, instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
+
+```
+explore → plan → [architect?] → persist-tasks → generate
+        → execute → (heal → regenerate → re-execute){≤3}
+        → review → (fix → re-review){≤3} → track
+```
+
+**Boundary:** the human gates stay interactive — bootstrap, grill, and **spec approval** happen in conversation first; the workflow runs only an *already-approved* feature. The mechanical part is deterministic; the judgment part stays with you.
+
+**Use it:**
+
+1. **Install it into a project (once):** run `/tiger-skills:install-workflow`, then commit `.claude/workflows/tiger-pipeline.js` so teammates get it on clone.
+2. **Finish GATES 0–4 in chat:** bootstrap, grill, **approve the spec**, pick one feature (WIP=1).
+3. **Run it:** `/workflows tiger-pipeline` with the feature's `args` (`featureId`, `featureTitle`, `specFile`, `projectDir`, `today`, and the architect-trigger flags). See [`workflows/README.md`](workflows/README.md) for the full table.
+4. **Watch live** in `/workflows` — `p` pause, `x` stop an agent, `r` restart, `s` save.
+
+> **Prerequisites:** Claude Code ≥ 2.1.154 with dynamic workflows enabled, and the `tiger-skills` plugin installed (the workflow spawns its agents). The Workflow runtime is a research-preview API — dry-run on a small approved feature before making it a team default. Full guide: [`workflows/README.md`](workflows/README.md).
 
 ### Example Prompts
 
@@ -97,7 +119,8 @@ tiger-skills/
 │   ├── code-quality-fix/               — Known fix patterns for each violation type
 ├── agents/                             — 8 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)
 ├── hooks/                               — 8 event-driven hook files
-├── commands/review-branch.md           — Branch review command
+├── commands/                           — Slash commands (review-branch, install-workflow)
+├── workflows/                          — Deterministic Workflow (tiger-pipeline.js) + README — copy to .claude/workflows/
 ├── .claude-plugin/                     — Plugin manifest + marketplace config
 ├── init.sh                             — Verification (49 checks, 5 layers)
 ├── AGENTS.md                           — Agent operating manual
