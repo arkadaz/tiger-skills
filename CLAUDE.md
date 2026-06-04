@@ -56,6 +56,7 @@ specs/                     — Approved feature specifications (one per feature)
 agents/                    — 8 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
+workflows/                 — Deterministic Claude Code Workflow: GATES 5–12 as a committed JS orchestration script (copy to .claude/workflows/)
 .claude-plugin/            — Plugin manifest + marketplace config
 ```
 
