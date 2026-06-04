@@ -47,15 +47,25 @@ This boundary is the whole point: the **mechanical** part is deterministic; the
 ## Install
 
 Workflows load from `.claude/workflows/` (project, shared) or `~/.claude/workflows/`
-(personal). Plugins don't distribute workflows yet, so copy it into the project that
-uses the harness:
+(personal). Plugins don't distribute workflows, so the file has to land in the project.
+
+**Easiest — use the bundled command** (installs the plugin's copy into this project):
+
+```
+/tiger-skills:install-workflow
+```
+
+Then commit `.claude/workflows/tiger-pipeline.js`.
+
+**Manual equivalent:**
 
 ```bash
 mkdir -p .claude/workflows
 cp path/to/tiger-skills/workflows/tiger-pipeline.js .claude/workflows/
 ```
 
-Requires Claude Code ≥ 2.1.154.
+Requires Claude Code ≥ 2.1.154, and the `tiger-skills` plugin installed (the workflow
+spawns its agents).
 
 ## Run
 
