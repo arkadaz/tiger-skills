@@ -2,7 +2,9 @@
 
 Copy the plugin's bundled deterministic Workflow (`workflows/tiger-pipeline.js`)
 into the **current project's** `.claude/workflows/` so the team gets it on clone
-and can run `/workflows tiger-pipeline`.
+and can run it. A saved workflow becomes its own slash command, so it launches as
+**`/tiger-pipeline`** (NOT `/workflows tiger-pipeline` — `/workflows` with no name only
+lists and watches runs).
 
 Workflows are not a plugin-distributed type — they load only from a project's
 `.claude/workflows/` or `~/.claude/workflows/`. This command bridges that gap:
@@ -32,8 +34,9 @@ Create the destination directory if it does not exist (`.claude/workflows/`).
   keep, or save as `tiger-pipeline.local.js`. The user may have customized it.
 
 ### 4. Verify
-Confirm the destination file exists and is non-empty, and that its `meta({ name:
-"tiger-pipeline" ...})` block is intact.
+Confirm the destination file exists and is non-empty, and that its
+`export const meta = { name: "tiger-pipeline" ... }` block is intact. Optionally run
+`node --check <dest>` to confirm it parses.
 
 ### 5. Report and remind
 Tell the user:
@@ -42,7 +45,7 @@ Tell the user:
 - **Prerequisites for anyone who runs it:**
   1. Claude Code ≥ 2.1.154 with dynamic workflows enabled (`/config`; Enterprise admins enable it in managed settings; not disabled via `CLAUDE_CODE_DISABLE_WORKFLOWS=1`).
   2. The `tiger-skills` plugin installed — the workflow spawns `tiger-skills:explorer`, `…:planner`, etc., which resolve only when the plugin is present.
-- **How to run:** finish GATES 0–4 conversationally (bootstrap, grill, **human-approve the spec**, pick one feature), then `/workflows tiger-pipeline` with the feature's `args` (see `workflows/README.md`).
-- **Caveat:** the Workflow API is research-preview and the script has `[ASSUMED]` spots — dry-run it on a small approved feature before making it the team default.
+- **How to run:** finish GATES 0–4 conversationally (bootstrap, grill, **human-approve the spec**, pick one feature), then launch **`/tiger-pipeline`** (its own slash command) with the feature's `args` (see `workflows/README.md`). It is args-driven, not a free-text task. `/workflows` (no name) is only the dashboard to watch the run.
+- **Caveat:** dynamic workflows are research-preview (enable in `/config`); a run spawns many agents and costs far more tokens than a normal turn — dry-run it on a small approved feature before making it the team default.
 
 Do not modify the bundled source under `${CLAUDE_PLUGIN_ROOT}`; only write into the project (or home) `.claude/workflows/`.

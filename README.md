@@ -80,8 +80,8 @@ explore → plan → [architect?] → persist-tasks → generate
 
 1. **Install it into a project (once):** run `/tiger-skills:install-workflow`, then commit `.claude/workflows/tiger-pipeline.js` so teammates get it on clone.
 2. **Finish GATES 0–4 in chat:** bootstrap, grill, **approve the spec**, pick one feature (WIP=1).
-3. **Run it:** `/workflows tiger-pipeline` with the feature's `args` (`featureId`, `featureTitle`, `specFile`, `projectDir`, `today`, and the architect-trigger flags). See [`workflows/README.md`](workflows/README.md) for the full table.
-4. **Watch live** in `/workflows` — `p` pause, `x` stop an agent, `r` restart, `s` save.
+3. **Run it by its own name:** `/tiger-pipeline` with the feature's `args` (`featureId`, `featureTitle`, `specFile`, `projectDir`, `today`, and the architect-trigger flags). A saved workflow becomes its own slash command — **`/workflows` (no name) only lists and watches runs, it does not launch one.** It is **args-driven, not free-text** (it runs one already-approved feature; a typed task is ignored). See [`workflows/README.md`](workflows/README.md) for the full table.
+4. **Watch live** with `/workflows` — `p` pause, `x` stop an agent, `r` restart, `s` save.
 
 > **Prerequisites:** Claude Code ≥ 2.1.154 with dynamic workflows enabled, and the `tiger-skills` plugin installed (the workflow spawns its agents). The Workflow runtime is a research-preview API — dry-run on a small approved feature before making it a team default. Full guide: [`workflows/README.md`](workflows/README.md).
 

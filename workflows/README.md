@@ -84,10 +84,11 @@ workflows), and the `tiger-skills` plugin installed (the workflow spawns its age
 
 1. Finish GATES 0–4 conversationally: bootstrap, grill, **human-approve the spec**,
    pick one feature (`in_progress`, WIP=1).
-2. Launch and pass the feature's inputs:
+2. Launch it **by its own name** — a saved workflow becomes its own slash command.
+   `/workflows` (no name) only *lists and watches* runs; it does **not** launch one:
 
 ```
-/workflows tiger-pipeline
+/tiger-pipeline
 ```
 
 It expects these `args` (no clock reads — pass the date in, per the determinism rules):
@@ -107,11 +108,18 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 **Example invocation** (spec approved, feature `in_progress`):
 
 ```
-Run /workflows tiger-pipeline with featureId "feature-001", featureTitle "Checkout flow",
+Run /tiger-pipeline with featureId "feature-001", featureTitle "Checkout flow",
 specFile "specs/feature-001.md", projectDir "/abs/path/to/project", today "2026-01-01",
 newModule true, spans3PlusFiles true, newPattern false, structuralRisk false,
 securitySensitive false
 ```
+
+> `tiger-pipeline` is **args-driven, not free-text**: it runs one *already-approved
+> feature* through the gate pipeline. Typing a task after it (e.g. `/tiger-pipeline fix
+> the back button`) does nothing useful — that text isn't a parameter. Grill + approve a
+> spec first, then launch with the `args` above. For an ad-hoc one-off, don't use this
+> workflow — describe the task in your own words (or `ultracode: <task>`) and let Claude
+> write a workflow for it.
 
 Claude passes these as the script's `args`. The run returns one compact summary
 (`{ feature, passed, e2eAuthored, approved, heals, reviews, … }`); the heavy
