@@ -54,7 +54,7 @@ The short names used in the prose below (e.g. "spawn the planner", "invoke grill
 | **8** | EXECUTE | Spawn `executor` → `scribe` records evidence | All layers pass with fresh evidence, OR escalation to GATE 9 |
 | **9** | HEAL | Spawn `healer` on executor failure (max 3 loops) | Executor passes, or user escalation |
 | **10** | VERIFY | `harness-engineering-verify` — conductor re-runs | Verification command ran THIS session, 0 failures |
-| **11** | REVIEW | Spawn `reviewer` (independent) — loop to GATE 7 on non-APPROVED | Reviewer verdict APPROVED; BLOCKING/MAJOR findings fixed |
+| **11** | REVIEW CLUSTER | Spawn `reviewer` (quality) + `correctness-reviewer` (behavior) + `security-reviewer` (if triggered) — loop to GATE 7 on any non-APPROVED | All spawned reviewers APPROVED; BLOCKING/MAJOR/CRITICAL/HIGH findings fixed |
 | **12** | TRACK | `scribe` writes feature + tasks + acceptance_criteria + `progress.md`; conductor commits | All state files current, work committed |
 | **13** | CLOCK OUT | `harness-engineering-session` clock-out | 8-item exit checklist passes |
 
@@ -242,10 +242,12 @@ notes. Begin the handoff with the proof line:
 Spawn agent: tiger-skills:executor
 Prompt: "Verify the implementation independently.
 Generator handoff: [paste]   Verification criteria: [paste]   Project directory: [path]
-Invoke harness-engineering-verify and run all 3 layers (static → tests → E2E if cross-component).
+Invoke harness-engineering-verify and run all 3 layers: static → FULL unit suite (no early stop)
+→ E2E (mandatory for user-visible behavior). Reject the handoff if a user-facing feature has no
+E2E test of its workflow, or if any acceptance criterion has no asserting test.
 Iron Law: never claim completion without fresh evidence from THIS session.
 Pass → report success with full output. Fail → Executor Escalation (exact error, commit, files).
-Begin your report with the proof line: 'harness-engineering-verify invoked: YES — layers run: 1,2[,3]'."
+Begin your report with the proof line: 'harness-engineering-verify invoked: YES — layers run: 1,2,3'."
 ```
 
 | Executor result | Conductor action |
@@ -264,11 +266,12 @@ Spawn agent: tiger-skills:healer
 Prompt: "Diagnose and prescribe a fix.
 Executor escalation: [paste]   Blueprint: [paste]   Project directory: [path]
 Invoke harness-engineering-diagnose. Investigate → reproduce → classify to one of five layers
-→ root cause (file:line) → exact fix instructions → harness-improvement note.
+→ root cause (file:line) → exact fix instructions → a MANDATORY failing-first regression test
+(fails on the broken code, passes after the fix; E2E if the bug was user-visible) → harness-improvement note.
 Begin with the proof line: 'harness-engineering-diagnose invoked: YES — layer: <X>'."
 ```
 
-After the healer responds: (1) spawn `generator` again with blueprint + healer fix + "apply these fixes"; (2) spawn `executor` again. **Max 3 healing loops** — then escalate to the user with full diagnostic history. **Exit:** executor passes, or user escalation.
+After the healer responds: (1) spawn `generator` again with blueprint + healer fix + the regression test + "apply these fixes and add the regression test"; (2) spawn `executor` again — it re-runs the **full** suite (unit + E2E) so a fix that broke another part is caught. **Max 3 healing loops** — then escalate to the user with full diagnostic history. **Exit:** executor passes (new regression test green, nothing else red), or user escalation.
 
 ---
 
@@ -276,10 +279,11 @@ After the healer responds: (1) spawn `generator` again with blueprint + healer f
 
 **Invoke `harness-engineering-verify`.** Even if the executor already produced evidence, the conductor re-runs the top-level verification command — two independent verifications. Iron Law: never claim completion without fresh evidence from THIS session. **Exit:** command ran THIS session, 0 failures, evidence recorded.
 
-## GATE 11 — REVIEW
+## GATE 11 — REVIEW CLUSTER (three independent checkers, one fix loop)
 
-Spawn the `reviewer` agent for non-trivial changes (new modules, functions >15 lines, API endpoints, 3+ files):
+For non-trivial changes (new modules, functions >15 lines, API endpoints, 3+ files) spawn the review cluster. Each reviewer is independent — none wrote the code, and they check **different things**: structure, behavior, and security are separate audits and a clean structure audit does not imply correct behavior. Spawn the applicable ones (they can run in parallel):
 
+**11a — Quality (always, non-trivial)** — does it follow the design principles?
 ```
 Spawn agent: tiger-skills:reviewer
 Prompt: "Review independently. You did NOT write this code.
@@ -289,14 +293,37 @@ Produce findings (file:line, severity), a spec-compliance table, a verdict, and 
 Begin with the proof line: 'code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR'."
 ```
 
-The reviewer is independent of the generator/executor/healer — it has not seen the code being written.
+**11b — Correctness (always, non-trivial)** — does it actually work, and is every behavior proven by a test?
+```
+Spawn agent: tiger-skills:correctness-reviewer
+Prompt: "Adversarially review correctness. You did NOT write this code — assume it is wrong and prove it.
+Diff/handoff: [list]   Spec: specs/<feature-id>.md   Acceptance criteria: [paste]
+Executor evidence: [paste]   Project dir: [path]
+FIRST invoke code-correctness-review. Trace control + data flow, enumerate edge cases, hunt logic bugs,
+build the AC↔test map, check the E2E test exists, check regressions.
+Begin with: 'correctness-review invoked: YES — paths traced: P, edge cases: E, logic findings: K, ACs proven by test: X/Y'."
+```
 
-| Reviewer verdict | Conductor action |
-|------------------|------------------|
-| APPROVED / APPROVED WITH CHANGES | Hand its `Board Update` to the scribe, go to GATE 12 |
-| CHANGES REQUESTED / REJECTED | Loop back to GATE 7 (generator) with the findings, max 3 loops, then escalate |
+**11c — Security (only if a trigger fires)** — spawn `security-reviewer` when the diff touches **auth, untrusted/external input, a built query or shell command, network/file I/O, deserialization, crypto/secrets/credentials, security-relevant config, or a new dependency.** If none apply, mark 11c `skipped (no security-sensitive surface)`.
+```
+Spawn agent: tiger-skills:security-reviewer
+Prompt: "Security review. You did NOT write this code.
+Diff/handoff: [list]   Spec: specs/<feature-id>.md   Triggers that fired: [list]   Project dir: [path]
+FIRST invoke security-review; audit the 12 categories; run the project's SAST/dep-audit if present.
+Begin with: 'security-review invoked: YES — N categories checked, C critical, H high'."
+```
 
-**Exit:** reviewer verdict APPROVED (or review not required); all BLOCKING/MAJOR findings fixed.
+**Aggregate the verdicts.** A handoff missing its proof line is rejected and that reviewer is re-spawned (see the proof table).
+
+| Worst finding across the cluster | Conductor action |
+|----------------------------------|------------------|
+| All APPROVED / APPROVED WITH CHANGES (MINOR/LOW only) | Hand each `Board Update` to the scribe, go to GATE 12 |
+| Any MAJOR / CHANGES REQUESTED / HIGH | Loop back to GATE 7 (generator) with the findings, max 3 loops, then escalate |
+| Any BLOCKING / REJECTED / CRITICAL | Loop back to GATE 7 immediately with the findings, max 3 loops, then escalate |
+
+A missing E2E test for a user-facing feature, or an acceptance criterion no test proves, is a **BLOCKING** correctness finding — it loops back, it does not pass.
+
+**Exit:** every spawned reviewer verdict is APPROVED (or review not required); all BLOCKING/MAJOR/CRITICAL/HIGH findings fixed.
 
 ## GATE 12 — TRACK (close the loop in the repo)
 
@@ -326,6 +353,8 @@ Every spawned agent must begin its report with a **proof line** showing it invok
 | executor | `harness-engineering-verify` | `harness-engineering-verify invoked: YES — layers run: 1,2[,3]` |
 | healer | `harness-engineering-diagnose` | `harness-engineering-diagnose invoked: YES — layer: <X>` |
 | reviewer | `code-quality-review` + `harness-engineering-review` | `code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR` |
+| correctness-reviewer | `code-correctness-review` | `correctness-review invoked: YES — paths traced: P, edge cases: E, logic findings: K, ACs proven by test: X/Y` |
+| security-reviewer | `security-review` (when triggered) | `security-review invoked: YES — N categories checked, C critical, H high` |
 | scribe | (validates board after write) | `feature_list.json valid after write: YES — applied N deltas` |
 
 ## The Board Update contract — how agents drive the kanban
@@ -389,10 +418,12 @@ Loop: Execute → Attribute → Fix the layer → Retry → never fail the same 
 | `explorer` (sonnet) | GATE 5a — read-only recon; builds the Type Inventory for the planner |
 | `planner` (opus) | GATE 5b — blueprint; emits the persisted tasks[] |
 | `code-architect` (opus) | GATE 6 — design review; runs code-quality-audit |
-| `generator` (sonnet) | GATE 7 — writes code under code-quality + TDD |
-| `executor` (sonnet) | GATE 8 — runs verification, collects evidence |
-| `healer` (opus) | GATE 9 — diagnoses failure, prescribes fix |
-| `reviewer` (opus) | GATE 11 — independent review; runs code-quality-review |
+| `generator` (sonnet) | GATE 7 — writes code under code-quality + TDD; E2E test first, then unit |
+| `executor` (sonnet) | GATE 8 — runs verification (full suite + mandatory E2E), collects evidence |
+| `healer` (opus) | GATE 9 — diagnoses failure, prescribes fix + failing-first regression test |
+| `reviewer` (opus) | GATE 11a — independent quality review; runs code-quality-review |
+| `correctness-reviewer` (opus) | GATE 11b — adversarial behavior review; runs code-correctness-review; proves each AC with a test |
+| `security-reviewer` (opus) | GATE 11c — security review when triggered; runs security-review |
 | `scribe` (sonnet) | GATE 5c/7/8/12 — single writer of feature_list.json + progress.md |
 
 ---
@@ -406,7 +437,8 @@ Loop: Execute → Attribute → Fix the layer → Retry → never fail the same 
 5. **Evidence before claims** — never say "done"/"passing" without fresh verification output.
 6. **WIP = 1** — exactly one feature `in_progress`. No exceptions without explicit user approval.
 7. **No placeholders** — `pass`, `TODO`, `NotImplementedError` are forbidden in committed code.
-8. **Separate doer from checker** — the independent `reviewer` agent (which never wrote the code) audits non-trivial work; the doer is not the sole judge of its quality.
+8. **Separate doer from checker** — at GATE 11 an independent **review cluster** (none wrote the code) audits non-trivial work on three axes: `reviewer` (quality/structure), `correctness-reviewer` (behavior — traces the flow, proves each AC with a test), and `security-reviewer` (when triggered). A clean structure audit does not imply correct behavior; the doer is never the sole judge.
+12. **Verify behavior, not just structure** — every user-facing feature ships with an **E2E test of its real workflow** (plus unit tests), the completion run is the **full** suite (no fail-fast) so regressions surface, and every bug fix adds a **failing-first regression test**. "Tests pass" is meaningless if the tests prove nothing.
 9. **Single writer of state** — only the `scribe` writes `feature_list.json` and `progress.md`; every other agent sends it a Board Update. One writer = no drift.
 10. **Repo is the system of record** — if it's not in the repo (feature_list.json, progress.md, specs/), it doesn't exist.
 11. **Leave a clean state** — every session ends restartable from `./init.sh`.

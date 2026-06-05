@@ -1,6 +1,6 @@
 # tiger-skills
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 13 skills, 8 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin.
+Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 15 skills, 10 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin. The GATE 11 review cluster checks structure, **behavior** (adversarial correctness + mandatory E2E/regression tests), and **security** — separately.
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
 
@@ -11,7 +11,8 @@ The conductor runs a **Gate Sequence** on every request — mechanical, not advi
 ```
 GATE 0 bootstrap → GATE 1 SPEC GATE (no spec → grill first) → GATE 2 ledger →
 clock in → SCOPE (WIP=1) → PLAN (persist tasks into feature_list.json) →
-[architect] → GENERATE → EXECUTE → [heal ×3] → VERIFY → REVIEW →
+[architect] → GENERATE (E2E test first) → EXECUTE (full suite + E2E) → [heal ×3] →
+VERIFY → REVIEW CLUSTER (quality + correctness + [security]) →
 TRACK (tasks + acceptance_criteria + commit) → clock out
 ```
 
@@ -47,9 +48,9 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 **Phase 3 — Build:** Claude writes code. The Explore-before-code hook ensures it reads existing types and functions first. Code-quality rules enforce types, DI, enums, logging, and flat functions on every line.
 
-**Phase 4 — Verify:** Before claiming anything is done, Claude runs the 3-layer verification pipeline (static → unit → E2E) and records evidence. The pre-commit hook blocks commits until verification passes.
+**Phase 4 — Verify:** Before claiming anything is done, Claude runs the 3-layer pipeline (static → **full** unit suite → **E2E**) and records evidence. E2E is mandatory for any user-visible behavior — an E2E test of the real workflow is what catches "passed its unit tests but is buggy when I run it." The full suite (no fail-fast) surfaces regressions, and every bug fix ships a failing-first regression test. The pre-commit hook blocks commits until verification passes.
 
-**Phase 5 — Review:** For non-trivial changes, Claude spawns an independent review agent that audits against all 16 design principles + 11 tooling rules. The agent that wrote the code cannot be the sole judge.
+**Phase 5 — Review cluster:** For non-trivial changes, Claude spawns up to three independent reviewers that never wrote the code and check different things: `reviewer` (16 principles + 11 tooling rules), `correctness-reviewer` (adversarially traces the flow, enumerates edge cases, hunts logic bugs, and proves every acceptance criterion with a real test), and `security-reviewer` (when the change touches auth, input, queries, I/O, deserialization, crypto/secrets, or a new dependency). A clean structure audit does not mean the code is correct or safe.
 
 **Phase 6 — Wrap up:** Claude flips each `tasks[]` entry and `acceptance_criteria` item to done with evidence, marks the feature `passing` only when all of them are, and updates `progress.md`. The pre-push hook blocks pushes until state files are current. The Stop hook reminds Claude to leave a clean restart path.
 
@@ -62,12 +63,13 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 ### Deterministic Workflow — run the pipeline the same way every time
 
-The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 8 agents identically on every run, instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
+The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 10 agents identically on every run (including the GATE 11 review cluster: quality + correctness + security), instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
 
 ```
 explore → plan → [architect?] → persist-tasks → generate
-        → execute → (heal → regenerate → re-execute){≤3}
-        → review → (fix → re-review){≤3} → track
+        → execute (full suite + E2E) → (heal + regression test → regenerate → re-execute){≤3}
+        → review cluster: reviewer + correctness-reviewer + [security-reviewer]
+        → (fix → re-execute → re-review){≤3} → track
 ```
 
 **Boundary:** the human gates stay interactive — bootstrap, grill, and **spec approval** happen in conversation first; the workflow runs only an *already-approved* feature. The mechanical part is deterministic; the judgment part stays with you.
@@ -117,12 +119,14 @@ tiger-skills/
 │   ├── code-quality-review/            — Independent code quality review agent (27 items)
 │   ├── code-quality-audit/             — Design principle audit with ranked report
 │   ├── code-quality-fix/               — Known fix patterns for each violation type
-├── agents/                             — 8 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)
+│   ├── code-correctness-review/        — Adversarial correctness review (trace flow, prove each AC with a test)
+│   ├── security-review/                — Trigger-based security review (injection, authz, secrets, crypto, deps)
+├── agents/                             — 10 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
 ├── hooks/                               — 8 event-driven hook files
 ├── commands/                           — Slash commands (review-branch, install-workflow)
 ├── workflows/                          — Deterministic Workflow (tiger-pipeline.js) + README — copy to .claude/workflows/
 ├── .claude-plugin/                     — Plugin manifest + marketplace config
-├── init.sh                             — Verification (49 checks, 5 layers)
+├── init.sh                             — Verification (6 layers)
 ├── AGENTS.md                           — Agent operating manual
 ├── progress.md                         — Session log + known issues
 ├── feature_list.json                   — Machine-readable feature state
@@ -164,6 +168,8 @@ Every complete harness has five subsystems:
 | `code-quality-review` | Independent review against 16 principles + 11 tooling rules (27 items) |
 | `code-quality-audit` | Full design principle audit with ranked violation report |
 | `code-quality-fix` | Apply known fix patterns for specific violation types |
+| `code-correctness-review` | Adversarial behavior review — trace flow, enumerate edge cases, hunt logic bugs, prove every acceptance criterion with a real test (unit + E2E) |
+| `security-review` | Trigger-based security audit — injection, authz, secrets, crypto, deserialization, deps, DoS |
 
 ## 16 Design Principles
 
@@ -186,7 +192,8 @@ Every complete harness has five subsystems:
 4. **WIP = 1** — exactly one feature active at a time
 5. **No placeholders** — `pass`, `TODO`, `NotImplementedError` forbidden in committed code
 6. **Leave a clean state** — every session ends with the repo restartable from `./init.sh`
-7. **Separate doer from checker** — independent review agent must audit non-trivial work
+7. **Separate doer from checker** — an independent review cluster (quality + correctness + security) audits non-trivial work; none of them wrote the code
+8. **Verify behavior, not just structure** — user-facing features ship an E2E test of the real workflow; the full suite runs (no fail-fast) to catch regressions; every fix adds a failing-first regression test
 
 ## Hooks
 
@@ -205,12 +212,14 @@ Every complete harness has five subsystems:
 
 ## Agents
 
-8 custom sub-agents in a defined workflow:
+10 custom sub-agents in a defined workflow:
 
 ```
-Explorer → Planner → [Code Architect] → Generator → Executor → [Healer] → Reviewer → Scribe
-              ↑                              │            │          │
-              └──────── feedback loop ───────┴───────── (heal / review loops) ┘
+Explorer → Planner → [Code Architect] → Generator → Executor → [Healer] → REVIEW CLUSTER → Scribe
+              ↑                              │            │          │       ├─ reviewer (quality)
+              │                              │            │          │       ├─ correctness-reviewer
+              └──────── feedback loop ───────┴───────── (heal /      │       └─ [security-reviewer]
+                                                      review loops) ─┘
 Scribe = single writer of feature_list.json + progress.md (applies every agent's Board Update)
 ```
 
@@ -219,10 +228,12 @@ Scribe = single writer of feature_list.json + progress.md (applies every agent's
 | `explorer` | sonnet | Read-only recon; build the Type Inventory for the planner | `Type Inventory built: YES` |
 | `planner` | opus | Decompose goals into blueprints; emit `tasks[]` | `code-architect consulted: YES/NO` |
 | `code-architect` | opus | Architecture review, SOLID, pattern selection | `code-quality-audit invoked: YES` |
-| `generator` | sonnet | Write code from blueprints (TDD + code-quality) | `code-quality-language invoked: YES` |
-| `executor` | sonnet | Run verification pipelines, collect evidence | `harness-engineering-verify invoked: YES` |
-| `healer` | opus | Diagnose failures, prescribe fixes | `harness-engineering-diagnose invoked: YES` |
-| `reviewer` | opus | Independent check vs. spec + 16 principles (never wrote the code) | `code-quality-review invoked: YES` |
+| `generator` | sonnet | Write code from blueprints (TDD; E2E test first, then unit) | `code-quality-language invoked: YES` |
+| `executor` | sonnet | Run verification (full suite + mandatory E2E), collect evidence | `harness-engineering-verify invoked: YES` |
+| `healer` | opus | Diagnose failures, prescribe fix + failing-first regression test | `harness-engineering-diagnose invoked: YES` |
+| `reviewer` | opus | Independent quality check vs. spec + 16 principles (never wrote the code) | `code-quality-review invoked: YES` |
+| `correctness-reviewer` | opus | Adversarial behavior check — trace flow, prove each AC with a test | `correctness-review invoked: YES` |
+| `security-reviewer` | opus | Security check when triggered — injection, authz, secrets, crypto, deps | `security-review invoked: YES` |
 | `scribe` | sonnet | Single writer of `feature_list.json` + `progress.md` | `feature_list.json valid after write: YES` |
 
 **Proof of invocation:** every agent must begin its report with its proof line. The conductor rejects a handoff without one and re-spawns the agent — this is what stops agents from skipping their required skill (e.g. the architect actually running the 16-principle design audit instead of eyeballing it).
@@ -249,7 +260,7 @@ git clone https://github.com/arkadaz/tiger-skills.git
 
 ```bash
 ./init.sh
-# Expected: 49 passed, 0 failed
+# Expected: 62 passed, 0 failed
 ```
 
 ## Update

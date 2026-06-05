@@ -1,6 +1,6 @@
 {
   "project": "tiger-skills",
-  "last_updated": "2026-06-04",
+  "last_updated": "2026-06-05",
   "schema_version": 2,
   "rules": {
     "single_active_feature": true,
@@ -93,7 +93,7 @@
       "spec_file": "specs/harness-enforcement.md",
       "status": "passing",
       "depends_on": ["harness-grill", "harness-rewrite"],
-      "blocks": ["project-cleanup"],
+      "blocks": ["project-cleanup", "behavior-verification"],
       "acceptance_criteria": [
         {"id": "AC1", "text": "Build request + no approved spec triggers grill before any planning (Spec Gate in conductor + spec-gate hook)", "done": true},
         {"id": "AC2", "text": "feature_list.json features support depends_on/blocks/tasks[]/acceptance_criteria and init.sh validates them", "done": true},
@@ -189,9 +189,9 @@
       "title": "Make code-quality language-agnostic — one universal language skill, infer per language",
       "user_visible_behavior": "code-quality keeps the same 16 design principles + 13 patterns and the same 11 tooling rules, but applies them to ANY language by inferring that language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter). The two per-language skills (code-quality:python, code-quality:rust) are replaced by a single code-quality-language skill; Python and Rust remain as the two worked examples (references/python, references/rust). The router, audit, fix, and review sub-skills are de-Pythonized to neutral intents. The generator agent and conductor invoke code-quality-language.",
       "spec_file": null,
-      "status": "in_progress",
+      "status": "passing",
       "depends_on": ["harness-rewrite"],
-      "blocks": [],
+      "blocks": ["behavior-verification"],
       "acceptance_criteria": [
         {"id": "AC1", "text": "Single code-quality-language skill exists; code-quality:python and code-quality:rust removed", "done": true},
         {"id": "AC2", "text": "16 principles + 13 patterns + 11 tooling-rule intents stated language-neutrally; Python and Rust kept as worked examples", "done": true},
@@ -219,7 +219,56 @@
         "Layer 4: all 13 skill paths in plugin.json resolve",
         "Grep: no remaining references to code-quality:python / code-quality:rust"
       ],
-      "notes": "User design forks: structure=universal-only (infer per language), seeded profiles=python and rust only (kept as worked examples)."
+      "notes": "User design forks: structure=universal-only (infer per language), seeded profiles=python and rust only (kept as worked examples). Met definition of done (all tasks passing, all AC done, init.sh 56/56); committed in v4.6.0 as in_progress, flipped to passing on 2026-06-05 when the WIP slot moved to behavior-verification."
+    },
+    {
+      "id": "behavior-verification",
+      "priority": 6,
+      "area": "harness-engineering",
+      "title": "Catch real-use bugs: adversarial correctness review, mandatory E2E + regression testing, trigger-based security review",
+      "user_visible_behavior": "The pipeline's checkers verified structure and the-tests-that-exist, never real behavior, so code passed tests but was buggy in use, fixes caused regressions, no E2E tests existed, and there was no security review. GATE 11 becomes a review cluster: reviewer (quality) + correctness-reviewer (adversarial behavior — traces every control/data path, enumerates edge cases, hunts logic bugs, and proves each acceptance criterion with a real test) always for non-trivial work, plus security-reviewer when a security trigger fires (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency). The verify pipeline makes Layer 3 (E2E) mandatory for user-facing work; the generator writes the E2E workflow test first then unit tests; the executor runs the full suite (no fail-fast) and rejects missing-E2E / AC-uncovered handoffs; the healer adds a failing-first regression test on every fix and re-runs the full suite. Wired into the conductor, the pre-agent-spawn hook, and the deterministic tiger-pipeline.js workflow.",
+      "spec_file": "specs/behavior-verification.md",
+      "status": "in_progress",
+      "depends_on": ["harness-enforcement", "code-quality-language"],
+      "blocks": [],
+      "acceptance_criteria": [
+        {"id": "AC1", "text": "correctness-reviewer agent (opus) exists with the correctness-review proof line and control-flow trace + edge-case + logic-bug + AC-to-test sections", "done": true},
+        {"id": "AC2", "text": "code-correctness-review skill exists (name=code-correctness-review) defining the adversarial protocol, checklist, and proof line", "done": true},
+        {"id": "AC3", "text": "harness-engineering-verify makes Layer 3 (E2E) mandatory for user-facing features; completion gate requires E2E evidence + an asserting test per AC", "done": true},
+        {"id": "AC4", "text": "generator writes E2E-first + unit and cannot hand off a user-facing feature without an E2E test; executor runs the full suite (no fail-fast) and rejects missing-E2E / AC-uncovered handoffs", "done": true},
+        {"id": "AC5", "text": "healer adds a failing-first regression test on every fix (E2E for user-visible bugs) and re-runs the full unit + E2E suite", "done": true},
+        {"id": "AC6", "text": "security-reviewer agent (opus) + security-review skill exist, trigger-based, with a trigger table, 12-category checklist, severity model, and proof line", "done": true},
+        {"id": "AC7", "text": "conductor GATE 11 runs the review cluster; proof-of-invocation table + agents-at-a-glance list 10 agents; pre-agent-spawn hook lists all 10", "done": true},
+        {"id": "AC8", "text": "plugin.json lists 15 skills at v4.7.0; marketplace/AGENTS/CLAUDE/README + tiger-pipeline.js updated; ./init.sh passes with 10 agents + 15 skills", "done": true}
+      ],
+      "tasks": [
+        {"id": "T1", "title": "Write code-correctness-review skill (adversarial protocol, checklist, AC-to-test map, proof line)", "agent": "generator", "status": "passing", "files": ["skills/code-correctness-review/SKILL.md"], "depends_on": [], "verification": "Skill exists with valid frontmatter and the 8-step protocol"},
+        {"id": "T2", "title": "Write security-review skill (trigger table, 12-category checklist, severity, proof line)", "agent": "generator", "status": "passing", "files": ["skills/security-review/SKILL.md"], "depends_on": [], "verification": "Skill exists with valid frontmatter and trigger table"},
+        {"id": "T3", "title": "Create correctness-reviewer agent (opus)", "agent": "generator", "status": "passing", "files": ["agents/correctness-reviewer.md"], "depends_on": ["T1"], "verification": "Agent file valid frontmatter (name, model=opus); invokes code-correctness-review"},
+        {"id": "T4", "title": "Create security-reviewer agent (opus)", "agent": "generator", "status": "passing", "files": ["agents/security-reviewer.md"], "depends_on": ["T2"], "verification": "Agent file valid frontmatter (name, model=opus); invokes security-review"},
+        {"id": "T5", "title": "Add E2E + regression mandate to verify skill, generator, executor, healer", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering-verify/SKILL.md", "agents/generator.md", "agents/executor.md", "agents/healer.md"], "depends_on": [], "verification": "E2E mandatory for user-facing; full-suite run; failing-first regression test required"},
+        {"id": "T6", "title": "Wire GATE 11 review cluster + proof table + 10-agent roster into conductor and pre-agent-spawn hook", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering/SKILL.md", "hooks/pre-agent-spawn.md"], "depends_on": ["T3", "T4", "T5"], "verification": "GATE 11 spawns reviewer + correctness-reviewer + [security-reviewer]; hook lists 10 agents"},
+        {"id": "T7", "title": "Update plugin.json (15 skills, v4.7.0), marketplace, AGENTS, CLAUDE, README", "agent": "generator", "status": "passing", "files": [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "AGENTS.md", "CLAUDE.md", "README.md"], "depends_on": ["T1", "T2", "T3", "T4"], "verification": "Docs say 10 agents / 15 skills; no stale counts"},
+        {"id": "T8", "title": "Bake the review cluster + E2E/full-suite + regression into tiger-pipeline.js (deterministic)", "agent": "generator", "status": "passing", "files": ["workflows/tiger-pipeline.js"], "depends_on": ["T6"], "verification": "node --check passes; cluster + securitySensitive trigger + re-execute-after-fix present"},
+        {"id": "T9", "title": "Run ./init.sh and record evidence", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"], "verification": "./init.sh reports 0 failures with 10 agents + 15 skills"}
+      ],
+      "verification": [
+        "skills/code-correctness-review/SKILL.md and skills/security-review/SKILL.md exist with valid frontmatter",
+        "agents/correctness-reviewer.md and agents/security-reviewer.md exist (model=opus)",
+        "skills/harness-engineering/SKILL.md GATE 11 spawns the review cluster; proof table has correctness-reviewer + security-reviewer rows",
+        "skills/harness-engineering-verify/SKILL.md marks Layer 3 (E2E) mandatory for user-facing work",
+        "plugin.json autoDiscovery.skills includes code-correctness-review and security-review (15 skills, v4.7.0)",
+        "./init.sh reports 0 failures (10 agents, 15 skills)"
+      ],
+      "evidence": [
+        "./init.sh: 62 passed, 0 failed — 2026-06-05",
+        "Layer 2: 15 skills found (code-correctness-review + security-review present and valid)",
+        "Layer 3: 10 agents found with valid frontmatter (correctness-reviewer + security-reviewer added, model=opus)",
+        "Layer 4: all 15 skill paths in plugin.json resolve; agents/ resolves to 10 agents",
+        "Layer 6: feature graph valid (behavior-verification depends_on resolve, reciprocal with harness-enforcement + code-quality-language, acyclic); WIP=1",
+        "node --check: workflows/tiger-pipeline.js syntactically valid (review cluster + securitySensitive trigger + re-execute-after-fix wired)"
+      ],
+      "notes": "Addresses the reported failure: agents ship code that passes its tests but is buggy in real use, fixes cause regressions, no E2E tests, review passes too easily, and no security review existed. User design forks (structured choices): correctness=dedicated adversarial agent; tests=unit+E2E, focus on E2E; regression=failing-first test + full-suite rerun; security=separate agent + skill, trigger-based; process=spec first. Baked into the deterministic workflow per user request."
     }
   ]
 }

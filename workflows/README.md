@@ -1,8 +1,9 @@
 # Deterministic Workflow — `tiger-pipeline`
 
 The tiger-skills conductor (GATES 5–12) expressed as a **git-committed Claude Code
-Workflow** — a fixed JS orchestration script that spawns the 8 agents the same way
-every run, instead of the conductor re-deciding the plan each time. You review it
+Workflow** — a fixed JS orchestration script that spawns the 10 agents the same way
+every run (including the GATE 11 review cluster: quality + correctness + security),
+instead of the conductor re-deciding the plan each time. You review it
 once in a PR and trust it forever.
 
 Based on the deterministic-workflow approach described in
@@ -29,8 +30,10 @@ It runs **one already-approved feature** through:
 
 ```
 explore → plan → [architect?] → persist-tasks → generate
-        → execute → (heal → regenerate → re-execute){≤3}
-        → review → (fix → re-review){≤3} → track
+        → execute (full suite + mandatory E2E)
+        → (heal + regression test → regenerate → re-execute){≤3}
+        → review cluster: reviewer + correctness-reviewer + [security-reviewer]
+        → (fix → re-execute → re-review){≤3} → track
 ```
 
 **Out of scope, on purpose — these stay in the conversational layer:**
@@ -87,6 +90,7 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 | `projectDir` | string | absolute project path |
 | `today` | string | ISO date for the scribe's log |
 | `newModule` / `spans3PlusFiles` / `newPattern` / `structuralRisk` | bool | GATE 6 architect triggers |
+| `securitySensitive` | bool | GATE 11c security-reviewer trigger (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency) |
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
 
@@ -104,8 +108,9 @@ replayable. The file follows every rule from the article:
 - **Loops are guarded** by a counter *and* `budget.remaining()` — the heal and review
   loops cap at 3, matching the conductor's limits, well under the 1,000-agent cap.
 - **Gate decisions are machine-readable** — the executor ends with
-  `PIPELINE_STATUS: PASS|FAIL` and the reviewer with `REVIEW_VERDICT: APPROVED|CHANGES`,
-  so loop conditions are robust, not fuzzy string-sniffing.
+  `PIPELINE_STATUS: PASS|FAIL` and each reviewer with its own token
+  (`REVIEW_VERDICT`, `CORRECTNESS_VERDICT`, `SECURITY_VERDICT` = `APPROVED|CHANGES`),
+  so the cluster's loop condition is robust, not fuzzy string-sniffing.
 
 ## Synergy with the harness
 

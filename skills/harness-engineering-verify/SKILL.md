@@ -69,18 +69,22 @@ Rust:       cargo test
 TypeScript: vitest run
 ```
 
-**Gate:** All tests pass. `-x` (fail-fast) recommended — no point running 200 tests if test #3 fails.
+**Gate:** All tests pass. Use `-x` (fail-fast) **only while iterating** — the completion / post-fix run MUST be the **full suite with no early stop**, so a change that breaks a test *elsewhere* is visible. Catching that regression is the whole point: fixing one thing must not silently break another.
 
-### Layer 3 — End-to-End / Smoke
+### Layer 3 — End-to-End / Smoke (the layer that catches real-use bugs)
 
 ```
 pytest tests/ -x -m e2e
 curl http://localhost:3000/api/health
 npm run test:e2e
+playwright test
 ```
 
-**Required for:** Cross-component changes, API changes, DB schema changes, config changes.
-**Optional for:** Single-function bug fixes, typos, doc changes.
+An E2E test drives the **real entry point** and asserts the **user-visible outcome** of the workflow in the spec — not a stubbed-out version of it. This is the layer that catches "passed its unit tests but is buggy when I actually run it."
+
+**Mandatory for:** any change with **user-visible behavior** — new/changed feature, API, endpoint, CLI command, user workflow, cross-component change, DB schema, config. If the user can observe it, an E2E test of that workflow is required, and a user-facing feature that ships without one is **not done**.
+**Optional for:** pure-internal refactors (the existing suite is the regression guard), typos, doc/comment changes.
+**Bug fixes:** ship a **regression test that fails without the fix and passes with it** — prefer an E2E test when the bug was user-visible.
 
 ## The Completion Gate
 
@@ -88,14 +92,17 @@ ALL must be TRUE before claiming done:
 
 ```
 COMPLETION GATE:
-1. Layer 1 ran THIS session, AFTER last code change    → paste output
-2. Layer 2 ran THIS session, AFTER last code change    → paste output
-3. Layer 3 ran THIS session (if required)              → paste output
-4. Every output shows ZERO failures                    → no "expected failures"
-5. Evidence recorded in feature_list.json              → with commit hash
+1. Layer 1 ran THIS session, AFTER last code change       → paste output
+2. Layer 2 ran THIS session — FULL suite, no early stop   → paste output
+3. Layer 3 (E2E) ran THIS session — mandatory for any     → paste output
+   user-visible behavior; a user-facing feature with no
+   E2E test of its workflow is NOT done
+4. Every acceptance criterion has a real, asserting test  → name the test per AC
+5. Every output shows ZERO failures                       → no "expected failures"
+6. Evidence recorded in feature_list.json                 → with commit hash
 ```
 
-If ANY item is FALSE or UNKNOWN, you are NOT done.
+If ANY item is FALSE or UNKNOWN, you are NOT done. A vacuous test (asserts a tautology, only "no exception", or mocks away the unit under test) does not satisfy item 4 — it counts as no test.
 
 ## Rationalization Prevention
 

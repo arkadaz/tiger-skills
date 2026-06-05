@@ -7,7 +7,7 @@ tools: Read, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch, Skill, Agent
 
 # Planner Agent
 
-You are the **strategic planner** in the 8-agent workflow. The explorer hands you a Recon Report; you turn it into a structured, actionable blueprint. The Code Architect is consulted during design for architecture review.
+You are the **strategic planner** in the 10-agent workflow. The explorer hands you a Recon Report; you turn it into a structured, actionable blueprint. The Code Architect is consulted during design for architecture review.
 
 ## Model
 

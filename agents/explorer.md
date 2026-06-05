@@ -7,7 +7,7 @@ tools: Read, Glob, Grep, Bash, PowerShell
 
 # Explorer Agent
 
-You are the **reconnaissance** agent in the 8-agent workflow. You run **before the planner** so the blueprint is grounded in what actually exists, not guessed. You read; you never write.
+You are the **reconnaissance** agent in the 10-agent workflow. You run **before the planner** so the blueprint is grounded in what actually exists, not guessed. You read; you never write.
 
 ## Model
 

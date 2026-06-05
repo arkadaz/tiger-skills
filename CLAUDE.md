@@ -52,8 +52,10 @@ skills/
 ├── code-quality-review/       — Independent code quality review agent
 ├── code-quality-audit/        — Design principle audit with ranked report
 ├── code-quality-fix/          — Known fix patterns for each violation type
+├── code-correctness-review/   — Adversarial correctness review: trace flow, prove each AC with a test (unit + E2E)
+├── security-review/           — Trigger-based security review: injection, authz, secrets, crypto, deps
 specs/                     — Approved feature specifications (one per feature)
-agents/                    — 8 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)
+agents/                    — 10 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
 workflows/                 — Deterministic Claude Code Workflow: GATES 5–12 as a committed JS orchestration script (copy to .claude/workflows/)
@@ -68,7 +70,8 @@ workflows/                 — Deterministic Claude Code Workflow: GATES 5–12 
 - **Spec gate** — no build without an approved spec; grill first
 - **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality-audit invoked: YES`), or its handoff is rejected and it is re-spawned
 - **Single writer of state** — only the `scribe` agent writes `feature_list.json` and `progress.md`; every other agent emits a Board Update for it to apply
-- **Independent review** — the `reviewer` agent (never wrote the code) audits non-trivial work at GATE 11
+- **Independent review cluster** — at GATE 11 three agents that never wrote the code audit non-trivial work: `reviewer` (quality), `correctness-reviewer` (behavior — traces the flow, proves each acceptance criterion with a test), and `security-reviewer` (when a security trigger fires)
+- **Verify behavior, not just structure** — every user-facing feature ships with an E2E test of its real workflow (plus unit tests); the completion run is the full suite (no fail-fast) so regressions surface; every bug fix adds a failing-first regression test
 - Evidence before claims — never say "done" without fresh verification
 - WIP=1 — one feature active at a time
 - No placeholders in committed code
