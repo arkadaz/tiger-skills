@@ -1,7 +1,7 @@
 # Claude Progress
 
 ## Current State
-- **Latest commit:** 82d7a92 (Update README: deterministic workflow + install command); behavior-verification (this session) staged for commit. harness-enforcement + code-quality-language already shipped in v4.6.0.
+- **Latest commit:** fdf4f99 (v4.7.0: behavior-verification — adversarial correctness + security review, mandatory E2E/regression). harness-enforcement + code-quality-language shipped earlier in v4.6.0.
 - **Branch:** main
 - **Verification:** passing (`./init.sh` — 62/62 checks, 2026-06-05)
 - **Last updated:** 2026-06-05
