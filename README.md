@@ -1,6 +1,6 @@
 # tiger-skills
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 15 skills, 10 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin. The GATE 11 review cluster checks structure, **behavior** (adversarial correctness + mandatory E2E/regression tests), and **security** — separately.
+Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 16 skills, 11 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin. A dedicated **e2e-engineer** (GATE 7b) authors the user-flow E2E after the feature is built and re-runs it after every fix; the GATE 11 review cluster checks structure, **behavior** (adversarial correctness + mandatory E2E/regression tests), and **security** — separately.
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
 
@@ -11,7 +11,8 @@ The conductor runs a **Gate Sequence** on every request — mechanical, not advi
 ```
 GATE 0 bootstrap → GATE 1 SPEC GATE (no spec → grill first) → GATE 2 ledger →
 clock in → SCOPE (WIP=1) → PLAN (persist tasks into feature_list.json) →
-[architect] → GENERATE (E2E test first) → EXECUTE (full suite + E2E) → [heal ×3] →
+[architect] → GENERATE (feature + unit tests) → E2E AUTHOR (e2e-engineer, user-flow E2E) →
+EXECUTE (full suite + E2E) → [heal + e2e-refresh ×3] →
 VERIFY → REVIEW CLUSTER (quality + correctness + [security]) →
 TRACK (tasks + acceptance_criteria + commit) → clock out
 ```
@@ -63,13 +64,14 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 ### Deterministic Workflow — run the pipeline the same way every time
 
-The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 10 agents identically on every run (including the GATE 11 review cluster: quality + correctness + security), instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
+The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 11 agents identically on every run (including the GATE 7b e2e-engineer and the GATE 11 review cluster: quality + correctness + security), instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
 
 ```
 explore → plan → [architect?] → persist-tasks → generate
-        → execute (full suite + E2E) → (heal + regression test → regenerate → re-execute){≤3}
+        → e2e-author (e2e-engineer writes the user-flow E2E)
+        → execute (full suite + E2E) → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
         → review cluster: reviewer + correctness-reviewer + [security-reviewer]
-        → (fix → re-execute → re-review){≤3} → track
+        → (fix → e2e-refresh → re-execute → re-review){≤3} → track
 ```
 
 **Boundary:** the human gates stay interactive — bootstrap, grill, and **spec approval** happen in conversation first; the workflow runs only an *already-approved* feature. The mechanical part is deterministic; the judgment part stays with you.
@@ -121,7 +123,8 @@ tiger-skills/
 │   ├── code-quality-fix/               — Known fix patterns for each violation type
 │   ├── code-correctness-review/        — Adversarial correctness review (trace flow, prove each AC with a test)
 │   ├── security-review/                — Trigger-based security review (injection, authz, secrets, crypto, deps)
-├── agents/                             — 10 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
+│   ├── e2e-authoring/                  — Author the user-flow E2E (Playwright) after the feature is built
+├── agents/                             — 11 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
 ├── hooks/                               — 8 event-driven hook files
 ├── commands/                           — Slash commands (review-branch, install-workflow)
 ├── workflows/                          — Deterministic Workflow (tiger-pipeline.js) + README — copy to .claude/workflows/
@@ -158,6 +161,7 @@ Every complete harness has five subsystems:
 | `harness-engineering-verify` | Evidence before claims — 3-layer pipeline (static → unit → E2E) |
 | `harness-engineering-review` | Independent harness compliance review — separate doer from checker |
 | `harness-engineering-diagnose` | Attribute failure to 1 of 5 layers, fix the harness, retry |
+| `e2e-authoring` | Author the user-flow E2E (Playwright) after the feature is built — real entry point, one asserting flow per acceptance criterion |
 
 ### Code Quality (Inner Loop)
 
@@ -212,15 +216,16 @@ Every complete harness has five subsystems:
 
 ## Agents
 
-10 custom sub-agents in a defined workflow:
+11 custom sub-agents in a defined workflow:
 
 ```
-Explorer → Planner → [Code Architect] → Generator → Executor → [Healer] → REVIEW CLUSTER → Scribe
-              ↑                              │            │          │       ├─ reviewer (quality)
-              │                              │            │          │       ├─ correctness-reviewer
-              └──────── feedback loop ───────┴───────── (heal /      │       └─ [security-reviewer]
-                                                      review loops) ─┘
+Explorer → Planner → [Code Architect] → Generator → E2E Engineer → Executor → [Healer] → REVIEW CLUSTER → Scribe
+              ↑                              │            │            │          │       ├─ reviewer (quality)
+              │                              │            │            │          │       ├─ correctness-reviewer
+              └──────── feedback loop ───────┴────────────┴───────── (heal /      │       └─ [security-reviewer]
+                                                                   review loops) ─┘
 Scribe = single writer of feature_list.json + progress.md (applies every agent's Board Update)
+E2E Engineer (GATE 7b) authors the user-flow E2E after Generator, and re-runs after every fix
 ```
 
 | Agent | Model | Role | Required-skill proof line |
@@ -228,7 +233,8 @@ Scribe = single writer of feature_list.json + progress.md (applies every agent's
 | `explorer` | sonnet | Read-only recon; build the Type Inventory for the planner | `Type Inventory built: YES` |
 | `planner` | opus | Decompose goals into blueprints; emit `tasks[]` | `code-architect consulted: YES/NO` |
 | `code-architect` | opus | Architecture review, SOLID, pattern selection | `code-quality-audit invoked: YES` |
-| `generator` | sonnet | Write code from blueprints (TDD; E2E test first, then unit) | `code-quality-language invoked: YES` |
+| `generator` | sonnet | Write the feature + unit tests from blueprints (unit TDD) | `code-quality-language invoked: YES` |
+| `e2e-engineer` | opus | Author the user-flow E2E (Playwright) after the feature is built; re-run after every fix | `e2e-authoring invoked: YES` |
 | `executor` | sonnet | Run verification (full suite + mandatory E2E), collect evidence | `harness-engineering-verify invoked: YES` |
 | `healer` | opus | Diagnose failures, prescribe fix + failing-first regression test | `harness-engineering-diagnose invoked: YES` |
 | `reviewer` | opus | Independent quality check vs. spec + 16 principles (never wrote the code) | `code-quality-review invoked: YES` |
@@ -260,7 +266,7 @@ git clone https://github.com/arkadaz/tiger-skills.git
 
 ```bash
 ./init.sh
-# Expected: 62 passed, 0 failed
+# Expected: 65 passed, 0 failed
 ```
 
 ## Update

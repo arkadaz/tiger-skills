@@ -1,19 +1,22 @@
 # Deterministic Workflow — `tiger-pipeline`
 
 The tiger-skills conductor (GATES 5–12) expressed as a **git-committed Claude Code
-Workflow** — a fixed JS orchestration script that spawns the 10 agents the same way
+Workflow** — a fixed JS orchestration script that spawns the 11 agents (incl. the GATE 7b e2e-engineer) the same way
 every run (including the GATE 11 review cluster: quality + correctness + security),
 instead of the conductor re-deciding the plan each time. You review it
 once in a PR and trust it forever.
 
-Based on the deterministic-workflow approach described in
-[*Claude Code Workflows: Build Deterministic Agent Runs*](https://nimbalyst.com/) (R. Rezvani),
-applied to this plugin's gate sequence.
+Built on Claude Code **dynamic workflows**
+([official docs](https://code.claude.com/docs/en/workflows)), applied to this plugin's
+gate sequence.
 
-> **Research-preview API.** The Workflow runtime is new, reverse-engineered, and not
-> in Anthropic's public docs. Treat `tiger-pipeline.js` as a best-effort scaffold:
-> the determinism *rules* are verified against the article; a few API *signatures*
-> are assumptions, flagged `[ASSUMED]` in the file. It is **not yet runtime-tested**.
+> **Status.** `tiger-pipeline.js` uses the **documented** dynamic-workflow API:
+> `export const meta = {…}` (pure literal), `agent(prompt, { agentType })`, the bare
+> `phase()` marker, `parallel()` / `pipeline()`, and `budget.*`. It passes `node --check`.
+> Dynamic workflows are a **research-preview** runtime — turn them on in `/config`
+> (Dynamic workflows) and use Claude Code ≥ 2.1.154. A run spawns the 11 agents and
+> costs more tokens than a normal turn, so dry-run on a small approved feature before
+> making it a team default.
 
 ## Dynamic vs. deterministic — why this exists
 
@@ -30,11 +33,18 @@ It runs **one already-approved feature** through:
 
 ```
 explore → plan → [architect?] → persist-tasks → generate
+        → e2e-author (e2e-engineer writes the user-flow E2E)
         → execute (full suite + mandatory E2E)
-        → (heal + regression test → regenerate → re-execute){≤3}
+        → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
         → review cluster: reviewer + correctness-reviewer + [security-reviewer]
-        → (fix → re-execute → re-review){≤3} → track
+        → (fix → e2e-refresh → re-execute → re-review){≤3} → track
 ```
+
+**GATE 7b — E2E every time.** A dedicated **opus `e2e-engineer`** authors the user-flow
+E2E (Playwright) against the just-built feature, then re-runs in **every** heal loop and
+**every** review-fix loop before each re-execute — so the full unit + E2E suite re-confirms
+*nothing broke* end to end on every iteration, not just on the first pass. The generator
+writes the feature + unit tests; the e2e-engineer owns the user-flow E2E.
 
 **Out of scope, on purpose — these stay in the conversational layer:**
 
@@ -67,8 +77,8 @@ mkdir -p .claude/workflows
 cp path/to/tiger-skills/workflows/tiger-pipeline.js .claude/workflows/
 ```
 
-Requires Claude Code ≥ 2.1.154, and the `tiger-skills` plugin installed (the workflow
-spawns its agents).
+Requires Claude Code ≥ 2.1.154 with **Dynamic workflows enabled** (`/config` → Dynamic
+workflows), and the `tiger-skills` plugin installed (the workflow spawns its agents).
 
 ## Run
 
@@ -94,12 +104,25 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
 
+**Example invocation** (spec approved, feature `in_progress`):
+
+```
+Run /workflows tiger-pipeline with featureId "feature-001", featureTitle "Checkout flow",
+specFile "specs/feature-001.md", projectDir "/abs/path/to/project", today "2026-01-01",
+newModule true, spans3PlusFiles true, newPattern false, structuralRisk false,
+securitySensitive false
+```
+
+Claude passes these as the script's `args`. The run returns one compact summary
+(`{ feature, passed, e2eAuthored, approved, heals, reviews, … }`); the heavy
+intermediate reports stay in each agent's own context, not your session.
+
 ## Determinism rules this file obeys (and why)
 
 The runtime saves progress and **replays** the script to resume, so it must be
-replayable. The file follows every rule from the article:
+replayable. The file follows every rule the runtime requires:
 
-- **`meta()` is a pure literal, first statement** — read before anything runs.
+- **`export const meta = {…}` is a pure literal, first statement** — read before anything runs.
 - **No `Date.now()` / `Math.random()` / argless `new Date()`** in the orchestrator —
   the date is passed in via `args.today`.
 - **No filesystem / shell / network in the script** — the orchestrator only
@@ -127,8 +150,12 @@ The pipeline reuses the plugin's existing contracts unchanged:
 
 - **Fan-out a stage:** if the planner emits independent tasks, replace the single
   `generate` call with `parallel(tasks.map(t => () => run("tiger-skills:generator", …)))`
-  — pass **thunks** (`() => …`), and `filter(Boolean)` the results.
+  — pass **thunks** (`() => …`), and `filter(Boolean)` the results. Inside
+  `parallel()`/`pipeline()` pass `phase:` explicitly per agent instead of relying on the
+  sequential `CURRENT_PHASE` global, so concurrent stages group correctly.
 - **Multi-feature:** wrap the body in a guarded `for` over an approved feature list
   (respect WIP=1 semantics per feature).
-- **Different agent selector:** if `agent()` doesn't take `subagent_type`, change only
-  the `run()` helper, or inline each agent's `.md` role into the prompt.
+- **Agent selector:** named subagents are chosen via `agent(prompt, { agentType })` in the
+  `run()` helper — change only `run()` to retarget, or inline an agent's `.md` role into the
+  prompt. The `step(name, thunk)` helper wraps the bare `phase()` marker so each gate reads
+  as one line.

@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Harness engineering (outer loop) + Code quality (inner loop), with a 10-agent pipeline (incl. adversarial correctness + trigger-based security review), mandatory E2E/regression testing, and a deterministic, git-committed Workflow. Based on walkinglabs learn-harness-engineering course.",
-  "version": "4.7.0",
+  "description": "Harness engineering (outer loop) + Code quality (inner loop), with an 11-agent pipeline (incl. a dedicated E2E engineer, adversarial correctness + trigger-based security review), E2E authored + re-run every pass, and a deterministic, git-committed Workflow. Based on walkinglabs learn-harness-engineering course.",
+  "version": "4.8.0",
   "author": {
     "name": "arkadaz"
   },
@@ -45,7 +45,8 @@
       "skills/code-quality-audit/",
       "skills/code-quality-fix/",
       "skills/code-correctness-review/",
-      "skills/security-review/"
+      "skills/security-review/",
+      "skills/e2e-authoring/"
     ],
     "agents": [
       "agents/"

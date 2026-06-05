@@ -55,7 +55,7 @@ skills/
 ├── code-correctness-review/   — Adversarial correctness review: trace flow, prove each AC with a test (unit + E2E)
 ├── security-review/           — Trigger-based security review: injection, authz, secrets, crypto, deps
 specs/                     — Approved feature specifications (one per feature)
-agents/                    — 10 custom sub-agents (explorer, planner, code-architect, generator, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
+agents/                    — 11 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
 workflows/                 — Deterministic Claude Code Workflow: GATES 5–12 as a committed JS orchestration script (copy to .claude/workflows/)

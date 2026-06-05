@@ -1,7 +1,8 @@
 {
-  "project": "tiger-skills",
-  "last_updated": "2026-06-05",
+  "project": "your-project-name",
+  "last_updated": "2026-01-01",
   "schema_version": 2,
+  "_template_note": "TEMPLATE — this is the worked example the tiger-skills harness ships. Replace the example features with your own. The grill skill (GATE 1) writes a spec and adds the feature; the planner persists its blueprint into tasks[]; the scribe is the single writer. Keep exactly one feature in_progress (WIP=1). ./init.sh validates this file (kanban fields, link reciprocity, acyclicity, task statuses).",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -24,251 +25,54 @@
   "link_semantics": {
     "depends_on": "This feature/task cannot start until the listed ids reach status 'passing'.",
     "blocks": "The listed ids cannot start until this feature/task reaches status 'passing'. Should be the reciprocal of depends_on.",
-    "tasks": "Kanban sub-tickets. The planner writes them from its blueprint; the conductor flips their status as the generator/executor complete them. Each task is itself a small unit with its own status, owner agent, files, and dependencies.",
+    "tasks": "Kanban sub-tickets. The planner writes them from its blueprint; the conductor flips their status as the generator/e2e-engineer/executor complete them. Each task is itself a small unit with its own status, owner agent, files, and dependencies.",
     "acceptance_criteria": "Checkable definition of done. Each item flips done=true only when its evidence is recorded."
   },
   "features": [
     {
-      "id": "harness-grill",
+      "id": "feature-001",
       "priority": 0,
-      "area": "harness-engineering",
-      "title": "Add Phase 0: Grill — requirements discovery before planning",
-      "user_visible_behavior": "Before any feature is planned or implemented, the harness interviews the user relentlessly about the new goal across five dimensions (Problem Space, Happy Path, Error Cases, Constraints, Acceptance Criteria). Questions are asked one at a time. Structured choices ('chiochs') are presented for key decisions. A spec is written to specs/<feature-id>.md and requires human approval before the feature enters the pipeline. No code or planning happens until the spec is approved.",
-      "spec_file": "specs/harness-grill.md",
-      "status": "passing",
-      "depends_on": [],
-      "blocks": ["harness-enforcement"],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "harness-engineering-grill/SKILL.md exists with name=harness-engineering-grill", "done": true},
-        {"id": "AC2", "text": "Conductor references grill as Phase 0 / Spec Gate", "done": true},
-        {"id": "AC3", "text": "specs/ directory exists for approved specs", "done": true}
-      ],
-      "tasks": [],
-      "verification": [
-        "skills/harness-engineering-grill/SKILL.md exists with valid frontmatter (name=harness-engineering-grill)",
-        "skills/harness-engineering/SKILL.md references grill as the Spec Gate (GATE 1)",
-        "plugin.json autoDiscovery.skills includes skills/harness-engineering-grill/",
-        "specs/ directory exists"
-      ],
-      "evidence": [
-        "Layer 2: init.sh Skill frontmatter — harness-engineering-grill present and valid",
-        "Layer 4: init.sh Plugin path resolution — grill skill path resolves"
-      ],
-      "notes": "Based on Matt Pocock's grill-with-docs and grill-me patterns. Now wired as GATE 1 (Spec Gate) in the conductor so it is mechanical, not optional."
-    },
-    {
-      "id": "harness-rewrite",
-      "priority": 1,
-      "area": "harness-engineering",
-      "title": "Rewrite harness-engineering on the walkinglabs 5-subsystem model",
-      "user_visible_behavior": "Harness-engineering follows the walkinglabs 5-subsystem model (Instructions, Environment, State, Scope, Verification) with sub-skills (bootstrap, session, feature, verify, review, diagnose) and 6 reference files. Old references deleted.",
-      "spec_file": null,
-      "status": "passing",
-      "depends_on": [],
-      "blocks": ["code-quality-rewrite", "harness-enforcement", "code-quality-language"],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "Conductor SKILL.md frontmatter name is 'harness-engineering'", "done": true},
-        {"id": "AC2", "text": "All sub-skill directories exist with a SKILL.md", "done": true},
-        {"id": "AC3", "text": "All 6 reference files exist; none of the 7 old references remain", "done": true}
-      ],
-      "tasks": [],
-      "verification": [
-        "All harness-engineering sub-skill directories exist with a SKILL.md",
-        "All 6 reference files exist under skills/harness-engineering/references/",
-        "None of the 7 old references exist",
-        "plugin.json autoDiscovery.skills includes all harness-engineering skill paths"
-      ],
-      "evidence": [
-        "Layer 4: init.sh — all harness-engineering skill paths resolve",
-        "Layer 5: init.sh — all 7 old references confirmed deleted"
-      ],
-      "notes": "Structure complete. Enforcement and agent wiring were leftover concerns now owned by harness-enforcement."
-    },
-    {
-      "id": "harness-enforcement",
-      "priority": 2,
-      "area": "harness-engineering",
-      "title": "Make the workflow mechanical: gates, live ledger, kanban tasks, agent evidence",
-      "user_visible_behavior": "Invoking harness-engineering on a build request runs a hard Gate Sequence: bootstrap check, then a Spec Gate that invokes grill when no approved spec exists, then a live phase ledger the conductor ticks off so no step is dropped. The planner's task breakdown is persisted into feature_list.json tasks[] (kanban sub-tickets) rather than evaporating in chat. Features link to each other via depends_on/blocks. Each of the 5 agents must invoke its required skill (e.g. code-architect runs code-quality-audit for non-trivial features) and emit a proof-of-invocation evidence line. Two new hooks force grill on build requests and block agent spawns before spec+ledger exist.",
-      "spec_file": "specs/harness-enforcement.md",
-      "status": "passing",
-      "depends_on": ["harness-grill", "harness-rewrite"],
-      "blocks": ["project-cleanup", "behavior-verification"],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "Build request + no approved spec triggers grill before any planning (Spec Gate in conductor + spec-gate hook)", "done": true},
-        {"id": "AC2", "text": "feature_list.json features support depends_on/blocks/tasks[]/acceptance_criteria and init.sh validates them", "done": true},
-        {"id": "AC3", "text": "Conductor maintains a live phase ledger and persists the planner's task breakdown into feature_list.json tasks[]", "done": true},
-        {"id": "AC4", "text": "Each of the 5 agents has a mandatory skill-invocation gate and emits a proof-of-invocation evidence line; code-architect runs code-quality-audit for non-trivial features", "done": true},
-        {"id": "AC5", "text": "./init.sh passes with the new schema validation", "done": true},
-        {"id": "AC6", "text": "Pipeline expanded to 8 agents (explorer, reviewer, scribe added) and wired into the conductor gates", "done": true},
-        {"id": "AC7", "text": "scribe is the single writer of feature_list.json + progress.md; every other agent emits a Board Update it applies", "done": true},
-        {"id": "AC8", "text": "reviewer is an independent agent at GATE 11 (runs code-quality-review) and explorer feeds the planner a Recon Report at GATE 5a", "done": true}
-      ],
-      "tasks": [
-        {"id": "T1", "title": "Upgrade feature_list.json schema (tasks[], depends_on/blocks, acceptance_criteria) and migrate entries", "agent": "generator", "status": "passing", "files": ["feature_list.json"], "depends_on": [], "verification": "init.sh parses the file and every link/task validates"},
-        {"id": "T2", "title": "Define the kanban schema in feature sub-skill, minimal-pack, bootstrap, grill", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering-feature/SKILL.md", "skills/harness-engineering/references/minimal-pack.md", "skills/harness-engineering-bootstrap/SKILL.md", "skills/harness-engineering-grill/SKILL.md"], "depends_on": ["T1"], "verification": "Each file documents tasks[]/depends_on/blocks/acceptance_criteria"},
-        {"id": "T3", "title": "Rewrite conductor into a Gate Sequence with Spec Gate, live ledger, persist-blueprint, and agent evidence gates", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering/SKILL.md"], "depends_on": ["T1"], "verification": "GATE 1 Spec Gate invokes grill; GATE 2 ledger; GATE 5 persists tasks[]"},
-        {"id": "T4", "title": "Update all 5 agents: mandatory skill invocation + proof-of-invocation evidence + reporting format", "agent": "generator", "status": "passing", "files": ["agents/planner.md", "agents/code-architect.md", "agents/generator.md", "agents/executor.md", "agents/healer.md"], "depends_on": ["T1"], "verification": "Each agent file contains a mandatory '<skill> invoked: YES' evidence requirement"},
-        {"id": "T5", "title": "Add spec-gate and pre-agent-spawn hooks", "agent": "generator", "status": "passing", "files": ["hooks/spec-gate.md", "hooks/pre-agent-spawn.md"], "depends_on": [], "verification": "Both hook files exist with valid event frontmatter"},
-        {"id": "T6", "title": "Add new-schema validation to init.sh", "agent": "generator", "status": "passing", "files": ["init.sh"], "depends_on": ["T1"], "verification": "init.sh checks link integrity and task statuses"},
-        {"id": "T7", "title": "Update AGENTS.md, README, marketplace.json, plugin version", "agent": "generator", "status": "passing", "files": ["AGENTS.md", "README.md", ".claude-plugin/marketplace.json", ".claude-plugin/plugin.json"], "depends_on": ["T3", "T4", "T5"], "verification": "Docs describe the Gate Sequence, kanban schema, and 8 hooks"},
-        {"id": "T8", "title": "Write specs/harness-enforcement.md and update progress.md", "agent": "generator", "status": "passing", "files": ["specs/harness-enforcement.md", "progress.md"], "depends_on": [], "verification": "Spec file exists; progress.md reflects this session"},
-        {"id": "T9", "title": "Run ./init.sh and record evidence", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"], "verification": "./init.sh reports 0 failures"},
-        {"id": "T10", "title": "Add explorer, reviewer, scribe agent files", "agent": "generator", "status": "passing", "files": ["agents/explorer.md", "agents/reviewer.md", "agents/scribe.md"], "depends_on": ["T4"], "verification": "init.sh Layer 3 finds 8 agents with valid frontmatter"},
-        {"id": "T11", "title": "Wire the 3 new agents into the conductor (GATE 5a explore, 5c/7/8/12 scribe, 11 reviewer), add Board Update contract and single-writer constraint", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering/SKILL.md"], "depends_on": ["T10"], "verification": "Conductor references explorer/reviewer/scribe and the Board Update contract"},
-        {"id": "T12", "title": "Add Board Update blocks to existing agents, reroute conductor->scribe, update 8-agent diagrams", "agent": "generator", "status": "passing", "files": ["agents/planner.md", "agents/generator.md", "agents/executor.md", "agents/healer.md"], "depends_on": ["T10"], "verification": "Agents emit Board Update; intros say 8-agent workflow"},
-        {"id": "T13", "title": "Update pre-agent-spawn hook for the new agents and single-writer rule", "agent": "generator", "status": "passing", "files": ["hooks/pre-agent-spawn.md"], "depends_on": ["T10"], "verification": "Hook lists all 8 pipeline agents"},
-        {"id": "T14", "title": "Update AGENTS.md, README, marketplace.json, plugin version for 8 agents", "agent": "generator", "status": "passing", "files": ["AGENTS.md", "README.md", ".claude-plugin/marketplace.json", ".claude-plugin/plugin.json"], "depends_on": ["T11", "T12"], "verification": "Docs say 8 agents; no stale '5 agents' references"},
-        {"id": "T15", "title": "Re-run ./init.sh and record evidence for the 8-agent pipeline", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T10", "T11", "T12", "T13", "T14"], "verification": "./init.sh reports 0 failures with 8 agents"}
-      ],
-      "verification": [
-        "skills/harness-engineering/SKILL.md contains a 'Gate Sequence' with GATE 1 Spec Gate that invokes harness-engineering-grill",
-        "hooks/spec-gate.md exists (event=UserPromptSubmit) and hooks/pre-agent-spawn.md exists (event=PreToolUse, tool=Agent)",
-        "feature_list.json validates: every depends_on/blocks id exists; every task.status is in task_status_legend",
-        "Each agent file contains a mandatory '<skill> invoked: YES' proof-of-invocation requirement",
-        "./init.sh reports 0 failures"
-      ],
-      "evidence": [
-        "Layer 6: ./init.sh feature-graph checks pass (links resolve, reciprocal, acyclic, task statuses valid) — 2026-06-04",
-        "./init.sh: 58 passed, 0 failed — 2026-06-04",
-        "Conductor SKILL.md GATE 1 (Spec Gate→grill), GATE 2 (ledger), GATE 5 (explore+plan+persist), GATE 11 (reviewer) present",
-        "Layer 3: 8 agents found with valid frontmatter (explorer, planner, code-architect, generator, executor, healer, reviewer, scribe)",
-        "All pipeline agents carry a mandatory proof-of-invocation line; scribe is the single writer (grep verified)"
-      ],
-      "notes": "Verified (init.sh 58/58); WIP slot released to code-quality-language. Commit pending user. Addresses four reported failures: (1) steps dropped mid-run, (2) feature_list too flat / no ticket links, (3) grill not triggered on invocation, (4) agents skipping their required skills. Design forks chosen by the user: schema=tasks+links, enforcement=gates+ledger+hooks; then expanded to 8 agents (explorer/reviewer/scribe)."
-    },
-    {
-      "id": "code-quality-rewrite",
-      "priority": 3,
-      "area": "code-quality",
-      "title": "Resolve cross-file count inconsistencies in code-quality review files",
-      "user_visible_behavior": "code-quality-review SKILL.md and references/review-agent.md report the same item count (16 principles + 11 tooling rules = 27). The router lists exactly 16 principles. No file disagrees on the totals.",
-      "spec_file": null,
-      "status": "not_started",
-      "depends_on": ["harness-rewrite"],
-      "blocks": [],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "code-quality-review and review-agent.md both say 27 items (16+11)", "done": false},
-        {"id": "AC2", "text": "Router lists exactly 16 principles", "done": false}
-      ],
-      "tasks": [],
-      "verification": [
-        "skills/code-quality-review/SKILL.md and skills/code-quality/references/review-agent.md reference the same total item count (27)",
-        "skills/code-quality/SKILL.md lists exactly 16 design principles"
-      ],
-      "evidence": [],
-      "notes": "Known cross-file inconsistency carried over from progress.md."
-    },
-    {
-      "id": "project-cleanup",
-      "priority": 4,
-      "area": "project",
-      "title": "Final alignment pass — .mcp.json, marketplace counts, stale notes",
-      "user_visible_behavior": "All metadata is consistent and truthful: marketplace.json hook/skill counts match reality, .mcp.json is either populated or removed from autoDiscovery, progress.md Known Issues reflects only open issues.",
-      "spec_file": null,
-      "status": "not_started",
-      "depends_on": ["harness-enforcement"],
-      "blocks": [],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "marketplace.json counts match init.sh-reported counts", "done": false},
-        {"id": "AC2", "text": ".mcp.json is populated or removed from plugin autoDiscovery", "done": false}
-      ],
-      "tasks": [],
-      "verification": [
-        "marketplace.json description matches actual skill/agent/hook counts",
-        ".mcp.json is non-empty OR not referenced by plugin.json",
-        "progress.md Known Issues lists only currently-open issues"
-      ],
-      "evidence": [],
-      "notes": "Runs after harness-enforcement lands so counts are final."
-    },
-    {
-      "id": "code-quality-language",
-      "priority": 5,
-      "area": "code-quality",
-      "title": "Make code-quality language-agnostic — one universal language skill, infer per language",
-      "user_visible_behavior": "code-quality keeps the same 16 design principles + 13 patterns and the same 11 tooling rules, but applies them to ANY language by inferring that language's idioms from the repo (type system, enums, DI, logging, error model, linter/formatter). The two per-language skills (code-quality:python, code-quality:rust) are replaced by a single code-quality-language skill; Python and Rust remain as the two worked examples (references/python, references/rust). The router, audit, fix, and review sub-skills are de-Pythonized to neutral intents. The generator agent and conductor invoke code-quality-language.",
-      "spec_file": null,
-      "status": "passing",
-      "depends_on": ["harness-rewrite"],
-      "blocks": ["behavior-verification"],
-      "acceptance_criteria": [
-        {"id": "AC1", "text": "Single code-quality-language skill exists; code-quality:python and code-quality:rust removed", "done": true},
-        {"id": "AC2", "text": "16 principles + 13 patterns + 11 tooling-rule intents stated language-neutrally; Python and Rust kept as worked examples", "done": true},
-        {"id": "AC3", "text": "Router, audit, fix, review de-Pythonized; generator + conductor invoke code-quality-language", "done": true},
-        {"id": "AC4", "text": "plugin.json/marketplace/README/AGENTS reflect 13 skills with no stale python/rust skill references", "done": true},
-        {"id": "AC5", "text": "./init.sh passes (13 skill paths resolve)", "done": true}
-      ],
-      "tasks": [
-        {"id": "T1", "title": "Write code-quality-language universal skill (11 rule-intents + Language Profile inference + py/rust examples)", "agent": "generator", "status": "passing", "files": ["skills/code-quality-language/SKILL.md"], "depends_on": [], "verification": "Skill states neutral intents + inference method"},
-        {"id": "T2", "title": "Rewrite code-quality router: language-agnostic, route to code-quality-language", "agent": "generator", "status": "passing", "files": ["skills/code-quality/SKILL.md"], "depends_on": ["T1"], "verification": "Router has no .py/.rs routing"},
-        {"id": "T3", "title": "De-Pythonize audit, fix, review sub-skills", "agent": "generator", "status": "passing", "files": ["skills/code-quality-audit/SKILL.md", "skills/code-quality-fix/SKILL.md", "skills/code-quality-review/SKILL.md"], "depends_on": ["T1"], "verification": "Tooling rules stated as neutral intents"},
-        {"id": "T4", "title": "Remove code-quality-python and code-quality-rust skills; keep references/python|rust", "agent": "generator", "status": "passing", "files": [], "depends_on": ["T1"], "verification": "Two skill dirs gone; references kept"},
-        {"id": "T5", "title": "Update plugin.json (paths+v4.5.0), marketplace, README, AGENTS, generator agent, conductor proof line", "agent": "generator", "status": "passing", "files": [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "README.md", "AGENTS.md", "agents/generator.md", "skills/harness-engineering/SKILL.md"], "depends_on": ["T2", "T3", "T4"], "verification": "No stale code-quality:python/:rust references; 13 skills"},
-        {"id": "T6", "title": "Run ./init.sh and record evidence", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T1", "T2", "T3", "T4", "T5"], "verification": "./init.sh reports 0 failures with 13 skill paths"}
-      ],
-      "verification": [
-        "skills/code-quality-language/SKILL.md exists (name=code-quality-language); code-quality-python/ and code-quality-rust/ removed",
-        "plugin.json autoDiscovery.skills lists code-quality-language and not the python/rust paths",
-        "No file references code-quality:python or code-quality:rust",
-        "./init.sh reports 0 failures"
-      ],
-      "evidence": [
-        "./init.sh: 56 passed, 0 failed — 2026-06-04",
-        "Layer 2: 13 skills found (code-quality-language present; code-quality-python/rust removed)",
-        "Layer 4: all 13 skill paths in plugin.json resolve",
-        "Grep: no remaining references to code-quality:python / code-quality:rust"
-      ],
-      "notes": "User design forks: structure=universal-only (infer per language), seeded profiles=python and rust only (kept as worked examples). Met definition of done (all tasks passing, all AC done, init.sh 56/56); committed in v4.6.0 as in_progress, flipped to passing on 2026-06-05 when the WIP slot moved to behavior-verification."
-    },
-    {
-      "id": "behavior-verification",
-      "priority": 6,
-      "area": "harness-engineering",
-      "title": "Catch real-use bugs: adversarial correctness review, mandatory E2E + regression testing, trigger-based security review",
-      "user_visible_behavior": "The pipeline's checkers verified structure and the-tests-that-exist, never real behavior, so code passed tests but was buggy in use, fixes caused regressions, no E2E tests existed, and there was no security review. GATE 11 becomes a review cluster: reviewer (quality) + correctness-reviewer (adversarial behavior — traces every control/data path, enumerates edge cases, hunts logic bugs, and proves each acceptance criterion with a real test) always for non-trivial work, plus security-reviewer when a security trigger fires (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency). The verify pipeline makes Layer 3 (E2E) mandatory for user-facing work; the generator writes the E2E workflow test first then unit tests; the executor runs the full suite (no fail-fast) and rejects missing-E2E / AC-uncovered handoffs; the healer adds a failing-first regression test on every fix and re-runs the full suite. Wired into the conductor, the pre-agent-spawn hook, and the deterministic tiger-pipeline.js workflow.",
-      "spec_file": "specs/behavior-verification.md",
+      "area": "example",
+      "title": "First feature — replace with your own",
+      "user_visible_behavior": "Describe what a user can observe when this feature works (the entry point they hit and the outcome they see). The grill skill fills this in from your approved spec. Exactly one feature is in_progress at a time (WIP=1).",
+      "spec_file": "specs/feature-001.md",
       "status": "in_progress",
-      "depends_on": ["harness-enforcement", "code-quality-language"],
-      "blocks": [],
+      "depends_on": [],
+      "blocks": ["feature-002"],
       "acceptance_criteria": [
-        {"id": "AC1", "text": "correctness-reviewer agent (opus) exists with the correctness-review proof line and control-flow trace + edge-case + logic-bug + AC-to-test sections", "done": true},
-        {"id": "AC2", "text": "code-correctness-review skill exists (name=code-correctness-review) defining the adversarial protocol, checklist, and proof line", "done": true},
-        {"id": "AC3", "text": "harness-engineering-verify makes Layer 3 (E2E) mandatory for user-facing features; completion gate requires E2E evidence + an asserting test per AC", "done": true},
-        {"id": "AC4", "text": "generator writes E2E-first + unit and cannot hand off a user-facing feature without an E2E test; executor runs the full suite (no fail-fast) and rejects missing-E2E / AC-uncovered handoffs", "done": true},
-        {"id": "AC5", "text": "healer adds a failing-first regression test on every fix (E2E for user-visible bugs) and re-runs the full unit + E2E suite", "done": true},
-        {"id": "AC6", "text": "security-reviewer agent (opus) + security-review skill exist, trigger-based, with a trigger table, 12-category checklist, severity model, and proof line", "done": true},
-        {"id": "AC7", "text": "conductor GATE 11 runs the review cluster; proof-of-invocation table + agents-at-a-glance list 10 agents; pre-agent-spawn hook lists all 10", "done": true},
-        {"id": "AC8", "text": "plugin.json lists 15 skills at v4.7.0; marketplace/AGENTS/CLAUDE/README + tiger-pipeline.js updated; ./init.sh passes with 10 agents + 15 skills", "done": true}
+        {"id": "AC1", "text": "A checkable, user-observable criterion the verification proves", "done": false},
+        {"id": "AC2", "text": "Another criterion with an asserting test (unit + an E2E flow for the user workflow)", "done": false}
       ],
       "tasks": [
-        {"id": "T1", "title": "Write code-correctness-review skill (adversarial protocol, checklist, AC-to-test map, proof line)", "agent": "generator", "status": "passing", "files": ["skills/code-correctness-review/SKILL.md"], "depends_on": [], "verification": "Skill exists with valid frontmatter and the 8-step protocol"},
-        {"id": "T2", "title": "Write security-review skill (trigger table, 12-category checklist, severity, proof line)", "agent": "generator", "status": "passing", "files": ["skills/security-review/SKILL.md"], "depends_on": [], "verification": "Skill exists with valid frontmatter and trigger table"},
-        {"id": "T3", "title": "Create correctness-reviewer agent (opus)", "agent": "generator", "status": "passing", "files": ["agents/correctness-reviewer.md"], "depends_on": ["T1"], "verification": "Agent file valid frontmatter (name, model=opus); invokes code-correctness-review"},
-        {"id": "T4", "title": "Create security-reviewer agent (opus)", "agent": "generator", "status": "passing", "files": ["agents/security-reviewer.md"], "depends_on": ["T2"], "verification": "Agent file valid frontmatter (name, model=opus); invokes security-review"},
-        {"id": "T5", "title": "Add E2E + regression mandate to verify skill, generator, executor, healer", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering-verify/SKILL.md", "agents/generator.md", "agents/executor.md", "agents/healer.md"], "depends_on": [], "verification": "E2E mandatory for user-facing; full-suite run; failing-first regression test required"},
-        {"id": "T6", "title": "Wire GATE 11 review cluster + proof table + 10-agent roster into conductor and pre-agent-spawn hook", "agent": "generator", "status": "passing", "files": ["skills/harness-engineering/SKILL.md", "hooks/pre-agent-spawn.md"], "depends_on": ["T3", "T4", "T5"], "verification": "GATE 11 spawns reviewer + correctness-reviewer + [security-reviewer]; hook lists 10 agents"},
-        {"id": "T7", "title": "Update plugin.json (15 skills, v4.7.0), marketplace, AGENTS, CLAUDE, README", "agent": "generator", "status": "passing", "files": [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "AGENTS.md", "CLAUDE.md", "README.md"], "depends_on": ["T1", "T2", "T3", "T4"], "verification": "Docs say 10 agents / 15 skills; no stale counts"},
-        {"id": "T8", "title": "Bake the review cluster + E2E/full-suite + regression into tiger-pipeline.js (deterministic)", "agent": "generator", "status": "passing", "files": ["workflows/tiger-pipeline.js"], "depends_on": ["T6"], "verification": "node --check passes; cluster + securitySensitive trigger + re-execute-after-fix present"},
-        {"id": "T9", "title": "Run ./init.sh and record evidence", "agent": "executor", "status": "passing", "files": [], "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"], "verification": "./init.sh reports 0 failures with 10 agents + 15 skills"}
+        {"id": "T1", "title": "Implement the feature + unit tests (planner's first blueprint task)", "agent": "generator", "status": "not_started", "files": ["src/example"], "depends_on": [], "verification": "lint + type-check clean; unit tests pass"},
+        {"id": "T2", "title": "Author the user-flow E2E (Playwright) for the real entry point", "agent": "e2e-engineer", "status": "not_started", "files": ["tests/e2e/feature-001.spec.ts"], "depends_on": ["T1"], "verification": "playwright test drives the real entry point and asserts the visible outcome"},
+        {"id": "T3", "title": "Run the full verification pipeline and record evidence", "agent": "executor", "status": "not_started", "files": [], "depends_on": ["T1", "T2"], "verification": "static + full unit suite + E2E all green from THIS session"}
       ],
       "verification": [
-        "skills/code-correctness-review/SKILL.md and skills/security-review/SKILL.md exist with valid frontmatter",
-        "agents/correctness-reviewer.md and agents/security-reviewer.md exist (model=opus)",
-        "skills/harness-engineering/SKILL.md GATE 11 spawns the review cluster; proof table has correctness-reviewer + security-reviewer rows",
-        "skills/harness-engineering-verify/SKILL.md marks Layer 3 (E2E) mandatory for user-facing work",
-        "plugin.json autoDiscovery.skills includes code-correctness-review and security-review (15 skills, v4.7.0)",
-        "./init.sh reports 0 failures (10 agents, 15 skills)"
+        "lint + type-check report 0 errors",
+        "the full unit suite passes (no fail-fast)",
+        "an E2E test drives the real user workflow and passes"
       ],
-      "evidence": [
-        "./init.sh: 62 passed, 0 failed — 2026-06-05",
-        "Layer 2: 15 skills found (code-correctness-review + security-review present and valid)",
-        "Layer 3: 10 agents found with valid frontmatter (correctness-reviewer + security-reviewer added, model=opus)",
-        "Layer 4: all 15 skill paths in plugin.json resolve; agents/ resolves to 10 agents",
-        "Layer 6: feature graph valid (behavior-verification depends_on resolve, reciprocal with harness-enforcement + code-quality-language, acyclic); WIP=1",
-        "node --check: workflows/tiger-pipeline.js syntactically valid (review cluster + securitySensitive trigger + re-execute-after-fix wired)"
+      "evidence": [],
+      "notes": "Example feature. The harness flips status to 'passing' ONLY when every task is passing and every acceptance_criterion is done with recorded evidence."
+    },
+    {
+      "id": "feature-002",
+      "priority": 1,
+      "area": "example",
+      "title": "Second feature — shows how tickets link",
+      "user_visible_behavior": "Demonstrates depends_on/blocks: this feature cannot start until feature-001 reaches 'passing'.",
+      "spec_file": null,
+      "status": "not_started",
+      "depends_on": ["feature-001"],
+      "blocks": [],
+      "acceptance_criteria": [
+        {"id": "AC1", "text": "A checkable criterion proven by a test", "done": false}
       ],
-      "notes": "Addresses the reported failure: agents ship code that passes its tests but is buggy in real use, fixes cause regressions, no E2E tests, review passes too easily, and no security review existed. User design forks (structured choices): correctness=dedicated adversarial agent; tests=unit+E2E, focus on E2E; regression=failing-first test + full-suite rerun; security=separate agent + skill, trigger-based; process=spec first. Baked into the deterministic workflow per user request."
+      "tasks": [],
+      "verification": ["./init.sh reports 0 failures"],
+      "evidence": [],
+      "notes": "Not started — blocked until feature-001 is passing (depends_on). Reciprocity: feature-001 lists this in its 'blocks'."
     }
   ]
 }

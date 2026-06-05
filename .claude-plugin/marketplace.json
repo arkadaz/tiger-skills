@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Harness engineering + code quality skills. 15 skills, 10 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow with adversarial correctness + security review and mandatory E2E/regression testing.",
+      "description": "Harness engineering + code quality skills. 16 skills, 11 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow with a dedicated E2E engineer (E2E authored + re-run every pass), adversarial correctness + security review.",
       "author": {
         "name": "arkadaz"
       },

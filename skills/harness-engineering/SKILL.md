@@ -51,6 +51,7 @@ The short names used in the prose below (e.g. "spawn the planner", "invoke grill
 | **5** | EXPLORE & PLAN | Spawn `explorer` (recon) → `planner` (blueprint) → `scribe` **persists `tasks[]`** | Blueprint reviewed AND its task breakdown written into the feature's `tasks[]` by the scribe |
 | **6** | ARCHITECT | Spawn `code-architect` when triggers fire | Architecture approved, OR gate marked skipped with reason |
 | **7** | GENERATE | Spawn `generator` → `scribe` applies its Board Update | Handoff received with proof line; scribe flipped the tasks to `passing` |
+| **7b** | E2E AUTHOR | Spawn `e2e-engineer` to author the user-flow E2E (Playwright) against the just-built feature | An asserting E2E flow exists for every acceptance criterion; proof line emitted |
 | **8** | EXECUTE | Spawn `executor` → `scribe` records evidence | All layers pass with fresh evidence, OR escalation to GATE 9 |
 | **9** | HEAL | Spawn `healer` on executor failure (max 3 loops) | Executor passes, or user escalation |
 | **10** | VERIFY | `harness-engineering-verify` — conductor re-runs | Verification command ran THIS session, 0 failures |
@@ -236,6 +237,28 @@ notes. Begin the handoff with the proof line:
 
 ---
 
+## GATE 7b — E2E AUTHOR (the user-flow test, written after the feature exists)
+
+The feature code now exists, so its real entry points (URL / CLI / API) exist too — this is the moment to author the end-to-end test that drives the **real user flow**. A **dedicated agent** does it (not the generator): the generator writes the feature + unit tests; the `e2e-engineer` writes the user-flow E2E. For trivial changes (typo, doc, config value) mark GATE 7b `skipped (trivial)` and continue.
+
+```
+Spawn agent: tiger-skills:e2e-engineer
+Prompt: "The feature for [feature ID] is now written. Author its end-to-end user-flow tests.
+Generator handoff: [paste]   Spec: specs/<feature-id>.md (each acceptance criterion's user-visible
+outcome becomes an E2E assertion)   Project directory: [path]
+Invoke e2e-authoring (it applies harness-engineering-verify Layer 3). Drive the REAL entry point
+(URL/CLI/API) end to end and assert the visible outcome — never a stub. If the project has no E2E
+harness, scaffold Playwright (playwright.config + tests/e2e/). Cover the happy path plus the spec's
+error and edge cases, one asserting flow per acceptance criterion. Modify NO feature logic.
+Begin with: 'e2e-authoring invoked: YES — stack: <X>, flows covered: N, ACs asserted: X/Y'."
+```
+
+**Write E2E every time.** The `e2e-engineer` is re-spawned after every fix — each heal loop (GATE 9) and each review-fix loop (GATE 11) — to extend the flows for the changed behavior and add an E2E regression flow when the bug was user-visible, before the executor re-runs the full suite. This is what makes "the fix broke nothing" a verified fact.
+
+**Exit:** an asserting E2E flow exists for every acceptance criterion, and the report carries the `e2e-authoring invoked: YES` proof line.
+
+---
+
 ## GATE 8 — EXECUTE
 
 ```
@@ -243,8 +266,9 @@ Spawn agent: tiger-skills:executor
 Prompt: "Verify the implementation independently.
 Generator handoff: [paste]   Verification criteria: [paste]   Project directory: [path]
 Invoke harness-engineering-verify and run all 3 layers: static → FULL unit suite (no early stop)
-→ E2E (mandatory for user-visible behavior). Reject the handoff if a user-facing feature has no
-E2E test of its workflow, or if any acceptance criterion has no asserting test.
+→ E2E (mandatory for user-visible behavior — run the user-flow tests the e2e-engineer authored at
+GATE 7b). Reject the handoff if a user-facing feature has no E2E test of its workflow, or if any
+acceptance criterion has no asserting test.
 Iron Law: never claim completion without fresh evidence from THIS session.
 Pass → report success with full output. Fail → Executor Escalation (exact error, commit, files).
 Begin your report with the proof line: 'harness-engineering-verify invoked: YES — layers run: 1,2,3'."
@@ -350,6 +374,7 @@ Every spawned agent must begin its report with a **proof line** showing it invok
 | planner | (consult code-architect for non-trivial) | `code-architect consulted: YES/NO — <reason>` |
 | code-architect | `code-quality-audit` | `code-quality-audit invoked: YES — N principles checked, M violations` |
 | generator | `code-quality-language` | `code-quality-language invoked: YES — language: <X>, N violations found, N fixed` |
+| e2e-engineer | `e2e-authoring` | `e2e-authoring invoked: YES — stack: <X>, flows covered: N, ACs asserted: X/Y` |
 | executor | `harness-engineering-verify` | `harness-engineering-verify invoked: YES — layers run: 1,2[,3]` |
 | healer | `harness-engineering-diagnose` | `harness-engineering-diagnose invoked: YES — layer: <X>` |
 | reviewer | `code-quality-review` + `harness-engineering-review` | `code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR` |
@@ -418,7 +443,8 @@ Loop: Execute → Attribute → Fix the layer → Retry → never fail the same 
 | `explorer` (sonnet) | GATE 5a — read-only recon; builds the Type Inventory for the planner |
 | `planner` (opus) | GATE 5b — blueprint; emits the persisted tasks[] |
 | `code-architect` (opus) | GATE 6 — design review; runs code-quality-audit |
-| `generator` (sonnet) | GATE 7 — writes code under code-quality + TDD; E2E test first, then unit |
+| `generator` (sonnet) | GATE 7 — writes the feature + unit tests under code-quality + TDD |
+| `e2e-engineer` (opus) | GATE 7b — authors the user-flow E2E (Playwright) via `e2e-authoring`; re-runs after every fix |
 | `executor` (sonnet) | GATE 8 — runs verification (full suite + mandatory E2E), collects evidence |
 | `healer` (opus) | GATE 9 — diagnoses failure, prescribes fix + failing-first regression test |
 | `reviewer` (opus) | GATE 11a — independent quality review; runs code-quality-review |
@@ -438,7 +464,7 @@ Loop: Execute → Attribute → Fix the layer → Retry → never fail the same 
 6. **WIP = 1** — exactly one feature `in_progress`. No exceptions without explicit user approval.
 7. **No placeholders** — `pass`, `TODO`, `NotImplementedError` are forbidden in committed code.
 8. **Separate doer from checker** — at GATE 11 an independent **review cluster** (none wrote the code) audits non-trivial work on three axes: `reviewer` (quality/structure), `correctness-reviewer` (behavior — traces the flow, proves each AC with a test), and `security-reviewer` (when triggered). A clean structure audit does not imply correct behavior; the doer is never the sole judge.
-12. **Verify behavior, not just structure** — every user-facing feature ships with an **E2E test of its real workflow** (plus unit tests), the completion run is the **full** suite (no fail-fast) so regressions surface, and every bug fix adds a **failing-first regression test**. "Tests pass" is meaningless if the tests prove nothing.
+12. **Verify behavior, not just structure** — every user-facing feature ships with an **E2E test of its real workflow** (authored by the dedicated `e2e-engineer` at GATE 7b, plus the generator's unit tests), the completion run is the **full** suite (no fail-fast) so regressions surface, the E2E is **re-authored and re-run after every fix**, and every bug fix adds a **failing-first regression test**. "Tests pass" is meaningless if the tests prove nothing.
 9. **Single writer of state** — only the `scribe` writes `feature_list.json` and `progress.md`; every other agent sends it a Board Update. One writer = no drift.
 10. **Repo is the system of record** — if it's not in the repo (feature_list.json, progress.md, specs/), it doesn't exist.
 11. **Leave a clean state** — every session ends restartable from `./init.sh`.
