@@ -32,13 +32,28 @@ gate sequence.
 It runs **one already-approved feature** through:
 
 ```
-explore → plan → [architect?] → persist-tasks → generate
+explore → plan → [architect?] → persist-tasks
+        → generate   (FAN-OUT: one generator per independent task, in waves ‖, then integrate)
         → e2e-author (e2e-engineer writes the user-flow E2E)
         → execute (full suite + mandatory E2E)
         → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
-        → review cluster: reviewer + correctness-reviewer + [security-reviewer]
-        → (fix → e2e-refresh → re-execute → re-review){≤3} → track
+        → review cluster: reviewer ‖ correctness-reviewer ‖ [security-reviewer]   (PARALLEL)
+        → (fix → e2e-refresh → re-execute → re-review ‖){≤3} → track
 ```
+
+**Where it runs in parallel (v4.9.0).** Two stages fan out where the work is genuinely
+independent; everything else stays sequential because each gate consumes the previous one's output:
+
+- **Review cluster** — quality + correctness + security read the *same* diff with no
+  data dependency, so they run **concurrently** (first pass and every re-review). Wall-clock
+  ≈ the slowest single reviewer, not the sum of three. A reviewer that dies returns `CHANGES`,
+  never a false `APPROVED`.
+- **Generation** — the planner returns a structured `tasks[]` (`files` + `depends_on`). The
+  script schedules it into dependency-respecting **waves**; within a wave only **file-disjoint**
+  tasks run together, each as its own generator. Parallel generators write only their own files
+  and **defer** shared-file changes (deps, barrels) to a short sequential **integrate** step, so
+  writers never collide — no worktrees needed. A feature whose tasks form a single chain degrades
+  cleanly to the old one-generator path. Force that with `sequentialGenerate: true`.
 
 **GATE 7b — E2E every time.** A dedicated **opus `e2e-engineer`** authors the user-flow
 E2E (Playwright) against the just-built feature, then re-runs in **every** heal loop and
@@ -102,8 +117,9 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 | `today` | string | ISO date for the scribe's log |
 | `newModule` / `spans3PlusFiles` / `newPattern` / `structuralRisk` | bool | GATE 6 architect triggers |
 | `securitySensitive` | bool | GATE 11c security-reviewer trigger (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency) |
-| `proModel` | string (optional) | model for the strong "pro" agents (planner, architect, healer, e2e-engineer, the 3 reviewers). Defaults to `opus`. On a non-Anthropic backend pass your strong model, e.g. `deepseek-v4-pro`. |
-| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). Defaults to `sonnet`. On a proxy pass e.g. `deepseek-v4-flash`. |
+| `proModel` | string (optional) | the model **every agent** uses by default. Defaults to `opus`. On a non-Anthropic backend pass your strong model, e.g. `deepseek-v4-pro[1m]`. |
+| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). **Defaults to `proModel`** — so out of the box every agent runs on the pro tier. Pass e.g. `deepseek-v4-flash` only to deliberately downgrade them. |
+| `sequentialGenerate` | bool (optional) | force the old single-generator path (no fan-out). Default `false`. |
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
 
@@ -137,19 +153,26 @@ one."* `agentType` selects an agent's **prompt and tools**, not its model.
 
 So if the script doesn't route a model, all 11 agents run on **your session's model** —
 on a session pinned to a fast/"flash" model, even the planner, architect, healer and
-reviewers (meant to be the strong "pro" tier) run on flash, and quality silently drops.
+reviewers run on flash, and quality silently drops.
 
-This file therefore routes every stage explicitly in its `run()` helper, mirroring the
-frontmatter intent: the reasoning agents → `proModel` (default `opus`), the mechanical
-agents → `fastModel` (default `sonnet`). Override both tiers via `args` for a
-non-Anthropic backend:
+This file therefore routes every stage explicitly in its `run()` helper. By **default every
+agent runs on `proModel`** (default `opus`) — uniform quality, no surprises. `fastModel`
+falls back to `proModel`, so the pro/fast split is opt-in: pass `fastModel` only when you
+deliberately want the mechanical agents (explorer, generator, executor, scribe) on a cheaper
+tier. Override either via `args` for a non-Anthropic backend:
 
 ```
+# everything on pro (recommended): just set proModel
+Run /tiger-pipeline with featureId "feature-001", … , proModel "deepseek-v4-pro[1m]"
+
+# split tiers: pro for reasoning, flash for the mechanical agents
 Run /tiger-pipeline with featureId "feature-001", … ,
-proModel "deepseek-v4-pro", fastModel "deepseek-v4-flash"
+proModel "deepseek-v4-pro[1m]", fastModel "deepseek-v4-flash"
 ```
 
-To run everything on the strong tier, set both to the same model.
+> **DeepSeek note.** DeepSeek's reasoning model needs the **exact alias** your session uses
+> (e.g. `deepseek-v4-pro[1m]`, with the `[1m]` suffix) — a bare `deepseek-v4-pro` is a
+> different model and can 400 with a `reasoning_effort`/`thinking` error at high effort.
 
 ## Determinism rules this file obeys (and why)
 
@@ -182,19 +205,24 @@ The pipeline reuses the plugin's existing contracts unchanged:
 
 ## Adapting it
 
-- **Fan-out a stage:** if the planner emits independent tasks, replace the single
-  `generate` call with `parallel(tasks.map(t => () => run("tiger-skills:generator", …)))`
-  — pass **thunks** (`() => …`), and `filter(Boolean)` the results. Inside
-  `parallel()`/`pipeline()` pass `phase:` explicitly per agent instead of relying on the
-  sequential `CURRENT_PHASE` global, so concurrent stages group correctly.
+- **Generation fan-out (built in):** the planner returns a structured `tasks[]` (via `schema`),
+  `buildWaves()` partitions it into dependency-respecting, file-disjoint waves, and each
+  multi-task wave runs `parallel(wave.map(t => () => run("tiger-skills:generator", …, phase)))`
+  followed by a sequential `integrate` step. To tune it: change the disjointness rule in
+  `buildWaves()`, or set `args.sequentialGenerate: true` to disable. Note the pattern — inside
+  `parallel()` pass `phase` explicitly (the 3rd `run()` arg), never the `CURRENT_PHASE` global,
+  so concurrent agents don't race on it.
 - **Multi-feature:** wrap the body in a guarded `for` over an approved feature list
   (respect WIP=1 semantics per feature).
 - **Agent selector:** named subagents are chosen via `agent(prompt, { agentType })` in the
   `run()` helper — change only `run()` to retarget, or inline an agent's `.md` role into the
   prompt. The `step(name, thunk)` helper wraps the bare `phase()` marker so each gate reads
   as one line.
-- **Model per agent:** `run()` passes `opts.model` from the `MODEL_FOR` map (PRO/FAST tiers,
-  overridable via `args.proModel` / `args.fastModel`). To re-tier an agent, move it between
-  `PRO` and `FAST`; to add a third tier, add a constant and point the agent's map entry at it.
-  Without an explicit `model`, a workflow agent inherits the session model regardless of its
-  frontmatter (see *Model routing* above).
+- **Model per agent:** `run()` passes `opts.model` from the `MODEL_FOR` map. `FAST` defaults to
+  `PRO`, so every agent is on the pro tier unless you pass `args.fastModel`. To re-tier an agent,
+  move it between `PRO` and `FAST` in `MODEL_FOR`; to add a third tier, add a constant and point
+  the agent's entry at it. Without an explicit `model`, a workflow agent inherits the session
+  model regardless of its frontmatter (see *Model routing* above).
+- **Parallel review cluster:** `reviewCluster()` runs quality + correctness + [security] via
+  `parallel()` and is called for both the first pass and each loop re-review. A `null` (dead
+  agent) is coerced to `CHANGES`, so the loop never false-approves.

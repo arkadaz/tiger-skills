@@ -5,11 +5,12 @@
 // conductor re-improvises each run. Runs ONE already-approved feature through
 // the 11-agent pipeline:
 //
-//   explore → plan → [architect?] → persist-tasks → generate
+//   explore → plan → [architect?] → persist-tasks
+//           → generate (FAN-OUT: one generator per independent task, in waves)
 //           → e2e-author (dedicated opus e2e-engineer writes the user-flow E2E)
 //           → execute (full suite + mandatory E2E)
 //           → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
-//           → review cluster: reviewer + correctness-reviewer + [security-reviewer]
+//           → review cluster: reviewer ‖ correctness-reviewer ‖ [security-reviewer]  (PARALLEL)
 //           → (fix → e2e-refresh → re-execute → re-review){≤3} → track
 //
 // ── BOUNDARY ────────────────────────────────────────────────────────────────
@@ -19,20 +20,37 @@
 // the feature has a HUMAN-approved spec, and exactly one feature is in_progress.
 // It encodes only the mechanical, reproducible part.
 //
+// ── PARALLELISM (v4.9.0) ──────────────────────────────────────────────────────
+// Two stages fan out where the work is genuinely independent:
+//   • REVIEW CLUSTER (GATE 11) — quality + correctness + security read the SAME
+//     diff; they have no data dependency, so they run concurrently (first pass AND
+//     every re-review in the loop). Latency ≈ the slowest single reviewer, not the sum.
+//   • GENERATION (GATE 7) — the planner returns a structured tasks[] with depends_on
+//     and files. We schedule it into dependency-respecting WAVES; within a wave only
+//     FILE-DISJOINT tasks run together, each as its own generator, in parallel. They
+//     write only their own files and DEFER any shared-file change (deps, barrels) to a
+//     short sequential integrate step, so parallel writers never collide — no worktrees
+//     needed (per the runtime's "worktrees only when writes would actually conflict").
+//     A feature whose tasks are a single chain degrades cleanly to the old sequential
+//     path (each wave has one task). Force sequential with args.sequentialGenerate=true.
+//
 // ── API — the documented dynamic-workflow runtime (Claude Code ≥ 2.1.154) ──────
 // Matched to https://code.claude.com/docs/en/workflows and the Workflow runtime:
 //   - meta is `export const meta = {…}` (a PURE literal, the first statement) — NOT meta(…).
 //   - agent(prompt, opts) — a named subagent is selected via opts.agentType (see run()).
 //   - phase(title) is a BARE void marker; agents that follow are grouped under it.
 //     We wrap it in step(name, thunk) so the sequential gate calls below read cleanly.
-//   - parallel(thunks) / pipeline(items, …stages) for fan-out; budget.* for caps.
+//     INSIDE parallel()/pipeline() we pass opts.phase EXPLICITLY (never the CURRENT_PHASE
+//     global), because concurrent agents would otherwise race on that single variable.
+//   - parallel(thunks) is a BARRIER that returns results in order; a thrown/dead thunk
+//     becomes null in the array, so we filter/guard. Used for the review cluster and waves.
+//   - schema — agent(prompt,{schema}) forces validated structured output; the planner
+//     uses it so the script gets a real tasks[] to schedule, not prose to regex.
 //   - MODEL — opts.agentType picks the subagent's PROMPT + TOOLS, but NOT its model.
 //     The Workflow runtime does NOT read the subagent's frontmatter `model:` field;
 //     when opts.model is omitted the agent inherits the SESSION'S main-loop model.
-//     So the per-agent `model: opus|sonnet` set in agents/*.md is silently ignored
-//     here unless we pass opts.model explicitly — without it, a session running on a
-//     fast/"flash" model runs ALL 11 agents on flash, including the ones meant to be
-//     the strong "pro" tier. run() therefore passes opts.model per agent (see MODEL_FOR).
+//     So the per-agent model is routed explicitly below (see MODEL_FOR). Without it, a
+//     session on a fast/"flash" model runs ALL agents on flash, including the pro ones.
 //   - No fs/shell/Date.now()/Math.random() in the script itself — all I/O happens
 //     inside agent prompts (explorer reads, scribe writes state, executor runs tests).
 // Launch with /workflows (or save into .claude/workflows/). Start scoped — a run
@@ -42,13 +60,14 @@
 // strings, no calls inside it. The runtime reads it before executing anything.
 export const meta = {
   name: "tiger-pipeline",
-  description: "Run one approved feature through the tiger-skills GATES 5-12 agent pipeline: explorer, planner, code-architect, scribe, generator, e2e-engineer, executor, healer, reviewer. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix. Deterministic and resumable; human grill/spec-approval happens before this runs.",
+  description: "Run one approved feature through the tiger-skills GATES 5-12 agent pipeline: explorer, planner, code-architect, scribe, generator(s), e2e-engineer, executor, healer, reviewers. Generation fans out one generator per independent task (waves); the GATE 11 review cluster (quality+correctness+security) runs in parallel. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix. Deterministic and resumable; human grill/spec-approval happens before this runs.",
   phases: [
     { title: "explore" },
     { title: "plan" },
     { title: "architect" },
     { title: "persist-tasks" },
     { title: "generate" },
+    { title: "integrate" },
     { title: "e2e-author" },
     { title: "execute" },
     { title: "heal" },
@@ -70,13 +89,14 @@ export const meta = {
 //   securitySensitive // bool — GATE 11c security-reviewer trigger (auth, untrusted input,
 //                     //        query/command building, network/file I/O, deserialization,
 //                     //        crypto/secrets, or a new dependency). Passed IN, not sniffed.
-//   proModel,         // optional string — model for the strong "pro" agents (reasoning/judgment:
-//                     //        planner, architect, healer, e2e-engineer, the 3 reviewers).
+//   proModel,         // optional string — model for EVERY agent by default (see MODEL below).
 //                     //        Defaults to "opus". On a non-Anthropic backend pass your strong
-//                     //        model's name, e.g. "deepseek-v4-pro".
-//   fastModel         // optional string — model for the mechanical agents (explorer, generator,
-//                     //        executor, scribe). Defaults to "sonnet". Pass e.g.
-//                     //        "deepseek-v4-flash" on a proxy whose tiers are named differently.
+//                     //        model's name, e.g. "deepseek-v4-pro[1m]".
+//   fastModel,        // optional string — model for the mechanical agents (explorer, generator,
+//                     //        executor, scribe). DEFAULTS TO proModel, so out of the box every
+//                     //        agent runs on the pro tier. Pass e.g. "deepseek-v4-flash" only if
+//                     //        you want to downgrade the mechanical agents to a cheaper model.
+//   sequentialGenerate // optional bool — force the old single-generator path (no fan-out).
 // }
 const F = {
   id: args.featureId,
@@ -108,38 +128,38 @@ const step = async (name, thunk) => {
   return await thunk();
 };
 
-// ── MODEL ROUTING (the fix for "every agent runs on the session model") ───────
+// ── MODEL ROUTING ─────────────────────────────────────────────────────────────
 // Per the docs: "Every agent in a workflow uses your session's model unless the
 // script routes a stage to a different one." agentType picks an agent's prompt +
 // tools but NOT its model — the subagent's frontmatter `model:` is ignored here.
-// So we route each stage explicitly, mirroring the intent declared in agents/*.md:
-// the reasoning/judgment agents get the strong "pro" tier; the mechanical agents
-// get the fast tier. Both tiers are overridable via args for non-Anthropic backends
-// (e.g. a proxy whose tiers are named "deepseek-v4-pro" / "deepseek-v4-flash").
-const PRO = args.proModel || "opus"; // strong tier: reasoning, decomposition, judgment
-const FAST = args.fastModel || "sonnet"; // fast tier: mechanical traversal / generation / I/O
+// So we route each stage explicitly. By DEFAULT every agent runs on the same (pro)
+// model — FAST falls back to PRO — so quality is uniform; pass fastModel only if you
+// deliberately want the mechanical agents on a cheaper tier. Both knobs are args, so
+// a non-Anthropic backend (e.g. DeepSeek) can name its concrete models.
+const PRO = args.proModel || "opus"; // the strong tier — used for every agent by default
+const FAST = args.fastModel || PRO; // mechanical agents; defaults to PRO ⇒ "all agents on pro"
 const MODEL_FOR = {
-  "tiger-skills:explorer": FAST, // agents/explorer.md   → model: sonnet
-  "tiger-skills:planner": PRO, // agents/planner.md    → model: opus
-  "tiger-skills:code-architect": PRO, // agents/code-architect.md → model: opus
-  "tiger-skills:scribe": FAST, // agents/scribe.md     → model: sonnet
-  "tiger-skills:generator": FAST, // agents/generator.md  → model: sonnet
-  "tiger-skills:e2e-engineer": PRO, // agents/e2e-engineer.md   → model: opus
-  "tiger-skills:executor": FAST, // agents/executor.md   → model: sonnet
-  "tiger-skills:healer": PRO, // agents/healer.md     → model: opus
-  "tiger-skills:reviewer": PRO, // agents/reviewer.md   → model: opus
-  "tiger-skills:correctness-reviewer": PRO, // agents/correctness-reviewer.md → model: opus
-  "tiger-skills:security-reviewer": PRO, // agents/security-reviewer.md → model: opus
+  "tiger-skills:explorer": FAST,
+  "tiger-skills:planner": PRO,
+  "tiger-skills:code-architect": PRO,
+  "tiger-skills:scribe": FAST,
+  "tiger-skills:generator": FAST,
+  "tiger-skills:e2e-engineer": PRO,
+  "tiger-skills:executor": FAST,
+  "tiger-skills:healer": PRO,
+  "tiger-skills:reviewer": PRO,
+  "tiger-skills:correctness-reviewer": PRO,
+  "tiger-skills:security-reviewer": PRO,
 };
 
 // Single swap-point for the subagent selector. One agent = one call.
 // Real signature: agent(prompt, opts) — opts.agentType picks the named subagent,
-// opts.phase groups it in the progress view under the current step, and opts.model
-// routes the stage to its tier (without it the agent inherits the session model).
-const run = (subagentType, prompt) =>
+// opts.model routes the stage to its tier, and opts.phase groups it. Pass phaseName
+// explicitly inside parallel()/pipeline(); it defaults to the sequential CURRENT_PHASE.
+const run = (subagentType, prompt, phaseName) =>
   agent(prompt, {
     agentType: subagentType,
-    phase: CURRENT_PHASE,
+    phase: phaseName || CURRENT_PHASE,
     model: MODEL_FOR[subagentType] || PRO,
   });
 
@@ -162,18 +182,52 @@ const recon = await step("explore", () =>
      Begin with the proof line: 'Type Inventory built: YES — N existing types catalogued'.`)
 );
 
-// ── GATE 5b — PLAN (blueprint + the persisted tasks[] JSON) ──────────────────
+// ── GATE 5b — PLAN (structured blueprint: prose + a machine-readable tasks[]) ──
+// schema makes the planner return validated JSON, so the script can SCHEDULE the
+// tasks into parallel waves instead of regex-ing prose. blueprintText carries the
+// full prose blueprint downstream agents still want.
+const BLUEPRINT_SCHEMA = {
+  type: "object",
+  additionalProperties: true,
+  required: ["blueprintText", "tasks", "architectConsulted"],
+  properties: {
+    architectConsulted: { type: "string", description: "code-architect consulted: YES/NO — <reason>" },
+    blueprintText: { type: "string", description: "Full prose blueprint: Context → Task Breakdown → Execution Phases → Risks" },
+    tasks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: true,
+        required: ["id", "title", "files", "depends_on"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          agent: { type: "string" },
+          files: { type: "array", items: { type: "string" }, description: "every file this task creates or edits — used to keep parallel tasks disjoint" },
+          depends_on: { type: "array", items: { type: "string" }, description: "ids of tasks that must finish first" },
+          verification: { type: "string" },
+        },
+      },
+    },
+  },
+};
 const blueprint = await step("plan", () =>
-  run("tiger-skills:planner",
+  agent(
     `Plan the implementation for ${F.id}: ${F.title}.
      Spec file: ${F.spec} (read it for decisions + acceptance criteria).
      Recon Report (do NOT re-explore): ${recon}
      Project directory: ${F.dir}.
-     Produce a blueprint: Context → Task Breakdown → Execution Phases → Risks,
-     ending with a 'Persisted Task Breakdown (JSON)' array — each task
-     {id,title,agent,status:'not_started',files,depends_on,verification}.
-     Begin with: 'code-architect consulted: YES/NO — <reason>'.`)
+     Produce the prose blueprint (Context → Task Breakdown → Execution Phases → Risks) in
+     'blueprintText', and a 'tasks' array where each task lists EVERY file it touches in
+     'files' and its prerequisite task ids in 'depends_on'. Accurate files/depends_on matter:
+     the pipeline runs file-disjoint, dependency-ready tasks in PARALLEL, so understating a
+     shared file or a dependency can cause two generators to collide. Set 'architectConsulted'
+     to 'code-architect consulted: YES/NO — <reason>'.`,
+    { agentType: "tiger-skills:planner", phase: "plan", model: MODEL_FOR["tiger-skills:planner"], schema: BLUEPRINT_SCHEMA }
+  )
 );
+const BP = (blueprint && blueprint.blueprintText) || String(blueprint || "(planner produced no blueprint)");
+const TASKS = (blueprint && Array.isArray(blueprint.tasks)) ? blueprint.tasks : [];
 
 // ── GATE 6 — ARCHITECT (only when a trigger fires — a deterministic boolean) ─
 let architecture = "(architect gate skipped — no structural trigger)";
@@ -181,7 +235,7 @@ if (ARCHITECT_TRIGGER) {
   architecture = await step("architect", () =>
     run("tiger-skills:code-architect",
       `Review the architecture for this blueprint:
-       ${blueprint}
+       ${BP}
        FIRST invoke code-quality-audit, THEN map findings to patterns.
        Produce: Summary → Violations (file:line) → Pattern Recommendations → Verdict.
        Begin with: 'code-quality-audit invoked: YES — N principles checked, M violations'.`)
@@ -192,26 +246,124 @@ if (ARCHITECT_TRIGGER) {
 await step("persist-tasks", () =>
   run("tiger-skills:scribe",
     `Apply this Board Update to ${F.dir}/feature_list.json for ${F.id}:
-     write the planner's 'Persisted Task Breakdown (JSON)' into the feature's tasks[].
-     Blueprint: ${blueprint}
+     write the planner's task breakdown into the feature's tasks[].
+     Tasks (JSON): ${JSON.stringify(TASKS)}
      Validate the JSON after writing (Windows: PowerShell ConvertFrom-Json; never bare python).
      End with: 'feature_list.json valid after write: YES — applied N deltas'.`)
 );
 
-// ── GATE 7 — GENERATE ────────────────────────────────────────────────────────
-let handoff = await step("generate", () =>
-  run("tiger-skills:generator",
-    `Implement this blueprint with TDD and the code-quality rules.
-     Blueprint: ${blueprint}
-     Architecture notes: ${architecture}
-     Project directory: ${F.dir}.
-     Before writing: invoke code-quality-language; build a Type Inventory; no placeholders.
-     Produce a Generator Handoff (task IDs + commits, files, Layer 1+2 results) ending
-     with a Board Update. Begin with:
-     'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.`)
-);
+// ── GATE 7 — GENERATE (fan-out: one generator per independent task, in waves) ──
+// Schedule TASKS into dependency-respecting waves; within a wave keep only
+// file-disjoint tasks so parallel generators never write the same file. Tasks that
+// share a file (or whose deps aren't met yet) fall to a later wave — i.e. run later,
+// after the integrate step has folded the prior wave in.
+const buildWaves = (tasks) => {
+  const byId = {};
+  tasks.forEach((t) => { byId[t.id] = t; });
+  const done = new Set();
+  const waves = [];
+  let remaining = tasks.slice();
+  let guard = 0;
+  while (remaining.length && guard++ < tasks.length + 2) {
+    const ready = remaining.filter((t) =>
+      (t.depends_on || []).every((d) => done.has(d) || !byId[d]) // unknown dep ⇒ treat as satisfied
+    );
+    if (!ready.length) { waves.push(remaining.slice()); break; } // cycle/odd deps ⇒ run the rest sequentially
+    const wave = [];
+    const used = new Set();
+    for (const t of ready) {
+      const files = t.files || [];
+      if (files.length && files.some((f) => used.has(f))) continue; // shares a file ⇒ defer to next wave
+      files.forEach((f) => used.add(f));
+      wave.push(t);
+    }
+    wave.forEach((t) => done.add(t.id));
+    waves.push(wave);
+    remaining = remaining.filter((t) => !done.has(t.id));
+  }
+  return waves;
+};
 
-// ── GATE 7b — E2E AUTHOR (NEW: dedicated opus e2e-engineer, runs AFTER generate) ─
+// Per-task prompt when generators run SIDE BY SIDE — write only your own files,
+// run no git, and defer shared-file edits to the integrate step.
+const parallelTaskPrompt = (t) =>
+  `Implement ONLY task ${t.id} — "${t.title}" — from the blueprint, nothing else.
+   Blueprint (context): ${BP}
+   Architecture notes: ${architecture}
+   Project directory: ${F.dir}.
+   PARALLEL-SAFE RULES — other generators are writing OTHER files at the same time:
+     • Touch ONLY these files: ${(t.files || []).join(", ") || "(only the files this task owns)"}.
+     • Do NOT run git (no add/commit). Do NOT run installs/formatters that rewrite other files.
+     • Do NOT edit shared manifests or barrels (package.json, lockfiles, index/mod/__init__).
+     • If you MUST add a dependency or change a shared file, do NOT edit it — list the exact change
+       under a 'SHARED-FILE CHANGES NEEDED' heading for the integrate step to apply.
+   Before writing: invoke code-quality-language; build a Type Inventory; no placeholders; add this task's unit tests.
+   Begin with: 'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.
+   End with a Board Update for ${t.id} (files written, unit results) + any 'SHARED-FILE CHANGES NEEDED'.`;
+
+// Solo prompt — one task alone in a wave, or the whole-blueprint fallback. git allowed.
+const soloPrompt = (scope) =>
+  `Implement ${scope} with TDD and the code-quality rules.
+   Blueprint: ${BP}
+   Architecture notes: ${architecture}
+   Project directory: ${F.dir}.
+   Before writing: invoke code-quality-language; build a Type Inventory; no placeholders.
+   Produce a Generator Handoff (task IDs + commits, files, Layer 1+2 results) ending with a
+   Board Update. Begin with:
+   'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.`;
+
+let handoff;
+const FAN_OUT = args.sequentialGenerate !== true && TASKS.length >= 2;
+if (!FAN_OUT) {
+  // Single task, no structured tasks, or forced sequential ⇒ original whole-blueprint generate.
+  handoff = await step("generate", () =>
+    run("tiger-skills:generator", soloPrompt("this blueprint"))
+  );
+} else {
+  const waves = buildWaves(TASKS);
+  log(`generate: ${TASKS.length} tasks scheduled into ${waves.length} wave(s) — ` +
+      `${waves.map((w) => w.length).join("+")} (parallel where the wave has >1 task)`);
+  const handoffs = [];
+  for (let i = 0; i < waves.length; i++) {
+    const wave = waves[i];
+    const ph = `generate-w${i + 1}`;
+    if (wave.length === 1) {
+      const t = wave[0];
+      handoffs.push(await step(ph, () =>
+        run("tiger-skills:generator",
+          soloPrompt(`ONLY task ${t.id} — "${t.title}" — from the blueprint (files: ${(t.files || []).join(", ")})`),
+          ph)
+      ));
+    } else {
+      // Parallel wave — file-disjoint, no worktrees, write-only. BARRIER: collect all
+      // before integrating, because integrate consumes every handoff's deferred changes.
+      const results = await parallel(
+        wave.map((t) => () =>
+          run("tiger-skills:generator", parallelTaskPrompt(t), ph).then((h) => ({ id: t.id, handoff: h }))
+        )
+      );
+      const good = results.filter(Boolean);
+      handoffs.push(...good.map((g) => `[task ${g.id}]\n${g.handoff}`));
+      // Sequential integrate: apply only the deferred shared-file changes so the
+      // independently-built modules connect, then confirm the tree still builds.
+      const integrated = await step("integrate", () =>
+        run("tiger-skills:generator",
+          `Integrate generation wave ${i + 1} for ${F.id} in ${F.dir}. ${good.length} generators built their
+           own files in parallel and DEFERRED shared-file changes. From their handoffs below, apply ONLY the
+           'SHARED-FILE CHANGES NEEDED' (add dependencies, wire barrels/exports, shared types) — do NOT
+           re-implement task logic. Then confirm the project still builds (static/import check).
+           Generator handoffs: ${good.map((g) => `[task ${g.id}]\n${g.handoff}`).join("\n\n")}
+           Begin with: 'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.
+           End with a Board Update listing the shared files you changed (or 'none needed').`,
+          "integrate")
+      );
+      handoffs.push(`[integrate wave ${i + 1}]\n${integrated}`);
+    }
+  }
+  handoff = handoffs.join("\n\n");
+}
+
+// ── GATE 7b — E2E AUTHOR (dedicated opus e2e-engineer, runs AFTER generate) ──
 // The feature code now exists, so its real entry points (URL / CLI / API) exist too.
 // A dedicated agent — NOT the generator — authors the Playwright/E2E logic that drives
 // the actual user flow, one asserting flow per acceptance criterion. This runs on EVERY
@@ -248,13 +400,15 @@ let evidence = await step("execute", () =>
 );
 
 // ── GATE 9 — HEAL loop (guarded: counter AND budget — determinism rule) ──────
+// Fixes are single-task and sequential (a fix to one bug is not independent work),
+// so the generator here is NOT fanned out.
 let heals = 0;
 while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
   heals++;
   const fix = await step("heal-" + heals, () =>
     run("tiger-skills:healer",
       `Diagnose and prescribe a fix. Executor escalation: ${evidence}
-       Blueprint: ${blueprint}. Project directory: ${F.dir}.
+       Blueprint: ${BP}. Project directory: ${F.dir}.
        Invoke harness-engineering-diagnose; classify to one of five layers; give exact
        file:line fix instructions AND a MANDATORY failing-first regression test (fails on the
        broken code, passes after the fix; E2E if the bug was user-visible). Begin with:
@@ -263,7 +417,7 @@ while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
   handoff = await step("regenerate-" + heals, () =>
     run("tiger-skills:generator",
       `Apply these fixes and ADD the prescribed regression test, nothing more: ${fix}
-       Blueprint: ${blueprint}. Project directory: ${F.dir}. End with a Board Update.`)
+       Blueprint: ${BP}. Project directory: ${F.dir}. End with a Board Update.`)
   );
   // E2E refresh — the code changed, so re-author/extend the user-flow E2E (and add an E2E
   // regression flow if the bug was user-visible) BEFORE re-executing, so "write E2E every
@@ -287,40 +441,48 @@ while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
   );
 }
 
-// ── GATE 11 — REVIEW CLUSTER (three independent checkers; guarded) ────────────
-// Quality + correctness run ALWAYS; security runs only when SECURITY_TRIGGER is
-// set. The loop continues while ANY required reviewer is not APPROVED. After each
-// round of fixes we RE-EXECUTE the full suite + E2E first, so a review fix that
-// breaks another part is caught before the re-review rubber-stamps it.
+// ── GATE 11 — REVIEW CLUSTER (three independent checkers, run IN PARALLEL) ─────
+// Quality + correctness run ALWAYS; security runs only when SECURITY_TRIGGER is set.
+// The three reviewers read the same diff and don't depend on each other, so they run
+// concurrently — first pass and every re-review. A dead agent ⇒ null ⇒ treated as
+// CHANGES (never a false APPROVE), so the loop escalates rather than rubber-stamps.
+const reviewCluster = async (qPrompt, cPrompt, sPrompt) => {
+  const thunks = [
+    () => run("tiger-skills:reviewer", qPrompt, "review-quality"),
+    () => run("tiger-skills:correctness-reviewer", cPrompt, "review-correctness"),
+    SECURITY_TRIGGER
+      ? () => run("tiger-skills:security-reviewer", sPrompt, "review-security")
+      : () => Promise.resolve("SECURITY_VERDICT: APPROVED (skipped — no security-sensitive surface)"),
+  ];
+  const [q, c, s] = await parallel(thunks);
+  return {
+    q: q || "REVIEW_VERDICT: CHANGES (quality reviewer did not return)",
+    c: c || "CORRECTNESS_VERDICT: CHANGES (correctness reviewer did not return)",
+    s: s || "SECURITY_VERDICT: CHANGES (security reviewer did not return)",
+  };
+};
+
 let reviews = 0;
-let qVerdict = await step("review-quality", () =>
-  run("tiger-skills:reviewer",
-    `Review independently — you did NOT write this code.
-     Handoff/diff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
-     FIRST invoke code-quality-review and harness-engineering-review.
-     Begin with: 'code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR'.
-     END with one line: 'REVIEW_VERDICT: APPROVED' or 'REVIEW_VERDICT: CHANGES'.`)
+let { q: qVerdict, c: cVerdict, s: sVerdict } = await reviewCluster(
+  `Review independently — you did NOT write this code.
+   Handoff/diff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
+   FIRST invoke code-quality-review and harness-engineering-review.
+   Begin with: 'code-quality-review invoked: YES — 27 items checked, K BLOCKING, M MAJOR'.
+   END with one line: 'REVIEW_VERDICT: APPROVED' or 'REVIEW_VERDICT: CHANGES'.`,
+  `Adversarially review correctness — assume the code is WRONG and prove it. You did NOT write it.
+   Handoff/diff: ${handoff}. Spec: ${F.spec} (read it for acceptance criteria).
+   Executor evidence: ${evidence}. Project directory: ${F.dir}.
+   FIRST invoke code-correctness-review. Trace control + data flow, enumerate edge cases,
+   hunt logic bugs, build the AC-to-test map, and verify an E2E test of the user workflow exists
+   (missing E2E for a user-facing feature = BLOCKING).
+   Begin with: 'correctness-review invoked: YES — paths traced: P, edge cases: E, logic findings: K, ACs proven by test: X/Y'.
+   END with one line: 'CORRECTNESS_VERDICT: APPROVED' or 'CORRECTNESS_VERDICT: CHANGES'.`,
+  `Security review — you did NOT write this code.
+   Handoff/diff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
+   FIRST invoke security-review; audit the 12 categories; run the project's SAST/dep-audit if present.
+   Begin with: 'security-review invoked: YES — N categories checked, C critical, H high'.
+   END with one line: 'SECURITY_VERDICT: APPROVED' or 'SECURITY_VERDICT: CHANGES'.`
 );
-let cVerdict = await step("review-correctness", () =>
-  run("tiger-skills:correctness-reviewer",
-    `Adversarially review correctness — assume the code is WRONG and prove it. You did NOT write it.
-     Handoff/diff: ${handoff}. Spec: ${F.spec} (read it for acceptance criteria).
-     Executor evidence: ${evidence}. Project directory: ${F.dir}.
-     FIRST invoke code-correctness-review. Trace control + data flow, enumerate edge cases,
-     hunt logic bugs, build the AC-to-test map, and verify an E2E test of the user workflow exists
-     (missing E2E for a user-facing feature = BLOCKING).
-     Begin with: 'correctness-review invoked: YES — paths traced: P, edge cases: E, logic findings: K, ACs proven by test: X/Y'.
-     END with one line: 'CORRECTNESS_VERDICT: APPROVED' or 'CORRECTNESS_VERDICT: CHANGES'.`)
-);
-let sVerdict = SECURITY_TRIGGER
-  ? await step("review-security", () =>
-      run("tiger-skills:security-reviewer",
-        `Security review — you did NOT write this code.
-         Handoff/diff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
-         FIRST invoke security-review; audit the 12 categories; run the project's SAST/dep-audit if present.
-         Begin with: 'security-review invoked: YES — N categories checked, C critical, H high'.
-         END with one line: 'SECURITY_VERDICT: APPROVED' or 'SECURITY_VERDICT: CHANGES'.`))
-  : "SECURITY_VERDICT: APPROVED (skipped — no security-sensitive surface)";
 
 const clusterApproved = () =>
   approved(qVerdict) && correctnessOk(cVerdict) && securityOk(sVerdict);
@@ -334,7 +496,7 @@ while (!clusterApproved() && reviews < MAX_REVIEW && budget.remaining() > 0) {
       `Fix ONLY the reviewers' BLOCKING/MAJOR/CRITICAL/HIGH findings, and ADD any missing
        unit / regression / per-acceptance-criterion tests they named (the e2e-engineer adds
        any missing E2E next): ${findings}
-       Blueprint: ${blueprint}. Project directory: ${F.dir}. End with a Board Update.`)
+       Blueprint: ${BP}. Project directory: ${F.dir}. End with a Board Update.`)
   );
   // E2E refresh — re-author/extend the user-flow E2E for the changed behavior and add any
   // E2E flow the reviewers said was missing, BEFORE re-executing.
@@ -355,24 +517,16 @@ while (!clusterApproved() && reviews < MAX_REVIEW && budget.remaining() > 0) {
        Run the FULL suite (no early stop) + the E2E workflow test. Fresh evidence only.
        END with one line: 'PIPELINE_STATUS: PASS' or 'PIPELINE_STATUS: FAIL'.`)
   );
-  qVerdict = await step("re-review-quality-" + reviews, () =>
-    run("tiger-skills:reviewer",
-      `Re-review quality. Handoff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
-       END with one line: 'REVIEW_VERDICT: APPROVED' or 'REVIEW_VERDICT: CHANGES'.`)
-  );
-  cVerdict = await step("re-review-correctness-" + reviews, () =>
-    run("tiger-skills:correctness-reviewer",
-      `Re-review correctness. Handoff: ${handoff}. Spec: ${F.spec}.
-       Executor evidence: ${evidence}. Project directory: ${F.dir}.
-       END with one line: 'CORRECTNESS_VERDICT: APPROVED' or 'CORRECTNESS_VERDICT: CHANGES'.`)
-  );
-  if (SECURITY_TRIGGER) {
-    sVerdict = await step("re-review-security-" + reviews, () =>
-      run("tiger-skills:security-reviewer",
-        `Re-review security. Handoff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
-         END with one line: 'SECURITY_VERDICT: APPROVED' or 'SECURITY_VERDICT: CHANGES'.`)
-    );
-  }
+  // Re-review cluster — same three checkers, again in parallel.
+  ({ q: qVerdict, c: cVerdict, s: sVerdict } = await reviewCluster(
+    `Re-review quality. Handoff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
+     END with one line: 'REVIEW_VERDICT: APPROVED' or 'REVIEW_VERDICT: CHANGES'.`,
+    `Re-review correctness. Handoff: ${handoff}. Spec: ${F.spec}.
+     Executor evidence: ${evidence}. Project directory: ${F.dir}.
+     END with one line: 'CORRECTNESS_VERDICT: APPROVED' or 'CORRECTNESS_VERDICT: CHANGES'.`,
+    `Re-review security. Handoff: ${handoff}. Spec: ${F.spec}. Project directory: ${F.dir}.
+     END with one line: 'SECURITY_VERDICT: APPROVED' or 'SECURITY_VERDICT: CHANGES'.`
+  ));
 }
 
 // ── GATE 12 — TRACK (scribe writes final state; feature passes only if earned) ─
@@ -395,6 +549,8 @@ const tracked = await step("track", () =>
 // stayed in each agent's own context, not the main session.
 return {
   feature: F.id,
+  tasks: TASKS.length,
+  generation: FAN_OUT ? "fan-out (waves)" : "sequential",
   passed: passed(evidence),
   e2eAuthored: e2e,
   approved: clusterApproved(),
