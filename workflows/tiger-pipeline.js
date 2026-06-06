@@ -90,12 +90,12 @@ export const meta = {
 //                     //        query/command building, network/file I/O, deserialization,
 //                     //        crypto/secrets, or a new dependency). Passed IN, not sniffed.
 //   proModel,         // optional string — model for EVERY agent by default (see MODEL below).
-//                     //        Defaults to "opus". On a non-Anthropic backend pass your strong
-//                     //        model's name, e.g. "deepseek-v4-pro[1m]".
+//                     //        Defaults to "opus". On a non-Anthropic backend pass the exact
+//                     //        name of your strong model as that backend advertises it.
 //   fastModel,        // optional string — model for the mechanical agents (explorer, generator,
 //                     //        executor, scribe). DEFAULTS TO proModel, so out of the box every
-//                     //        agent runs on the pro tier. Pass e.g. "deepseek-v4-flash" only if
-//                     //        you want to downgrade the mechanical agents to a cheaper model.
+//                     //        agent runs on the pro tier. Pass your fast/cheaper model's name
+//                     //        only if you want to downgrade the mechanical agents.
 //   sequentialGenerate // optional bool — force the old single-generator path (no fan-out).
 // }
 const F = {
@@ -135,7 +135,7 @@ const step = async (name, thunk) => {
 // So we route each stage explicitly. By DEFAULT every agent runs on the same (pro)
 // model — FAST falls back to PRO — so quality is uniform; pass fastModel only if you
 // deliberately want the mechanical agents on a cheaper tier. Both knobs are args, so
-// a non-Anthropic backend (e.g. DeepSeek) can name its concrete models.
+// a non-Anthropic backend can name its concrete models.
 const PRO = args.proModel || "opus"; // the strong tier — used for every agent by default
 const FAST = args.fastModel || PRO; // mechanical agents; defaults to PRO ⇒ "all agents on pro"
 const MODEL_FOR = {
@@ -203,8 +203,8 @@ const BLUEPRINT_SCHEMA = {
           id: { type: "string" },
           title: { type: "string" },
           agent: { type: "string" },
-          files: { type: "array", items: { type: "string" }, description: "every file this task creates or edits — used to keep parallel tasks disjoint" },
-          depends_on: { type: "array", items: { type: "string" }, description: "ids of tasks that must finish first" },
+          files: { type: "array", items: { type: "string" }, description: "EVERY file this task creates or edits (repo-relative). The scheduler uses this to keep parallel tasks disjoint; if unsure, list the file — an empty list makes the task run alone." },
+          depends_on: { type: "array", items: { type: "string" }, description: "ids of tasks that must finish first — INCLUDING any task whose new/changed file this task reads (read-after-write), so the scheduler never runs them concurrently" },
           verification: { type: "string" },
         },
       },
@@ -218,10 +218,14 @@ const blueprint = await step("plan", () =>
      Recon Report (do NOT re-explore): ${recon}
      Project directory: ${F.dir}.
      Produce the prose blueprint (Context → Task Breakdown → Execution Phases → Risks) in
-     'blueprintText', and a 'tasks' array where each task lists EVERY file it touches in
-     'files' and its prerequisite task ids in 'depends_on'. Accurate files/depends_on matter:
-     the pipeline runs file-disjoint, dependency-ready tasks in PARALLEL, so understating a
-     shared file or a dependency can cause two generators to collide. Set 'architectConsulted'
+     'blueprintText', and a 'tasks' array. The pipeline runs file-disjoint, dependency-ready
+     tasks in PARALLEL, so two fields are SAFETY-CRITICAL, not bookkeeping:
+       • 'files' — EVERY file the task creates or edits. If two tasks could write the same file,
+         they must NOT both be parallelizable: list the shared file in both. When unsure, list it.
+       • 'depends_on' — every task that must finish first, INCLUDING any task whose new/changed
+         output this task reads (read-after-write). This is what stops a generator from reading a
+         file another generator is still writing.
+     Understating either lets two generators collide on the same file. Set 'architectConsulted'
      to 'code-architect consulted: YES/NO — <reason>'.`,
     { agentType: "tiger-skills:planner", phase: "plan", model: MODEL_FOR["tiger-skills:planner"], schema: BLUEPRINT_SCHEMA }
   )
@@ -257,6 +261,13 @@ await step("persist-tasks", () =>
 // file-disjoint tasks so parallel generators never write the same file. Tasks that
 // share a file (or whose deps aren't met yet) fall to a later wave — i.e. run later,
 // after the integrate step has folded the prior wave in.
+//   SAME-FILE SAFETY: (1) depends_on serializes read-after-write across waves; (2) within a
+//   wave the file sets are disjoint; (3) a task with no declared files runs ALONE; (4) the
+//   state files (feature_list.json, progress.md) are written ONLY by the scribe, never by a
+//   generator. So no two concurrent agents ever read+write the same file.
+//   MEMORY: parallel generators return CONCISE handoffs (summary + Board Update, no file
+//   dumps) and downstream agents re-read the repo themselves, so the accumulated handoff
+//   passed onward stays bounded instead of growing with every task's full output.
 const buildWaves = (tasks) => {
   const byId = {};
   tasks.forEach((t) => { byId[t.id] = t; });
@@ -272,8 +283,15 @@ const buildWaves = (tasks) => {
     const wave = [];
     const used = new Set();
     for (const t of ready) {
-      const files = t.files || [];
-      if (files.length && files.some((f) => used.has(f))) continue; // shares a file ⇒ defer to next wave
+      const files = (t.files || []).filter(Boolean);
+      if (files.length === 0) {
+        // Unknown file footprint — we can't PROVE it won't touch another task's file,
+        // so it is never run alongside anything. Take it alone (empty wave) or defer it
+        // behind the tasks already in this wave; either way it ends up a solo wave.
+        if (wave.length === 0) wave.push(t);
+        break;
+      }
+      if (files.some((f) => used.has(f))) continue; // shares a file with a wave member ⇒ defer to a later wave
       files.forEach((f) => used.add(f));
       wave.push(t);
     }
@@ -292,14 +310,20 @@ const parallelTaskPrompt = (t) =>
    Architecture notes: ${architecture}
    Project directory: ${F.dir}.
    PARALLEL-SAFE RULES — other generators are writing OTHER files at the same time:
-     • Touch ONLY these files: ${(t.files || []).join(", ") || "(only the files this task owns)"}.
+     • WRITE ONLY these files: ${(t.files || []).join(", ") || "(only the files this task owns)"}.
+       Do not write, and do not READ for editing, any file outside that set — another generator
+       may be mid-write on it, so a read could see a half-written file.
+     • NEVER touch the shared state files feature_list.json or progress.md — those are the
+       scribe's alone; emit a Board Update instead. (Two generators writing them = corruption.)
      • Do NOT run git (no add/commit). Do NOT run installs/formatters that rewrite other files.
      • Do NOT edit shared manifests or barrels (package.json, lockfiles, index/mod/__init__).
      • If you MUST add a dependency or change a shared file, do NOT edit it — list the exact change
        under a 'SHARED-FILE CHANGES NEEDED' heading for the integrate step to apply.
    Before writing: invoke code-quality-language; build a Type Inventory; no placeholders; add this task's unit tests.
    Begin with: 'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.
-   End with a Board Update for ${t.id} (files written, unit results) + any 'SHARED-FILE CHANGES NEEDED'.`;
+   End with a CONCISE Board Update for ${t.id} — task id, files written, unit pass/fail counts, and any
+   'SHARED-FILE CHANGES NEEDED'. Do NOT paste file contents or diffs; the executor and reviewers read the
+   repo directly, so keep the handoff to a short summary.`;
 
 // Solo prompt — one task alone in a wave, or the whole-blueprint fallback. git allowed.
 const soloPrompt = (scope) =>
@@ -446,12 +470,20 @@ while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
 // The three reviewers read the same diff and don't depend on each other, so they run
 // concurrently — first pass and every re-review. A dead agent ⇒ null ⇒ treated as
 // CHANGES (never a false APPROVE), so the loop escalates rather than rubber-stamps.
+// SAME-FILE SAFETY: reviewers are read-only on the source, so concurrent READS never
+// conflict; the only risk is racing on shared BUILD artifacts (test cache, coverage, SAST
+// output). PAR tells each to lean on the executor's fresh evidence and not re-run the full
+// suite concurrently — read-only/scoped checks only.
 const reviewCluster = async (qPrompt, cPrompt, sPrompt) => {
+  const PAR =
+    `\n   You run CONCURRENTLY with the other reviewers — work from the source you READ and the
+     executor evidence already provided; do NOT re-run the full build/test suite (it races the
+     other reviewers on shared artifacts). Scoped, read-only checks are fine.`;
   const thunks = [
-    () => run("tiger-skills:reviewer", qPrompt, "review-quality"),
-    () => run("tiger-skills:correctness-reviewer", cPrompt, "review-correctness"),
+    () => run("tiger-skills:reviewer", qPrompt + PAR, "review-quality"),
+    () => run("tiger-skills:correctness-reviewer", cPrompt + PAR, "review-correctness"),
     SECURITY_TRIGGER
-      ? () => run("tiger-skills:security-reviewer", sPrompt, "review-security")
+      ? () => run("tiger-skills:security-reviewer", sPrompt + PAR, "review-security")
       : () => Promise.resolve("SECURITY_VERDICT: APPROVED (skipped — no security-sensitive surface)"),
   ];
   const [q, c, s] = await parallel(thunks);

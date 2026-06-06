@@ -55,6 +55,18 @@ independent; everything else stays sequential because each gate consumes the pre
   writers never collide — no worktrees needed. A feature whose tasks form a single chain degrades
   cleanly to the old one-generator path. Force that with `sequentialGenerate: true`.
 
+**No two concurrent agents touch the same file.** Four guarantees stack: (1) `depends_on`
+serializes *read-after-write* across waves (a task that reads another's output can't run beside
+it); (2) within a wave the `files` sets are disjoint, so writes don't overlap; (3) a task with no
+declared files runs **alone**; (4) the state files (`feature_list.json`, `progress.md`) are written
+**only by the scribe** — generators emit a Board Update, never write state. The review cluster is
+read-only on source (concurrent reads are safe) and is told not to re-run the full build/test suite
+concurrently, so it can't race on shared build artifacts either.
+
+**Memory stays bounded.** Parallel generators return **concise** handoffs (summary + Board Update,
+no file dumps); downstream agents re-read the repo directly, so the handoff threaded onward doesn't
+grow with every task's full output.
+
 **GATE 7b — E2E every time.** A dedicated **opus `e2e-engineer`** authors the user-flow
 E2E (Playwright) against the just-built feature, then re-runs in **every** heal loop and
 **every** review-fix loop before each re-execute — so the full unit + E2E suite re-confirms
@@ -117,8 +129,8 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 | `today` | string | ISO date for the scribe's log |
 | `newModule` / `spans3PlusFiles` / `newPattern` / `structuralRisk` | bool | GATE 6 architect triggers |
 | `securitySensitive` | bool | GATE 11c security-reviewer trigger (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency) |
-| `proModel` | string (optional) | the model **every agent** uses by default. Defaults to `opus`. On a non-Anthropic backend pass your strong model, e.g. `deepseek-v4-pro[1m]`. |
-| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). **Defaults to `proModel`** — so out of the box every agent runs on the pro tier. Pass e.g. `deepseek-v4-flash` only to deliberately downgrade them. |
+| `proModel` | string (optional) | the model **every agent** uses by default. Defaults to `opus`. On a non-Anthropic backend pass your strong model's exact name as that backend advertises it. |
+| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). **Defaults to `proModel`** — so out of the box every agent runs on the pro tier. Pass your fast/cheaper model only to deliberately downgrade them. |
 | `sequentialGenerate` | bool (optional) | force the old single-generator path (no fan-out). Default `false`. |
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
@@ -163,16 +175,18 @@ tier. Override either via `args` for a non-Anthropic backend:
 
 ```
 # everything on pro (recommended): just set proModel
-Run /tiger-pipeline with featureId "feature-001", … , proModel "deepseek-v4-pro[1m]"
+Run /tiger-pipeline with featureId "feature-001", … , proModel "<your-strong-model>"
 
-# split tiers: pro for reasoning, flash for the mechanical agents
+# split tiers: pro for reasoning, a cheaper model for the mechanical agents
 Run /tiger-pipeline with featureId "feature-001", … ,
-proModel "deepseek-v4-pro[1m]", fastModel "deepseek-v4-flash"
+proModel "<your-strong-model>", fastModel "<your-fast-model>"
 ```
 
-> **DeepSeek note.** DeepSeek's reasoning model needs the **exact alias** your session uses
-> (e.g. `deepseek-v4-pro[1m]`, with the `[1m]` suffix) — a bare `deepseek-v4-pro` is a
-> different model and can 400 with a `reasoning_effort`/`thinking` error at high effort.
+> **Backend note.** If you route Claude Code to a non-Anthropic backend, pass the model's
+> **exact name as that backend advertises it** — including any variant suffix. A near-miss
+> name can resolve to a different model (or none) and fail at request time, especially for
+> reasoning models that are strict about `reasoning_effort`/`thinking` at high effort. When
+> you leave `proModel` unset, `opus` is resolved through your own model-alias config.
 
 ## Determinism rules this file obeys (and why)
 
