@@ -26,6 +26,13 @@
 //   - phase(title) is a BARE void marker; agents that follow are grouped under it.
 //     We wrap it in step(name, thunk) so the sequential gate calls below read cleanly.
 //   - parallel(thunks) / pipeline(items, …stages) for fan-out; budget.* for caps.
+//   - MODEL — opts.agentType picks the subagent's PROMPT + TOOLS, but NOT its model.
+//     The Workflow runtime does NOT read the subagent's frontmatter `model:` field;
+//     when opts.model is omitted the agent inherits the SESSION'S main-loop model.
+//     So the per-agent `model: opus|sonnet` set in agents/*.md is silently ignored
+//     here unless we pass opts.model explicitly — without it, a session running on a
+//     fast/"flash" model runs ALL 11 agents on flash, including the ones meant to be
+//     the strong "pro" tier. run() therefore passes opts.model per agent (see MODEL_FOR).
 //   - No fs/shell/Date.now()/Math.random() in the script itself — all I/O happens
 //     inside agent prompts (explorer reads, scribe writes state, executor runs tests).
 // Launch with /workflows (or save into .claude/workflows/). Start scoped — a run
@@ -63,6 +70,13 @@ export const meta = {
 //   securitySensitive // bool — GATE 11c security-reviewer trigger (auth, untrusted input,
 //                     //        query/command building, network/file I/O, deserialization,
 //                     //        crypto/secrets, or a new dependency). Passed IN, not sniffed.
+//   proModel,         // optional string — model for the strong "pro" agents (reasoning/judgment:
+//                     //        planner, architect, healer, e2e-engineer, the 3 reviewers).
+//                     //        Defaults to "opus". On a non-Anthropic backend pass your strong
+//                     //        model's name, e.g. "deepseek-v4-pro".
+//   fastModel         // optional string — model for the mechanical agents (explorer, generator,
+//                     //        executor, scribe). Defaults to "sonnet". Pass e.g.
+//                     //        "deepseek-v4-flash" on a proxy whose tiers are named differently.
 // }
 const F = {
   id: args.featureId,
@@ -94,11 +108,40 @@ const step = async (name, thunk) => {
   return await thunk();
 };
 
+// ── MODEL ROUTING (the fix for "every agent runs on the session model") ───────
+// Per the docs: "Every agent in a workflow uses your session's model unless the
+// script routes a stage to a different one." agentType picks an agent's prompt +
+// tools but NOT its model — the subagent's frontmatter `model:` is ignored here.
+// So we route each stage explicitly, mirroring the intent declared in agents/*.md:
+// the reasoning/judgment agents get the strong "pro" tier; the mechanical agents
+// get the fast tier. Both tiers are overridable via args for non-Anthropic backends
+// (e.g. a proxy whose tiers are named "deepseek-v4-pro" / "deepseek-v4-flash").
+const PRO = args.proModel || "opus"; // strong tier: reasoning, decomposition, judgment
+const FAST = args.fastModel || "sonnet"; // fast tier: mechanical traversal / generation / I/O
+const MODEL_FOR = {
+  "tiger-skills:explorer": FAST, // agents/explorer.md   → model: sonnet
+  "tiger-skills:planner": PRO, // agents/planner.md    → model: opus
+  "tiger-skills:code-architect": PRO, // agents/code-architect.md → model: opus
+  "tiger-skills:scribe": FAST, // agents/scribe.md     → model: sonnet
+  "tiger-skills:generator": FAST, // agents/generator.md  → model: sonnet
+  "tiger-skills:e2e-engineer": PRO, // agents/e2e-engineer.md   → model: opus
+  "tiger-skills:executor": FAST, // agents/executor.md   → model: sonnet
+  "tiger-skills:healer": PRO, // agents/healer.md     → model: opus
+  "tiger-skills:reviewer": PRO, // agents/reviewer.md   → model: opus
+  "tiger-skills:correctness-reviewer": PRO, // agents/correctness-reviewer.md → model: opus
+  "tiger-skills:security-reviewer": PRO, // agents/security-reviewer.md → model: opus
+};
+
 // Single swap-point for the subagent selector. One agent = one call.
 // Real signature: agent(prompt, opts) — opts.agentType picks the named subagent,
-// opts.phase groups it in the progress view under the current step.
+// opts.phase groups it in the progress view under the current step, and opts.model
+// routes the stage to its tier (without it the agent inherits the session model).
 const run = (subagentType, prompt) =>
-  agent(prompt, { agentType: subagentType, phase: CURRENT_PHASE });
+  agent(prompt, {
+    agentType: subagentType,
+    phase: CURRENT_PHASE,
+    model: MODEL_FOR[subagentType] || PRO,
+  });
 
 // Each gate agent already emits a proof line; we ALSO ask the gate-deciding
 // agents (executor, reviewer) to end with a machine-readable status token so

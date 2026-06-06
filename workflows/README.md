@@ -102,6 +102,8 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 | `today` | string | ISO date for the scribe's log |
 | `newModule` / `spans3PlusFiles` / `newPattern` / `structuralRisk` | bool | GATE 6 architect triggers |
 | `securitySensitive` | bool | GATE 11c security-reviewer trigger (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency) |
+| `proModel` | string (optional) | model for the strong "pro" agents (planner, architect, healer, e2e-engineer, the 3 reviewers). Defaults to `opus`. On a non-Anthropic backend pass your strong model, e.g. `deepseek-v4-pro`. |
+| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). Defaults to `sonnet`. On a proxy pass e.g. `deepseek-v4-flash`. |
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
 
@@ -124,6 +126,30 @@ securitySensitive false
 Claude passes these as the script's `args`. The run returns one compact summary
 (`{ feature, passed, e2eAuthored, approved, heals, reviews, … }`); the heavy
 intermediate reports stay in each agent's own context, not your session.
+
+## Model routing — why each agent's frontmatter `model:` is *not* enough
+
+The `agents/*.md` files declare a `model:` (7 agents `opus`, 4 `sonnet`). That field
+is honored when an agent is spawned through the **Agent/Task tool** — but **not inside
+a workflow**. Per the [docs](https://code.claude.com/docs/en/workflows): *"Every agent
+in a workflow uses your session's model unless the script routes a stage to a different
+one."* `agentType` selects an agent's **prompt and tools**, not its model.
+
+So if the script doesn't route a model, all 11 agents run on **your session's model** —
+on a session pinned to a fast/"flash" model, even the planner, architect, healer and
+reviewers (meant to be the strong "pro" tier) run on flash, and quality silently drops.
+
+This file therefore routes every stage explicitly in its `run()` helper, mirroring the
+frontmatter intent: the reasoning agents → `proModel` (default `opus`), the mechanical
+agents → `fastModel` (default `sonnet`). Override both tiers via `args` for a
+non-Anthropic backend:
+
+```
+Run /tiger-pipeline with featureId "feature-001", … ,
+proModel "deepseek-v4-pro", fastModel "deepseek-v4-flash"
+```
+
+To run everything on the strong tier, set both to the same model.
 
 ## Determinism rules this file obeys (and why)
 
@@ -167,3 +193,8 @@ The pipeline reuses the plugin's existing contracts unchanged:
   `run()` helper — change only `run()` to retarget, or inline an agent's `.md` role into the
   prompt. The `step(name, thunk)` helper wraps the bare `phase()` marker so each gate reads
   as one line.
+- **Model per agent:** `run()` passes `opts.model` from the `MODEL_FOR` map (PRO/FAST tiers,
+  overridable via `args.proModel` / `args.fastModel`). To re-tier an agent, move it between
+  `PRO` and `FAST`; to add a third tier, add a constant and point the agent's map entry at it.
+  Without an explicit `model`, a workflow agent inherits the session model regardless of its
+  frontmatter (see *Model routing* above).
