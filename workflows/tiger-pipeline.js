@@ -41,6 +41,9 @@
 //   LAST status token (fail-closed); every threaded handoff is digest()ed so it stays
 //   bounded; heal/review loops require budget HEADROOM so the run always reaches track;
 //   NO generator runs git (uniform commit policy — the conductor commits after the run).
+//   v4.10.1: MODEL ROUTING IS OPT-IN — by default no model is forced and every agent
+//   inherits the session/subagent default (CLAUDE_CODE_SUBAGENT_MODEL honored), so the
+//   pipeline runs unchanged on non-Anthropic backends; pass proModel/fastModel to pin.
 //
 // ── API — the documented dynamic-workflow runtime (Claude Code ≥ 2.1.154) ──────
 // Matched to https://code.claude.com/docs/en/workflows and the Workflow runtime:
@@ -56,9 +59,11 @@
 //     uses it so the script gets a real tasks[] to schedule, not prose to regex.
 //   - MODEL — opts.agentType picks the subagent's PROMPT + TOOLS, but NOT its model.
 //     The Workflow runtime does NOT read the subagent's frontmatter `model:` field;
-//     when opts.model is omitted the agent inherits the SESSION'S main-loop model.
-//     So the per-agent model is routed explicitly below (see MODEL_FOR). Without it, a
-//     session on a fast/"flash" model runs ALL agents on flash, including the pro ones.
+//     when opts.model is omitted the agent inherits the session/subagent default
+//     (CLAUDE_CODE_SUBAGENT_MODEL when set, else the session's model). Since v4.10.1
+//     that INHERIT is the DEFAULT — the script forces no model name — and per-agent
+//     routing (MODEL_FOR) activates only when args.proModel/fastModel are passed.
+//     See MODEL ROUTING below for why (non-Anthropic backends reject guessed names).
 //   - No fs/shell/Date.now()/Math.random() in the script itself — all I/O happens
 //     inside agent prompts (explorer reads, scribe writes state, executor runs tests).
 // Launch with /workflows (or save into .claude/workflows/). Start scoped — a run
@@ -108,13 +113,14 @@ export const meta = {
 //   securitySensitive // bool — GATE 11c security-reviewer trigger (auth, untrusted input,
 //                     //        query/command building, network/file I/O, deserialization,
 //                     //        crypto/secrets, or a new dependency). Passed IN, not sniffed.
-//   proModel,         // optional string — model for EVERY agent by default (see MODEL below).
-//                     //        Defaults to "opus". On a non-Anthropic backend pass the exact
-//                     //        name of your strong model as that backend advertises it.
+//   proModel,         // optional string — PIN the model for every agent (see MODEL ROUTING).
+//                     //        UNSET by default ⇒ no model is sent; every agent INHERITS the
+//                     //        session/subagent default (CLAUDE_CODE_SUBAGENT_MODEL honored) —
+//                     //        the safe choice on any non-Anthropic backend. On an Anthropic
+//                     //        session pass e.g. "opus" to pin the strong tier explicitly.
 //   fastModel,        // optional string — model for the mechanical agents (explorer, generator,
-//                     //        executor, scribe). DEFAULTS TO proModel, so out of the box every
-//                     //        agent runs on the pro tier. Pass your fast/cheaper model's name
-//                     //        only if you want to downgrade the mechanical agents.
+//                     //        executor, scribe). Falls back to proModel; only meaningful when
+//                     //        a pin is set. Pass it to split tiers deliberately.
 //   sequentialGenerate // optional bool — force the old single-generator path (no fan-out).
 // }
 const F = {
@@ -154,16 +160,22 @@ const step = async (name, thunk) => {
   return await thunk();
 };
 
-// ── MODEL ROUTING ─────────────────────────────────────────────────────────────
+// ── MODEL ROUTING (OPT-IN since v4.10.1) ──────────────────────────────────────
 // Per the docs: "Every agent in a workflow uses your session's model unless the
 // script routes a stage to a different one." agentType picks an agent's prompt +
 // tools but NOT its model — the subagent's frontmatter `model:` is ignored here.
-// So we route each stage explicitly. By DEFAULT every agent runs on the same (pro)
-// model — FAST falls back to PRO — so quality is uniform; pass fastModel only if you
-// deliberately want the mechanical agents on a cheaper tier. Both knobs are args, so
-// a non-Anthropic backend can name its concrete models.
-const PRO = args.proModel || "opus"; // the strong tier — used for every agent by default
-const FAST = args.fastModel || PRO; // mechanical agents; defaults to PRO ⇒ "all agents on pro"
+// By DEFAULT this script routes NOTHING: every agent INHERITS the session/subagent
+// default — the model your session runs on, or CLAUDE_CODE_SUBAGENT_MODEL when set.
+// That is the backend-agnostic path: a hardcoded name like "opus" is rejected at
+// request time by a non-Anthropic backend, and even a correct backend name can clash
+// with that backend's reasoning/effort parameter handling — inheriting avoids both.
+//   • Non-Anthropic backend (recommended): leave proModel unset and set
+//     CLAUDE_CODE_SUBAGENT_MODEL=<exact model name, incl. any variant suffix>.
+//   • Pin tiers explicitly (e.g. guarantee the strong tier on an Anthropic session
+//     whose main loop runs a faster model): pass proModel — and optionally fastModel
+//     to split tiers — then MODEL_FOR routes every stage as before.
+const PRO = args.proModel || null; // null ⇒ inherit (no model sent with any agent)
+const FAST = args.fastModel || PRO; // mechanical agents; falls back to PRO
 const MODEL_FOR = {
   "tiger-skills:explorer": FAST,
   "tiger-skills:planner": PRO,
@@ -181,14 +193,16 @@ const MODEL_FOR = {
 
 // Single swap-point for the subagent selector. One agent = one call.
 // Real signature: agent(prompt, opts) — opts.agentType picks the named subagent,
-// opts.model routes the stage to its tier, and opts.phase groups it. Pass phaseName
-// explicitly inside parallel()/pipeline(); it defaults to the sequential CURRENT_PHASE.
-const run = (subagentType, prompt, phaseName) =>
-  agent(prompt, {
-    agentType: subagentType,
-    phase: phaseName || CURRENT_PHASE,
-    model: MODEL_FOR[subagentType] || PRO,
-  });
+// opts.phase groups it, and opts.model is sent ONLY when routing was requested via
+// args (otherwise the agent inherits the session/subagent default — never a guessed
+// name a foreign backend would reject). Pass phaseName explicitly inside
+// parallel()/pipeline(); it defaults to the sequential CURRENT_PHASE.
+const run = (subagentType, prompt, phaseName) => {
+  const opts = { agentType: subagentType, phase: phaseName || CURRENT_PHASE };
+  const m = MODEL_FOR[subagentType] || PRO;
+  if (m) opts.model = m;
+  return agent(prompt, opts);
+};
 
 // Each gate agent already emits a proof line; we ALSO ask the gate-deciding
 // agents (executor, reviewer) to end with a machine-readable status token so

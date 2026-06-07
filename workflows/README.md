@@ -146,8 +146,8 @@ It expects these `args` (no clock reads — pass the date in, per the determinis
 | `today` | string | ISO date for the scribe's log |
 | `newModule` / `spans3PlusFiles` / `newPattern` / `structuralRisk` | bool | GATE 6 architect triggers |
 | `securitySensitive` | bool | GATE 11c security-reviewer trigger (auth, untrusted input, query/command building, network/file I/O, deserialization, crypto/secrets, new dependency) |
-| `proModel` | string (optional) | the model **every agent** uses by default. Defaults to `opus`. On a non-Anthropic backend pass your strong model's exact name as that backend advertises it. |
-| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). **Defaults to `proModel`** — so out of the box every agent runs on the pro tier. Pass your fast/cheaper model only to deliberately downgrade them. |
+| `proModel` | string (optional) | **pin** the model for every agent. **Unset by default ⇒ no model is sent** and every agent inherits the session/subagent default (`CLAUDE_CODE_SUBAGENT_MODEL` honored) — the safe choice on non-Anthropic backends. On an Anthropic session pass e.g. `opus` to pin the strong tier. |
+| `fastModel` | string (optional) | model for the mechanical agents (explorer, generator, executor, scribe). Falls back to `proModel`; only meaningful when a pin is set. Pass it to split tiers deliberately. |
 | `sequentialGenerate` | bool (optional) | force the old single-generator path (no fan-out). Default `false`. |
 
 3. Watch in `/workflows`: `p` pause, `x` stop an agent, `r` restart, `s` save.
@@ -180,30 +180,37 @@ a workflow**. Per the [docs](https://code.claude.com/docs/en/workflows): *"Every
 in a workflow uses your session's model unless the script routes a stage to a different
 one."* `agentType` selects an agent's **prompt and tools**, not its model.
 
-So if the script doesn't route a model, all 12 agents run on **your session's model** —
-on a session pinned to a fast/"flash" model, even the planner, architect, healer and
-reviewers run on flash, and quality silently drops.
+So when no model is routed, all 12 agents run on **your session's subagent default** —
+the model your session runs on, or **`CLAUDE_CODE_SUBAGENT_MODEL`** when you set it.
 
-This file therefore routes every stage explicitly in its `run()` helper. By **default every
-agent runs on `proModel`** (default `opus`) — uniform quality, no surprises. `fastModel`
-falls back to `proModel`, so the pro/fast split is opt-in: pass `fastModel` only when you
-deliberately want the mechanical agents (explorer, generator, executor, scribe) on a cheaper
-tier. Override either via `args` for a non-Anthropic backend:
+**Since v4.10.1 that inherit is the default — the script forces no model name.** This is
+the backend-agnostic path: a hardcoded alias like `opus` is rejected at request time by a
+non-Anthropic backend, and even a correct backend name can clash with that backend's
+reasoning/effort parameter handling. Inheriting avoids both — the workflow runs unchanged
+on any backend your session already works on.
 
 ```
-# everything on pro (recommended): just set proModel
-Run /tiger-pipeline with featureId "feature-001", … , proModel "<your-strong-model>"
+# any backend (recommended): pin the subagent model once, pass no model args
+set CLAUDE_CODE_SUBAGENT_MODEL=<your-model-exact-name>     # e.g. deepseek-v4-pro[1m]
+Run /tiger-pipeline with featureId "feature-001", …        # no proModel needed
 
-# split tiers: pro for reasoning, a cheaper model for the mechanical agents
+# Anthropic session — pin the strong tier explicitly (e.g. main loop runs a faster model):
+Run /tiger-pipeline with featureId "feature-001", … , proModel "opus"
+
+# split tiers: strong for reasoning, a cheaper model for the mechanical agents
 Run /tiger-pipeline with featureId "feature-001", … ,
 proModel "<your-strong-model>", fastModel "<your-fast-model>"
 ```
 
-> **Backend note.** If you route Claude Code to a non-Anthropic backend, pass the model's
-> **exact name as that backend advertises it** — including any variant suffix. A near-miss
-> name can resolve to a different model (or none) and fail at request time, especially for
-> reasoning models that are strict about `reasoning_effort`/`thinking` at high effort. When
-> you leave `proModel` unset, `opus` is resolved through your own model-alias config.
+When `proModel` is passed, the `MODEL_FOR` map routes every stage as before (reasoning
+agents on `proModel`; explorer/generator/executor/scribe on `fastModel`, which falls back
+to `proModel`; the cartographer is always kept on the pro tier).
+
+> **Backend note.** If you do pin a model on a non-Anthropic backend, pass the model's
+> **exact name as that backend advertises it** — including any variant suffix (e.g. `[1m]`).
+> A near-miss name can resolve to a different model (or none) and fail at request time,
+> especially for reasoning models that are strict about `reasoning_effort`/`thinking`
+> parameters. When in doubt, don't pin — set `CLAUDE_CODE_SUBAGENT_MODEL` and inherit.
 
 ## Determinism rules this file obeys (and why)
 
@@ -256,11 +263,11 @@ The pipeline reuses the plugin's existing contracts unchanged:
   `run()` helper — change only `run()` to retarget, or inline an agent's `.md` role into the
   prompt. The `step(name, thunk)` helper wraps the bare `phase()` marker so each gate reads
   as one line.
-- **Model per agent:** `run()` passes `opts.model` from the `MODEL_FOR` map. `FAST` defaults to
-  `PRO`, so every agent is on the pro tier unless you pass `args.fastModel`. To re-tier an agent,
-  move it between `PRO` and `FAST` in `MODEL_FOR`; to add a third tier, add a constant and point
-  the agent's entry at it. Without an explicit `model`, a workflow agent inherits the session
-  model regardless of its frontmatter (see *Model routing* above).
+- **Model per agent:** `run()` sends `opts.model` from the `MODEL_FOR` map **only when
+  `args.proModel`/`fastModel` are passed** — otherwise no model is sent and every agent inherits
+  the session/subagent default (`CLAUDE_CODE_SUBAGENT_MODEL` honored). To re-tier an agent when
+  pinning, move it between `PRO` and `FAST` in `MODEL_FOR`; to add a third tier, add a constant
+  and point the agent's entry at it (see *Model routing* above).
 - **Parallel review cluster:** `reviewCluster()` runs quality + correctness + [security] via
   `parallel()` and is called for both the first pass and each loop re-review. A `null` (dead
   agent) is coerced to `CHANGES`, so the loop never false-approves.
