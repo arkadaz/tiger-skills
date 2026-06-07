@@ -230,25 +230,28 @@ summary, instead of cascading dozens of doomed spawns through the heal/review lo
 |---|---|---|
 | `undefined is not an object (evaluating 'args.featureId')` — fails in 0s, before any agent | `/tiger-pipeline` launched **bare** (no args) on a pre-v4.10.5 copy — the script dereferenced `args` unguarded | Re-copy the workflow (`/tiger-skills:install-workflow`, overwrite) — v4.10.5+ aborts softly with `howToLaunch` usage instructions instead; then launch with the full `args` (see *Run* above) |
 | `400`/`404` — model not found / not served | A forced model name your backend doesn't serve (the pre-v4.10.1 default pinned `opus`) | Don't pin: leave `proModel` unset and set `CLAUDE_CODE_SUBAGENT_MODEL=<exact name, incl. variant suffix>` — v4.10.1+ inherits by default |
-| `400 thinking options type cannot be disabled when reasoning_effort is set` (or similar thinking/effort conflicts) | A `reasoning_effort` param reaches the backend alongside a disabled thinking config — a combination some backends reject. Sources, in order of likelihood: the `CLAUDE_CODE_EFFORT_LEVEL` env var / `effortLevel` in settings; **pre-v4.10.6 agent frontmatter** (`effort: max`, added v4.10.3 — it made even Agent-tool spawns die with this 400, killing the conversational fallback too); and the **Workflow runtime** itself, which propagates the session's effort while disabling thinking on `agent()` spawns. Empirically confirmed: `alwaysThinkingEnabled` and `MAX_THINKING_TOKENS` do **not** change workflow-subagent requests. | **(1)** Remove ALL effort sources — the `CLAUDE_CODE_EFFORT_LEVEL` env var (unset it in the shell that LAUNCHES claude: `unset …` in bash, `set NAME=` in cmd, `Remove-Item Env:NAME` in PowerShell) **and** `effortLevel` in settings — restart, re-run: with no `reasoning_effort` param the combination is valid. **(2)** Update the plugin to **v4.10.6+** — no agent forces an effort level anymore, so spawns inherit the (clean) session. **(3)** Skip the Workflow runtime: run the same GATES 5–12b **conversationally via the conductor** (`tiger-skills:harness-engineering`) — works on v4.10.6+ with a clean session env. **(4)** Have your router/proxy drop or remap `reasoning_effort` for that model. **(5)** Report it upstream via `/feedback` — the runtime should not send a disabled thinking config alongside `reasoning_effort`. |
+| `400 thinking options type cannot be disabled when reasoning_effort is set` (or similar thinking/effort conflicts) | **Root cause, reproduced at the wire level (CC 2.1.168 + DeepSeek, 2026-06-08):** Claude Code attaches the session effort to **every** request as **`output_config.effort`** — even with `CLAUDE_CODE_EFFORT_LEVEL` unset, no `effortLevel` in settings, and v4.10.6 frontmatter — and hardcodes `thinking: {type: "disabled"}` on **subagent** requests (Agent tool AND Workflow runtime). Backends that map `output_config.effort` to `reasoning_effort` (DeepSeek's `/anthropic` shim) reject that combination — so the main loop works (thinking enabled) but **every subagent dies at spawn**. `alwaysThinkingEnabled`, `MAX_THINKING_TOKENS`, env vars, settings, and agent frontmatter have all been empirically eliminated — nothing client-side reaches those two fields on subagent calls. | **The proven fix — the bundled repair proxy** (`tools/anthropic-compat-proxy.js`, v4.10.7): run `node tools/anthropic-compat-proxy.js` in its own terminal (defaults: listens on `127.0.0.1:8787`, forwards to `https://api.deepseek.com/anthropic`; override with `PROXY_TARGET`/`PROXY_PORT`), then launch Claude Code with `ANTHROPIC_BASE_URL=http://127.0.0.1:8787` — everything else (auth token, model names) unchanged. It deletes the effort field **only when thinking is disabled**, so main-loop requests keep their effort and thinking; verified against the live API: the failing payload returns 200 through it, thinking-enabled requests pass untouched, SSE streams. Alternatives: have your own router/proxy do the same remap, or report upstream via `/feedback` — the runtime should not send a disabled thinking config alongside an effort level. |
 
 The workflow itself cannot set thinking/effort per agent — the Workflow runtime's
 `agent()` accepts no such options — so these conflicts are always resolved in the session
 environment or the router, never in this script. A canary abort touches **no code and no
 state files**; fix the environment and re-run.
 
-**v4.10.3 declared `effort: max` in every agent definition; v4.10.6 REMOVED it.** The
-field is honored for Agent-tool spawns — which turned out to be exactly the problem: on a
-backend that rejects `reasoning_effort` alongside a disabled thinking config, the forced
-effort made the **conversational fallback die with the same 400 as the workflow path**
-(empirically confirmed on DeepSeek's Anthropic-compat endpoint), leaving no working path at
-all. Since v4.10.6 no agent forces an effort level: every spawn inherits the session's
-effort, so a session with no effort set sends no `reasoning_effort` and the conflict cannot
-arise. On an Anthropic session, recover the old behavior with `/effort` (session-wide).
-The thinking on/off flag for subagent requests still has **no plugin-controllable surface
-at all** (verified against the Claude Code docs) — if a backend rejects the thinking/effort
-combination, that is fixed in the session settings or the router, or reported to Claude
-Code via `/feedback`.
+**v4.10.3 declared `effort: max` in every agent definition; v4.10.6 REMOVED it; v4.10.7
+ships the actual fix.** The frontmatter field is honored for Agent-tool spawns — on a
+backend that rejects effort alongside a disabled thinking config, the forced effort made
+the **conversational fallback die with the same 400 as the workflow path**, so v4.10.6
+removed it and let spawns inherit the session's effort. That helped but was **not
+sufficient**: wire-level testing then showed Claude Code (2.1.168) attaches
+`output_config.effort` to every request **even when no effort is configured anywhere**
+(env, settings, frontmatter), while hardcoding thinking-disabled on subagent requests —
+so the conflict survives any client-side cleanup. v4.10.7 therefore ships
+`tools/anthropic-compat-proxy.js` (see the Troubleshooting table above), which repairs the
+request in transit — the only layer that can. On an Anthropic session none of this fires;
+use `/effort` for session-wide effort as usual. The thinking on/off flag for subagent
+requests still has **no plugin-controllable surface at all** — if a backend rejects the
+thinking/effort combination, that is fixed in transit (the proxy) or upstream
+(`/feedback`), never in this script or the agent definitions.
 
 ## Determinism rules this file obeys (and why)
 

@@ -296,17 +296,17 @@ if (recon === null || recon === undefined) {
   return {
     feature: F.id,
     aborted: "explorer died at spawn (agent returned null) — backend/API incompatibility, " +
-      "not a code problem. Known case: backends that reject reasoning_effort together with " +
-      "a disabled thinking config — the Workflow RUNTIME builds those request params; " +
-      "neither this script nor the plugin can change them. Options: " +
-      "(1) remove ALL effort settings (CLAUDE_CODE_EFFORT_LEVEL env var AND effortLevel in " +
-      "settings), restart, re-run — no effort param means no conflict; " +
-      "(2) skip the Workflow runtime entirely: ask the conductor to run GATES 5-12b " +
-      "conversationally for this feature (tiger-skills harness-engineering skill) — the same " +
-      "12 agents spawn via the Agent tool and (since v4.10.6) force no effort level, so a " +
-      "clean session sends no conflicting params; " +
-      "(3) also confirm CLAUDE_CODE_SUBAGENT_MODEL is your backend's exact model name; " +
-      "(4) report the runtime issue via /feedback. " +
+      "not a code problem. Known case (reproduced at the wire level): Claude Code attaches " +
+      "the session effort to EVERY request as output_config.effort and hardcodes a disabled " +
+      "thinking config on SUBAGENT requests (Agent tool AND Workflow runtime); backends that " +
+      "map output_config.effort to reasoning_effort reject that combination, so the main loop " +
+      "works but every subagent dies. No env var, settings key, or frontmatter fixes it. " +
+      "PROVEN FIX: run the bundled repair proxy — `node tools/anthropic-compat-proxy.js` " +
+      "(in the tiger-skills plugin/repo) in its own terminal, then relaunch Claude Code with " +
+      "ANTHROPIC_BASE_URL=http://127.0.0.1:8787 — it strips the effort field ONLY when " +
+      "thinking is disabled, leaving main-loop requests untouched. " +
+      "Also: confirm CLAUDE_CODE_SUBAGENT_MODEL is your backend's exact model name, and " +
+      "report the runtime issue via /feedback. " +
       "No code was written or changed; feature state untouched.",
     passed: false,
     approved: false,
