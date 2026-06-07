@@ -34,6 +34,7 @@ A feature is complete only when:
 - `progress.md` — session log and current verified status
 - `specs/` — approved feature specs (grill output); features link via `spec_file`
 - `init.sh` — standard startup and verification path (Layer 6 validates the feature graph)
+- `CODEBASE_MAP.md` — the living codebase map (Mermaid architecture + code-flow diagrams; function chains with real inputs/outputs, file:line-anchored). Agents read it FIRST as the reference of what exists (then verify what they touch); written ONLY by the `cartographer` agent, refreshed after every finished feature (GATE 12b)
 
 ## Directory Map
 
@@ -56,7 +57,7 @@ skills/
 ├── security-review/           — Trigger-based security review: injection, authz, secrets, crypto, deps
 ├── e2e-authoring/             — Author the user-flow E2E (Playwright) after the feature is built; real entry point, one flow per AC
 specs/                     — Approved feature specifications (one per feature)
-agents/                    — 11 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
+agents/                    — 12 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe, cartographer)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
 .claude-plugin/            — Plugin manifest + marketplace config
@@ -70,6 +71,8 @@ hooks/                     — Event-driven hooks
 - **Spec gate** — no build without an approved spec; grill first
 - **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality-audit invoked: YES`), or its handoff is rejected and it is re-spawned
 - **Single writer of state** — only the `scribe` agent writes `feature_list.json` and `progress.md`; every other agent emits a Board Update for it to apply
+- **Parallel-generation safety** — when generation fans out (tiger-pipeline waves), only file-disjoint, dependency-ready tasks run concurrently (paths canonicalized before the disjointness check); a dependency cycle or an undeclared file set degrades to sequential; generators never run git and never write the state files. No two concurrent agents ever write the same file.
+- **Single writer of the map** — only the `cartographer` writes `CODEBASE_MAP.md` (GATE 12b, after every finished feature); every other agent reads it as reference and verifies what it touches
 - **Independent review cluster** — at GATE 11 three agents that never wrote the code audit non-trivial work: `reviewer` (quality), `correctness-reviewer` (behavior — traces the flow, proves each acceptance criterion with a test), and `security-reviewer` (when a security trigger fires)
 - **Verify behavior, not just structure** — every user-facing feature ships with an E2E test of its real workflow (plus unit tests); the completion run is the full suite (no fail-fast) so regressions surface; every bug fix adds a failing-first regression test
 - Evidence before claims — never say "done" without fresh verification

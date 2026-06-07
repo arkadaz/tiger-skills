@@ -1,6 +1,6 @@
 # tiger-skills
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 16 skills, 11 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin. A dedicated **e2e-engineer** (GATE 7b) authors the user-flow E2E after the feature is built and re-runs it after every fix; the GATE 11 review cluster checks structure, **behavior** (adversarial correctness + mandatory E2E/regression tests), and **security** — separately.
+Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line of code, in any language. 16 skills, 12 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow — one plugin. A dedicated **e2e-engineer** (GATE 7b) authors the user-flow E2E after the feature is built and re-runs it after every fix; the GATE 11 review cluster checks structure, **behavior** (adversarial correctness + mandatory E2E/regression tests), and **security** — separately; a **cartographer** (GATE 12b) keeps `CODEBASE_MAP.md` — Mermaid code-flow maps with function chains and inputs/outputs — current after every feature, so agents read a verified map instead of re-exploring.
 
 Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
 
@@ -64,15 +64,22 @@ You don't need to remember skill names. Just describe what you want, and the rig
 
 ### Deterministic Workflow — run the pipeline the same way every time
 
-The conductor's mechanical pipeline (GATES 5–12) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 11 agents identically on every run (including the GATE 7b e2e-engineer and the GATE 11 review cluster: quality + correctness + security), instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
+The conductor's mechanical pipeline (GATES 5–12b) also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that spawns the 12 agents identically on every run (including the GATE 7b e2e-engineer, the GATE 11 review cluster: quality + correctness + security, and the GATE 12b cartographer), instead of the conductor re-improvising the plan. You review it once in a PR and trust it forever.
 
 ```
-explore → plan → [architect?] → persist-tasks → generate
+explore → plan → [architect?] → persist-tasks
+        → generate (fan-out: one generator per independent task, in file-disjoint waves ‖, then integrate)
         → e2e-author (e2e-engineer writes the user-flow E2E)
         → execute (full suite + E2E) → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
-        → review cluster: reviewer + correctness-reviewer + [security-reviewer]
+        → review cluster: reviewer ‖ correctness-reviewer ‖ [security-reviewer]   (parallel)
         → (fix → e2e-refresh → re-execute → re-review){≤3} → track
+        → map (cartographer refreshes CODEBASE_MAP.md — the reference the next run reads first)
 ```
+
+**Safe parallelism, guaranteed:** generators in a wave write only their own (canonicalized) file
+sets and defer shared-file changes to a sequential integrate step; a task with undeclared files —
+or any dependency cycle — runs strictly sequentially; only the scribe writes the state files; no
+generator runs `git`. No two concurrent agents ever write the same file.
 
 **Boundary:** the human gates stay interactive — bootstrap, grill, and **spec approval** happen in conversation first; the workflow runs only an *already-approved* feature. The mechanical part is deterministic; the judgment part stays with you.
 
@@ -124,7 +131,7 @@ tiger-skills/
 │   ├── code-correctness-review/        — Adversarial correctness review (trace flow, prove each AC with a test)
 │   ├── security-review/                — Trigger-based security review (injection, authz, secrets, crypto, deps)
 │   ├── e2e-authoring/                  — Author the user-flow E2E (Playwright) after the feature is built
-├── agents/                             — 11 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe)
+├── agents/                             — 12 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe, cartographer)
 ├── hooks/                               — 8 event-driven hook files
 ├── commands/                           — Slash commands (review-branch, install-workflow)
 ├── workflows/                          — Deterministic Workflow (tiger-pipeline.js) + README — copy to .claude/workflows/
@@ -216,16 +223,18 @@ Every complete harness has five subsystems:
 
 ## Agents
 
-11 custom sub-agents in a defined workflow:
+12 custom sub-agents in a defined workflow:
 
 ```
-Explorer → Planner → [Code Architect] → Generator → E2E Engineer → Executor → [Healer] → REVIEW CLUSTER → Scribe
+Explorer → Planner → [Code Architect] → Generator → E2E Engineer → Executor → [Healer] → REVIEW CLUSTER → Scribe → Cartographer
               ↑                              │            │            │          │       ├─ reviewer (quality)
               │                              │            │            │          │       ├─ correctness-reviewer
               └──────── feedback loop ───────┴────────────┴───────── (heal /      │       └─ [security-reviewer]
                                                                    review loops) ─┘
 Scribe = single writer of feature_list.json + progress.md (applies every agent's Board Update)
 E2E Engineer (GATE 7b) authors the user-flow E2E after Generator, and re-runs after every fix
+Cartographer (GATE 12b) = single writer of CODEBASE_MAP.md — re-maps architecture + code flows
+(function chains with inputs/outputs) after every finished feature; the next run's Explorer reads it first
 ```
 
 | Agent | Model | Role | Required-skill proof line |
@@ -241,6 +250,7 @@ E2E Engineer (GATE 7b) authors the user-flow E2E after Generator, and re-runs af
 | `correctness-reviewer` | opus | Adversarial behavior check — trace flow, prove each AC with a test | `correctness-review invoked: YES` |
 | `security-reviewer` | opus | Security check when triggered — injection, authz, secrets, crypto, deps | `security-review invoked: YES` |
 | `scribe` | sonnet | Single writer of `feature_list.json` + `progress.md` | `feature_list.json valid after write: YES` |
+| `cartographer` | opus | Single writer of `CODEBASE_MAP.md` — Mermaid architecture + code-flow diagrams, function chains with inputs/outputs, refreshed after every finished feature | `codebase-map updated: YES` |
 
 **Proof of invocation:** every agent must begin its report with its proof line. The conductor rejects a handoff without one and re-spawns the agent — this is what stops agents from skipping their required skill (e.g. the architect actually running the 16-principle design audit instead of eyeballing it).
 

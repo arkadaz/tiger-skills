@@ -1,9 +1,9 @@
 // .claude/workflows/tiger-pipeline.js
 //
-// Deterministic tiger-skills pipeline — the conductor's GATES 5–12 expressed
+// Deterministic tiger-skills pipeline — the conductor's GATES 5–12b expressed
 // as a fixed, git-committed orchestration script instead of a plan the
 // conductor re-improvises each run. Runs ONE already-approved feature through
-// the 11-agent pipeline:
+// the 12-agent pipeline:
 //
 //   explore → plan → [architect?] → persist-tasks
 //           → generate (FAN-OUT: one generator per independent task, in waves)
@@ -12,6 +12,8 @@
 //           → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
 //           → review cluster: reviewer ‖ correctness-reviewer ‖ [security-reviewer]  (PARALLEL)
 //           → (fix → e2e-refresh → re-execute → re-review){≤3} → track
+//           → map (cartographer refreshes CODEBASE_MAP.md — architecture + code-flow
+//                  diagrams + function chains — so the NEXT run's explorer reads a map)
 //
 // ── BOUNDARY ────────────────────────────────────────────────────────────────
 // Human-in-the-loop gates are NOT in here. GATE 0 (bootstrap), GATE 1 (grill +
@@ -33,6 +35,12 @@
 //     needed (per the runtime's "worktrees only when writes would actually conflict").
 //     A feature whose tasks are a single chain degrades cleanly to the old sequential
 //     path (each wave has one task). Force sequential with args.sequentialGenerate=true.
+//   v4.9.1 HARDENING: file keys are CANONICALIZED before the disjointness check (two
+//   spellings of one path can't share a wave); a dependency CYCLE degrades to strictly
+//   sequential solo waves (never an unfiltered parallel wave); gate verdicts parse the
+//   LAST status token (fail-closed); every threaded handoff is digest()ed so it stays
+//   bounded; heal/review loops require budget HEADROOM so the run always reaches track;
+//   NO generator runs git (uniform commit policy — the conductor commits after the run).
 //
 // ── API — the documented dynamic-workflow runtime (Claude Code ≥ 2.1.154) ──────
 // Matched to https://code.claude.com/docs/en/workflows and the Workflow runtime:
@@ -60,7 +68,11 @@
 // strings, no calls inside it. The runtime reads it before executing anything.
 export const meta = {
   name: "tiger-pipeline",
-  description: "Run one approved feature through the tiger-skills GATES 5-12 agent pipeline: explorer, planner, code-architect, scribe, generator(s), e2e-engineer, executor, healer, reviewers. Generation fans out one generator per independent task (waves); the GATE 11 review cluster (quality+correctness+security) runs in parallel. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix. Deterministic and resumable; human grill/spec-approval happens before this runs.",
+  description: "Run one approved feature through the tiger-skills GATES 5-12b agent pipeline: explorer, planner, code-architect, scribe, generator(s), e2e-engineer, executor, healer, reviewers, cartographer. Generation fans out one generator per independent task (waves); the GATE 11 review cluster (quality+correctness+security) runs in parallel. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix; the opus cartographer refreshes CODEBASE_MAP.md after track (GATE 12b). Deterministic and resumable; human grill/spec-approval happens before this runs.",
+  // Loop/wave phases get a 1-based suffix at runtime — generation waves emit
+  // `generate-w1`, `generate-w2`, …; heal-loop phases `heal-1`, `regenerate-1`, …;
+  // review-fix-loop phases `review-fix-1`, … The base titles are all listed here so
+  // the declared timeline matches what /workflows shows. (meta stays a pure literal.)
   phases: [
     { title: "explore" },
     { title: "plan" },
@@ -71,10 +83,17 @@ export const meta = {
     { title: "e2e-author" },
     { title: "execute" },
     { title: "heal" },
+    { title: "regenerate" },
+    { title: "e2e-refresh" },
+    { title: "re-execute" },
     { title: "review-quality" },
     { title: "review-correctness" },
     { title: "review-security" },
+    { title: "review-fix" },
+    { title: "e2e-refresh-review" },
+    { title: "re-execute-review" },
     { title: "track" },
+    { title: "map" },
   ],
 };
 
@@ -119,6 +138,13 @@ const SECURITY_TRIGGER = args.securitySensitive === true;
 const MAX_HEAL = 3; // GATE 9 cap — matches the conductor's "max 3 healing loops"
 const MAX_REVIEW = 3; // GATE 11 cap — matches "max 3 loops, then escalate"
 
+// Each heal/review iteration spawns ~4 agents, and the token budget is a HARD ceiling —
+// agent() THROWS once it is spent — so entering another iteration on fumes would kill
+// the run mid-loop and lose the GATE 12 track + final summary. Require real headroom
+// instead of merely "not yet zero". (remaining() is Infinity when no target is set.)
+const LOOP_HEADROOM = 50000; // output tokens one loop iteration safely needs
+const hasLoopBudget = () => budget.remaining() > LOOP_HEADROOM;
+
 // phase(title) is a bare marker in the runtime; step() sets the current phase and
 // then awaits the gate's work, so the sequential calls below read as one line each.
 let CURRENT_PHASE = "init";
@@ -150,6 +176,7 @@ const MODEL_FOR = {
   "tiger-skills:reviewer": PRO,
   "tiger-skills:correctness-reviewer": PRO,
   "tiger-skills:security-reviewer": PRO,
+  "tiger-skills:cartographer": PRO, // the map is the reference every future run trusts — never downgrade it
 };
 
 // Single swap-point for the subagent selector. One agent = one call.
@@ -166,16 +193,43 @@ const run = (subagentType, prompt, phaseName) =>
 // Each gate agent already emits a proof line; we ALSO ask the gate-deciding
 // agents (executor, reviewer) to end with a machine-readable status token so
 // the loop conditions below are robust rather than fuzzy string-sniffing.
-const passed = (report) => /PIPELINE_STATUS:\s*PASS/i.test(String(report || ""));
-const approved = (report) => /REVIEW_VERDICT:\s*APPROVED/i.test(String(report || ""));
-const correctnessOk = (report) => /CORRECTNESS_VERDICT:\s*APPROVED/i.test(String(report || ""));
-const securityOk = (report) => /SECURITY_VERDICT:\s*APPROVED/i.test(String(report || ""));
+// The parser takes the LAST occurrence of the token — the prompts demand it be the
+// final line — so a report that merely QUOTES the approved form earlier (e.g. a
+// reviewer echoing "'REVIEW_VERDICT: APPROVED' or 'REVIEW_VERDICT: CHANGES'" while
+// concluding CHANGES) can never false-approve a gate. Ambiguity fails CLOSED.
+const lastVerdict = (report, token) => {
+  const s = String(report || "").toUpperCase();
+  const at = s.lastIndexOf(token + ":");
+  const m = at >= 0 ? s.slice(at + token.length + 1).match(/[A-Z]+/) : null;
+  return m ? m[0] : "";
+};
+const passed = (report) => lastVerdict(report, "PIPELINE_STATUS") === "PASS";
+const approved = (report) => lastVerdict(report, "REVIEW_VERDICT") === "APPROVED";
+const correctnessOk = (report) => lastVerdict(report, "CORRECTNESS_VERDICT") === "APPROVED";
+const securityOk = (report) => lastVerdict(report, "SECURITY_VERDICT") === "APPROVED";
+
+// Bounded handoff digest — keep the head (proof line + summary) and the tail (the
+// Board Update block) of an agent report and trim the middle, so every handoff the
+// orchestrator threads into later prompts is O(1) per task instead of growing with
+// each task's full output. Pure string ops — replay-deterministic. Downstream agents
+// re-read the repo for anything trimmed; the Board Update survives in the kept tail.
+const digest = (report, max = 2000) => {
+  const t = String(report || "");
+  if (t.length <= max) return t;
+  const head = Math.min(700, Math.floor(max / 2)); // guard: stays correct even if a future call passes a small max
+  return t.slice(0, head) +
+    "\n…[handoff trimmed — full report stays in that agent's own context]…\n" +
+    t.slice(-(max - head));
+};
 
 // ── GATE 5a — EXPLORE (read-only recon; builds the Type Inventory) ───────────
 const recon = await step("explore", () =>
   run("tiger-skills:explorer",
     `Recon the codebase for ${F.id}: ${F.title}.
      Project directory: ${F.dir}. Spec file: ${F.spec} (read it).
+     If ${F.dir}/CODEBASE_MAP.md exists, read it FIRST — it is the maintained map
+     (architecture, code flows, function inventory with inputs/outputs). Use it as your
+     starting reference, VERIFY the parts this feature touches, and report any drift.
      Produce a Recon Report: Type Inventory (existing types/functions/constants
      with file:line), Module Map, Existing Patterns, Integration Points,
      Already Exists — Do NOT Duplicate, Risks. You are read-only.
@@ -262,12 +316,35 @@ await step("persist-tasks", () =>
 // share a file (or whose deps aren't met yet) fall to a later wave — i.e. run later,
 // after the integrate step has folded the prior wave in.
 //   SAME-FILE SAFETY: (1) depends_on serializes read-after-write across waves; (2) within a
-//   wave the file sets are disjoint; (3) a task with no declared files runs ALONE; (4) the
-//   state files (feature_list.json, progress.md) are written ONLY by the scribe, never by a
-//   generator. So no two concurrent agents ever read+write the same file.
-//   MEMORY: parallel generators return CONCISE handoffs (summary + Board Update, no file
-//   dumps) and downstream agents re-read the repo themselves, so the accumulated handoff
-//   passed onward stays bounded instead of growing with every task's full output.
+//   wave the file sets are disjoint AFTER canonicalization (separators, ./, .., case — two
+//   spellings of one physical file can never share a wave); (3) a task with no declared
+//   files runs ALONE; (4) the state files (feature_list.json, progress.md) are written ONLY
+//   by the scribe, never by a generator; (5) a dependency CYCLE degrades to one-task-per-wave
+//   — strictly sequential, never an unfiltered parallel wave. So no two concurrent agents
+//   ever read+write the same file (as strong as the planner's files[] declarations, which is
+//   why the planner prompt marks them SAFETY-CRITICAL and an undeclared task runs alone).
+//   MEMORY: parallel generators are told to return CONCISE handoffs (summary + Board Update,
+//   no file dumps), and the orchestrator additionally digest()s every handoff it threads
+//   onward — head + Board Update tail kept, middle trimmed — so the accumulated handoff is
+//   STRUCTURALLY bounded per task, not merely bounded by instruction. Downstream agents
+//   re-read the repo for anything trimmed.
+// Canonicalize a planner-declared path into the KEY used for the disjointness check, so
+// the same physical file under different spellings — 'src/foo.ts', 'src\\foo.ts',
+// './src/foo.ts', 'src/../src/foo.ts', case variants — COLLIDES instead of slipping into
+// one wave as "disjoint". Pure string ops (no fs/path module), replay-deterministic.
+// Lowercasing over-merges on case-SENSITIVE filesystems, but a false conflict only
+// over-serializes (runs sequentially — never corrupts); a false disjoint would. The raw
+// t.files spellings still go to the generator prompts untouched.
+const normFile = (f) => {
+  const out = [];
+  for (const seg of String(f).trim().replace(/\\/g, "/").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") { if (out.length && out[out.length - 1] !== "..") out.pop(); else out.push(".."); }
+    else out.push(seg);
+  }
+  return out.join("/").toLowerCase();
+};
+
 const buildWaves = (tasks) => {
   const byId = {};
   tasks.forEach((t) => { byId[t.id] = t; });
@@ -279,20 +356,27 @@ const buildWaves = (tasks) => {
     const ready = remaining.filter((t) =>
       (t.depends_on || []).every((d) => done.has(d) || !byId[d]) // unknown dep ⇒ treat as satisfied
     );
-    if (!ready.length) { waves.push(remaining.slice()); break; } // cycle/odd deps ⇒ run the rest sequentially
+    // Cycle/odd deps ⇒ each remaining task becomes its OWN solo wave: the consumer runs a
+    // length-1 wave sequentially, so cycle members that share a file can never collide.
+    // (Pushing them as ONE wave would hit the parallel() branch with NO disjointness check.)
+    if (!ready.length) { remaining.forEach((t) => waves.push([t])); break; }
     const wave = [];
     const used = new Set();
     for (const t of ready) {
-      const files = (t.files || []).filter(Boolean);
-      if (files.length === 0) {
+      // Canonicalize FIRST. No declared files, or ANY degenerate path that canonicalizes
+      // to '' ('.', '/', 'x/..' — i.e. "the whole tree") ⇒ the footprint is unprovable,
+      // and one degenerate entry taints the WHOLE set (the task may touch anything), so
+      // fail toward serialization, never toward a possible collision.
+      const keys = (t.files || []).map(normFile);
+      if (keys.length === 0 || keys.some((k) => !k)) {
         // Unknown file footprint — we can't PROVE it won't touch another task's file,
         // so it is never run alongside anything. Take it alone (empty wave) or defer it
         // behind the tasks already in this wave; either way it ends up a solo wave.
         if (wave.length === 0) wave.push(t);
         break;
       }
-      if (files.some((f) => used.has(f))) continue; // shares a file with a wave member ⇒ defer to a later wave
-      files.forEach((f) => used.add(f));
+      if (keys.some((k) => used.has(k))) continue; // shares a physical file with a wave member ⇒ defer to a later wave
+      keys.forEach((k) => used.add(k));
       wave.push(t);
     }
     wave.forEach((t) => done.add(t.id));
@@ -325,14 +409,18 @@ const parallelTaskPrompt = (t) =>
    'SHARED-FILE CHANGES NEEDED'. Do NOT paste file contents or diffs; the executor and reviewers read the
    repo directly, so keep the handoff to a short summary.`;
 
-// Solo prompt — one task alone in a wave, or the whole-blueprint fallback. git allowed.
+// Solo prompt — one task alone in a wave, or the whole-blueprint fallback. The commit
+// policy is UNIFORM across solo and parallel generators: no git inside the pipeline —
+// the conductor commits after the run, so a half-finished wave is never committed.
 const soloPrompt = (scope) =>
   `Implement ${scope} with TDD and the code-quality rules.
    Blueprint: ${BP}
    Architecture notes: ${architecture}
    Project directory: ${F.dir}.
+   Do NOT run git (no add/commit) — the conductor commits after the pipeline completes.
+   NEVER write feature_list.json or progress.md (the scribe's alone) — emit a Board Update instead.
    Before writing: invoke code-quality-language; build a Type Inventory; no placeholders.
-   Produce a Generator Handoff (task IDs + commits, files, Layer 1+2 results) ending with a
+   Produce a Generator Handoff (task IDs, files, Layer 1+2 results) ending with a
    Board Update. Begin with:
    'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.`;
 
@@ -340,9 +428,9 @@ let handoff;
 const FAN_OUT = args.sequentialGenerate !== true && TASKS.length >= 2;
 if (!FAN_OUT) {
   // Single task, no structured tasks, or forced sequential ⇒ original whole-blueprint generate.
-  handoff = await step("generate", () =>
+  handoff = digest(await step("generate", () =>
     run("tiger-skills:generator", soloPrompt("this blueprint"))
-  );
+  ));
 } else {
   const waves = buildWaves(TASKS);
   log(`generate: ${TASKS.length} tasks scheduled into ${waves.length} wave(s) — ` +
@@ -353,11 +441,11 @@ if (!FAN_OUT) {
     const ph = `generate-w${i + 1}`;
     if (wave.length === 1) {
       const t = wave[0];
-      handoffs.push(await step(ph, () =>
+      handoffs.push(digest(await step(ph, () =>
         run("tiger-skills:generator",
           soloPrompt(`ONLY task ${t.id} — "${t.title}" — from the blueprint (files: ${(t.files || []).join(", ")})`),
           ph)
-      ));
+      )));
     } else {
       // Parallel wave — file-disjoint, no worktrees, write-only. BARRIER: collect all
       // before integrating, because integrate consumes every handoff's deferred changes.
@@ -367,7 +455,13 @@ if (!FAN_OUT) {
         )
       );
       const good = results.filter(Boolean);
-      handoffs.push(...good.map((g) => `[task ${g.id}]\n${g.handoff}`));
+      // A dead generator (null) means its task is UNBUILT — say so loudly instead of
+      // letting the gap surface only as a confusing executor failure two gates later.
+      const dead = wave.filter((t) => !good.some((g) => g.id === t.id));
+      if (dead.length)
+        log(`generate wave ${i + 1}: ${dead.length} generator(s) died (${dead.map((t) => t.id).join(", ")}) — ` +
+            `their tasks are unbuilt; the executor will report FAIL and the heal loop picks them up`);
+      handoffs.push(...good.map((g) => `[task ${g.id}]\n${digest(g.handoff)}`));
       // Sequential integrate: apply only the deferred shared-file changes so the
       // independently-built modules connect, then confirm the tree still builds.
       const integrated = await step("integrate", () =>
@@ -381,7 +475,7 @@ if (!FAN_OUT) {
            End with a Board Update listing the shared files you changed (or 'none needed').`,
           "integrate")
       );
-      handoffs.push(`[integrate wave ${i + 1}]\n${integrated}`);
+      handoffs.push(`[integrate wave ${i + 1}]\n${digest(integrated)}`);
     }
   }
   handoff = handoffs.join("\n\n");
@@ -393,7 +487,7 @@ if (!FAN_OUT) {
 // the actual user flow, one asserting flow per acceptance criterion. This runs on EVERY
 // pipeline pass, and is re-run after EVERY fix below (heal + review loops), so "nothing
 // broke" is always re-confirmed by an end-to-end test of the real workflow.
-let e2e = await step("e2e-author", () =>
+let e2e = digest(await step("e2e-author", () =>
   run("tiger-skills:e2e-engineer",
     `The feature code for ${F.id}: ${F.title} is now written. Author its END-TO-END
      user-flow tests — do NOT modify feature logic, only add tests/config.
@@ -406,7 +500,7 @@ let e2e = await step("e2e-author", () =>
      Cover the happy path PLUS the spec's error and edge cases, one flow per acceptance
      criterion. End with a Board Update listing the E2E files added. Begin with:
      'e2e-authoring invoked: YES — stack: <playwright|...>, flows covered: N, ACs asserted: X/Y'.`)
-);
+));
 
 // ── GATE 8 — EXECUTE ─────────────────────────────────────────────────────────
 let evidence = await step("execute", () =>
@@ -427,7 +521,7 @@ let evidence = await step("execute", () =>
 // Fixes are single-task and sequential (a fix to one bug is not independent work),
 // so the generator here is NOT fanned out.
 let heals = 0;
-while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
+while (!passed(evidence) && heals < MAX_HEAL && hasLoopBudget()) {
   heals++;
   const fix = await step("heal-" + heals, () =>
     run("tiger-skills:healer",
@@ -438,15 +532,19 @@ while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
        broken code, passes after the fix; E2E if the bug was user-visible). Begin with:
        'harness-engineering-diagnose invoked: YES — layer: <X>'.`)
   );
-  handoff = await step("regenerate-" + heals, () =>
+  handoff = digest(await step("regenerate-" + heals, () =>
     run("tiger-skills:generator",
       `Apply these fixes and ADD the prescribed regression test, nothing more: ${fix}
-       Blueprint: ${BP}. Project directory: ${F.dir}. End with a Board Update.`)
-  );
+       Blueprint: ${BP}. Project directory: ${F.dir}.
+       Do NOT run git; never write feature_list.json or progress.md (the scribe's alone).
+       Before writing: invoke code-quality-language. Begin with:
+       'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.
+       End with a Board Update.`)
+  ));
   // E2E refresh — the code changed, so re-author/extend the user-flow E2E (and add an E2E
   // regression flow if the bug was user-visible) BEFORE re-executing, so "write E2E every
   // time" holds and the full re-run confirms the fix broke nothing end to end.
-  e2e = await step("e2e-refresh-" + heals, () =>
+  e2e = digest(await step("e2e-refresh-" + heals, () =>
     run("tiger-skills:e2e-engineer",
       `Code changed via a fix. Update/extend the END-TO-END user-flow tests so they still
        drive the real workflow and cover the fixed behavior; add an E2E regression flow if the
@@ -454,7 +552,7 @@ while (!passed(evidence) && heals < MAX_HEAL && budget.remaining() > 0) {
        Fix applied: ${fix}. Generator handoff: ${handoff}. Spec file: ${F.spec}.
        Project directory: ${F.dir}. Invoke e2e-authoring. Begin with:
        'e2e-authoring invoked: YES — stack: <playwright|...>, flows covered: N, ACs asserted: X/Y'.`)
-  );
+  ));
   evidence = await step("re-execute-" + heals, () =>
     run("tiger-skills:executor",
       `Re-verify. Generator handoff: ${handoff}. E2E refreshed by the e2e-engineer: ${e2e}
@@ -519,20 +617,24 @@ let { q: qVerdict, c: cVerdict, s: sVerdict } = await reviewCluster(
 const clusterApproved = () =>
   approved(qVerdict) && correctnessOk(cVerdict) && securityOk(sVerdict);
 
-while (!clusterApproved() && reviews < MAX_REVIEW && budget.remaining() > 0) {
+while (!clusterApproved() && reviews < MAX_REVIEW && hasLoopBudget()) {
   reviews++;
   const findings =
     `QUALITY:\n${qVerdict}\n\nCORRECTNESS:\n${cVerdict}\n\nSECURITY:\n${sVerdict}`;
-  handoff = await step("review-fix-" + reviews, () =>
+  handoff = digest(await step("review-fix-" + reviews, () =>
     run("tiger-skills:generator",
       `Fix ONLY the reviewers' BLOCKING/MAJOR/CRITICAL/HIGH findings, and ADD any missing
        unit / regression / per-acceptance-criterion tests they named (the e2e-engineer adds
        any missing E2E next): ${findings}
-       Blueprint: ${BP}. Project directory: ${F.dir}. End with a Board Update.`)
-  );
+       Blueprint: ${BP}. Project directory: ${F.dir}.
+       Do NOT run git; never write feature_list.json or progress.md (the scribe's alone).
+       Before writing: invoke code-quality-language. Begin with:
+       'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.
+       End with a Board Update.`)
+  ));
   // E2E refresh — re-author/extend the user-flow E2E for the changed behavior and add any
   // E2E flow the reviewers said was missing, BEFORE re-executing.
-  e2e = await step("e2e-refresh-review-" + reviews, () =>
+  e2e = digest(await step("e2e-refresh-review-" + reviews, () =>
     run("tiger-skills:e2e-engineer",
       `Review fixes changed the code. Update/extend the END-TO-END user-flow tests and add any
        E2E flow the reviewers named as missing (one asserting flow per acceptance criterion).
@@ -540,7 +642,7 @@ while (!clusterApproved() && reviews < MAX_REVIEW && budget.remaining() > 0) {
        Generator handoff: ${handoff}. Spec file: ${F.spec}. Project directory: ${F.dir}.
        Invoke e2e-authoring. Begin with:
        'e2e-authoring invoked: YES — stack: <playwright|...>, flows covered: N, ACs asserted: X/Y'.`)
-  );
+  ));
   // Re-verify BEFORE re-reviewing so a regression introduced by the fix surfaces.
   evidence = await step("re-execute-review-" + reviews, () =>
     run("tiger-skills:executor",
@@ -568,6 +670,8 @@ const tracked = await step("track", () =>
      Flip remaining tasks[] and acceptance_criteria with evidence. Set ${F.id} to
      'passing' ONLY if every task passes AND every criterion is done AND evidence exists;
      otherwise leave it in_progress/blocked and say why. Record date ${F.today}.
+     Generator Board Updates (from the final handoff): ${handoff}
+     E2E engineer Board Update: ${e2e}
      Final executor evidence: ${evidence}
      Final review cluster verdicts —
        quality: ${qVerdict}
@@ -577,14 +681,37 @@ const tracked = await step("track", () =>
      'feature_list.json valid after write: YES — applied N deltas'.`)
 );
 
-// The orchestrator returns a compact summary — the heavy intermediate reports
-// stayed in each agent's own context, not the main session.
+// ── GATE 12b — MAP (cartographer refreshes CODEBASE_MAP.md) ──────────────────
+// The cartographer is the SINGLE WRITER of CODEBASE_MAP.md — the living map (Mermaid
+// architecture + code-flow diagrams, function chains with real input/output types) that
+// the NEXT run's explorer reads first instead of re-discovering the repo. It runs after
+// track on every pass (pass or fail — code changed either way), and after every other
+// agent has finished, so map reads never race a map write.
+const mapped = await step("map", () =>
+  run("tiger-skills:cartographer",
+    `Feature ${F.id}: ${F.title} just finished a pipeline run
+     (executor verdict: ${passed(evidence) ? "PASS" : "FAIL — code still changed, map it anyway"}).
+     Update ${F.dir}/CODEBASE_MAP.md — create it if missing — so it matches the code as of ${F.today}:
+     re-trace the code flows this feature added or changed (the function chain from each entry
+     point — every hop's REAL input/output types and file:line, read from the code, not guessed),
+     update the Mermaid architecture + flow diagrams AND their step tables together, refresh the
+     function/type inventory, prune entries whose code was deleted, and spot-check unchanged
+     anchors for drift.
+     Files changed (from the final handoffs): ${handoff}
+     E2E entry points driven: ${e2e}
+     Write ONLY CODEBASE_MAP.md — never feature code, never feature_list.json/progress.md.
+     Do NOT run git. End with:
+     'codebase-map updated: YES — flows traced: N, symbols verified: S, diagrams: D, pruned: P'.`)
+);
+
+// The orchestrator returns a compact summary — EVERY field is a scalar; the heavy
+// intermediate reports stayed in each agent's own context, not the main session.
 return {
   feature: F.id,
   tasks: TASKS.length,
   generation: FAN_OUT ? "fan-out (waves)" : "sequential",
   passed: passed(evidence),
-  e2eAuthored: e2e,
+  e2eAuthored: /e2e-authoring invoked:\s*YES/i.test(String(e2e || "")),
   approved: clusterApproved(),
   qualityApproved: approved(qVerdict),
   correctnessApproved: correctnessOk(cVerdict),
@@ -592,5 +719,6 @@ return {
   securityApproved: securityOk(sVerdict),
   heals,
   reviews,
-  track: tracked,
+  track: /valid after write:\s*YES/i.test(String(tracked || "")),
+  mapUpdated: /codebase-map updated:\s*YES/i.test(String(mapped || "")),
 };

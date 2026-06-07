@@ -1,7 +1,7 @@
 # Deterministic Workflow — `tiger-pipeline`
 
-The tiger-skills conductor (GATES 5–12) expressed as a **git-committed Claude Code
-Workflow** — a fixed JS orchestration script that spawns the 11 agents (incl. the GATE 7b e2e-engineer) the same way
+The tiger-skills conductor (GATES 5–12b) expressed as a **git-committed Claude Code
+Workflow** — a fixed JS orchestration script that spawns the 12 agents (incl. the GATE 7b e2e-engineer and the GATE 12b cartographer) the same way
 every run (including the GATE 11 review cluster: quality + correctness + security),
 instead of the conductor re-deciding the plan each time. You review it
 once in a PR and trust it forever.
@@ -14,7 +14,7 @@ gate sequence.
 > `export const meta = {…}` (pure literal), `agent(prompt, { agentType })`, the bare
 > `phase()` marker, `parallel()` / `pipeline()`, and `budget.*`. It passes `node --check`.
 > Dynamic workflows are a **research-preview** runtime — turn them on in `/config`
-> (Dynamic workflows) and use Claude Code ≥ 2.1.154. A run spawns the 11 agents and
+> (Dynamic workflows) and use Claude Code ≥ 2.1.154. A run spawns the 12 agents and
 > costs more tokens than a normal turn, so dry-run on a small approved feature before
 > making it a team default.
 
@@ -39,9 +39,10 @@ explore → plan → [architect?] → persist-tasks
         → (heal + regression test → regenerate → e2e-refresh → re-execute){≤3}
         → review cluster: reviewer ‖ correctness-reviewer ‖ [security-reviewer]   (PARALLEL)
         → (fix → e2e-refresh → re-execute → re-review ‖){≤3} → track
+        → map (cartographer refreshes CODEBASE_MAP.md)
 ```
 
-**Where it runs in parallel (v4.9.0).** Two stages fan out where the work is genuinely
+**Where it runs in parallel (v4.9.0, hardened in v4.9.1).** Two stages fan out where the work is genuinely
 independent; everything else stays sequential because each gate consumes the previous one's output:
 
 - **Review cluster** — quality + correctness + security read the *same* diff with no
@@ -55,23 +56,39 @@ independent; everything else stays sequential because each gate consumes the pre
   writers never collide — no worktrees needed. A feature whose tasks form a single chain degrades
   cleanly to the old one-generator path. Force that with `sequentialGenerate: true`.
 
-**No two concurrent agents touch the same file.** Four guarantees stack: (1) `depends_on`
+**No two concurrent agents touch the same file.** Five guarantees stack: (1) `depends_on`
 serializes *read-after-write* across waves (a task that reads another's output can't run beside
-it); (2) within a wave the `files` sets are disjoint, so writes don't overlap; (3) a task with no
+it); (2) within a wave the `files` sets are disjoint **after canonicalization** (separators, `./`,
+`..`, case — two spellings of one physical file can never share a wave); (3) a task with no
 declared files runs **alone**; (4) the state files (`feature_list.json`, `progress.md`) are written
-**only by the scribe** — generators emit a Board Update, never write state. The review cluster is
-read-only on source (concurrent reads are safe) and is told not to re-run the full build/test suite
-concurrently, so it can't race on shared build artifacts either.
+**only by the scribe** — generators emit a Board Update, never write state; (5) a dependency
+**cycle** in the planner's `tasks[]` degrades to one-task-per-wave — strictly sequential, never an
+unfiltered parallel wave. The stack is as strong as the planner's `files` declarations — which is
+why the planner prompt marks them SAFETY-CRITICAL and an undeclared-files task always runs alone.
+The review cluster is read-only on source (concurrent reads are safe) and is told not to re-run the
+full build/test suite concurrently, so it can't race on shared build artifacts either. And **no
+generator runs `git`** — solo or parallel, the commit happens in the conversational layer after the
+run, so a half-finished wave is never committed.
 
-**Memory stays bounded.** Parallel generators return **concise** handoffs (summary + Board Update,
-no file dumps); downstream agents re-read the repo directly, so the handoff threaded onward doesn't
-grow with every task's full output.
+**Memory stays bounded — structurally.** Parallel generators are told to return **concise**
+handoffs (summary + Board Update, no file dumps), and the orchestrator additionally `digest()`s
+every handoff it threads onward (head + Board Update tail kept, middle trimmed), so the threaded
+handoff stays O(1) per task even if an agent ignores the instruction. Downstream agents re-read
+the repo directly for anything trimmed; full reports stay in each agent's own context.
 
 **GATE 7b — E2E every time.** A dedicated **opus `e2e-engineer`** authors the user-flow
 E2E (Playwright) against the just-built feature, then re-runs in **every** heal loop and
 **every** review-fix loop before each re-execute — so the full unit + E2E suite re-confirms
 *nothing broke* end to end on every iteration, not just on the first pass. The generator
 writes the feature + unit tests; the e2e-engineer owns the user-flow E2E.
+
+**GATE 12b — the map stays true.** After track, the **opus `cartographer`** refreshes
+`CODEBASE_MAP.md` — Mermaid architecture + code-flow diagrams plus the function-chain
+inventory (every hop's real inputs/outputs, `file:line`-anchored). It is the **single
+writer** of that one artifact, and it runs after every other agent has finished, so map
+reads never race a map write. On the next run the explorer reads the map FIRST (and
+verifies what the feature touches), so each feature starts from a maintained map instead
+of a cold recon.
 
 **Out of scope, on purpose — these stay in the conversational layer:**
 
@@ -157,13 +174,13 @@ intermediate reports stay in each agent's own context, not your session.
 
 ## Model routing — why each agent's frontmatter `model:` is *not* enough
 
-The `agents/*.md` files declare a `model:` (7 agents `opus`, 4 `sonnet`). That field
+The `agents/*.md` files declare a `model:` (8 agents `opus`, 4 `sonnet`). That field
 is honored when an agent is spawned through the **Agent/Task tool** — but **not inside
 a workflow**. Per the [docs](https://code.claude.com/docs/en/workflows): *"Every agent
 in a workflow uses your session's model unless the script routes a stage to a different
 one."* `agentType` selects an agent's **prompt and tools**, not its model.
 
-So if the script doesn't route a model, all 11 agents run on **your session's model** —
+So if the script doesn't route a model, all 12 agents run on **your session's model** —
 on a session pinned to a fast/"flash" model, even the planner, architect, healer and
 reviewers run on flash, and quality silently drops.
 
@@ -199,12 +216,16 @@ replayable. The file follows every rule the runtime requires:
 - **No filesystem / shell / network in the script** — the orchestrator only
   coordinates; all I/O (explorer reads, scribe writes `feature_list.json`, generator
   writes code, executor runs verification) happens **inside agent prompts**.
-- **Loops are guarded** by a counter *and* `budget.remaining()` — the heal and review
-  loops cap at 3, matching the conductor's limits, well under the 1,000-agent cap.
-- **Gate decisions are machine-readable** — the executor ends with
+- **Loops are guarded** by a counter *and* budget **headroom** — the heal and review loops
+  cap at 3 and only enter another iteration with ≥50k output tokens remaining (the budget
+  is a hard ceiling: agent() throws once it's spent, so entering on fumes would kill the
+  run mid-loop before GATE 12 ever writes the board).
+- **Gate decisions are machine-readable and fail CLOSED** — the executor ends with
   `PIPELINE_STATUS: PASS|FAIL` and each reviewer with its own token
-  (`REVIEW_VERDICT`, `CORRECTNESS_VERDICT`, `SECURITY_VERDICT` = `APPROVED|CHANGES`),
-  so the cluster's loop condition is robust, not fuzzy string-sniffing.
+  (`REVIEW_VERDICT`, `CORRECTNESS_VERDICT`, `SECURITY_VERDICT` = `APPROVED|CHANGES`).
+  The parser reads the **last** occurrence of each token, so a report that merely quotes
+  the approved form earlier can never false-approve a gate; a dead reviewer coerces to
+  `CHANGES`, never `APPROVED`.
 
 ## Synergy with the harness
 
@@ -214,6 +235,9 @@ The pipeline reuses the plugin's existing contracts unchanged:
   in each agent's prompt — the workflow can't silently skip an agent's skill.
 - **Single-writer scribe** — only the two `scribe` calls touch state; every other
   agent returns a report the orchestrator threads into the next prompt.
+- **Board Updates actually reach GATE 12** — the final generator and e2e handoffs (each
+  ending in a Board Update) are passed into the track prompt, so the scribe applies real
+  deltas instead of reconstructing them from executor evidence.
 - **Earned `passing`** — GATE 12's scribe flips the feature to `passing` only if every
   task passes and every criterion is done.
 

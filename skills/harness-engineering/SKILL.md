@@ -56,7 +56,8 @@ The short names used in the prose below (e.g. "spawn the planner", "invoke grill
 | **9** | HEAL | Spawn `healer` on executor failure (max 3 loops) | Executor passes, or user escalation |
 | **10** | VERIFY | `harness-engineering-verify` — conductor re-runs | Verification command ran THIS session, 0 failures |
 | **11** | REVIEW CLUSTER | Spawn `reviewer` (quality) + `correctness-reviewer` (behavior) + `security-reviewer` (if triggered) — loop to GATE 7 on any non-APPROVED | All spawned reviewers APPROVED; BLOCKING/MAJOR/CRITICAL/HIGH findings fixed |
-| **12** | TRACK | `scribe` writes feature + tasks + acceptance_criteria + `progress.md`; conductor commits | All state files current, work committed |
+| **12** | TRACK | `scribe` writes feature + tasks + acceptance_criteria + `progress.md` | All state files current; scribe proof line emitted |
+| **12b** | MAP | Spawn `cartographer` — refresh `CODEBASE_MAP.md` (Mermaid architecture + code-flow diagrams; function chains with real inputs/outputs); then the conductor commits | `codebase-map updated: YES` proof line; map matches the code; work committed |
 | **13** | CLOCK OUT | `harness-engineering-session` clock-out | 8-item exit checklist passes |
 
 **Phase 0 (Grill) and GATES 5–9 only run for implementation work.** A pure question or a one-line precise edit runs GATE 0 → GATE 1 (skip) → answer. Use the decision table in GATE 5 to choose pipeline vs. direct path.
@@ -156,6 +157,9 @@ Use the decision table to choose the path:
 Spawn agent: tiger-skills:explorer
 Prompt: "Recon the codebase for [feature ID]: [feature title].
 Spec file: specs/<feature-id>.md. Project directory: [path].
+If CODEBASE_MAP.md exists, read it FIRST — the cartographer-maintained map (architecture,
+code flows, function inventory with inputs/outputs). Use it as your starting reference,
+VERIFY the parts this feature touches against the code, and report any drift.
 Produce a Recon Report: Type Inventory (existing types/functions/constants with file:line),
 Module Map, Existing Patterns to Follow, Integration Points, Already Exists — Do NOT Duplicate, Risks.
 You are read-only — never write code or state."
@@ -226,7 +230,9 @@ Before writing: read AGENTS.md, feature_list.json, progress.md; invoke code-qual
 (it infers the language's idioms from the repo); build a Type Inventory.
 During: TDD (failing test → minimal code → refactor); types everywhere; DI; enums; no bare
 except; flat functions; no placeholders.
-Produce a Generator Handoff: completed task IDs + commits, files changed, Layer 1+2 results,
+Do NOT run git (no add/commit) — the conductor commits at GATE 12; never write
+feature_list.json or progress.md (the scribe's alone) — emit a Board Update instead.
+Produce a Generator Handoff: completed task IDs, files changed, Layer 1+2 results,
 notes. Begin the handoff with the proof line:
 'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'."
 ```
@@ -354,9 +360,10 @@ A missing E2E test for a user-facing feature, or an acceptance criterion no test
 Update ALL durable state — this is the other half of the "don't lose things" fix. The **scribe** writes the board and log; the conductor commits:
 
 1. **Spawn `scribe`** with the accumulated Board Updates. It flips remaining `tasks[]` to `passing`, flips `acceptance_criteria` `done: true` with evidence, sets the feature `passing` **only when every task is passing and every criterion is done**, records `evidence`, and updates `progress.md` (completed, in-progress, known issues, next steps). The scribe refuses any write that breaks an invariant.
-2. **git commit** (conductor) — descriptive message, safe restart state.
+2. **Spawn `cartographer` (GATE 12b — keep the map true):** it refreshes `CODEBASE_MAP.md` — re-traces the code flows the feature added or changed (the function chain behind each entry point, every hop's REAL input/output types with file:line), updates the Mermaid architecture + flow diagrams and their step tables together, refreshes the function/type inventory, and prunes deleted code. The cartographer is the **single writer** of `CODEBASE_MAP.md`, exactly as the scribe is of the state files. Proof line required: `codebase-map updated: YES — flows traced: N, symbols verified: S, diagrams: D, pruned: P` — reject the handoff and re-spawn without it. This is what lets the NEXT feature's explorer read a map instead of re-discovering the repo.
+3. **git commit** (conductor) — descriptive message, safe restart state (map + state in the same commit).
 
-**Exit:** scribe confirmed `feature_list.json valid after write: YES`, all state files current, work committed.
+**Exit:** scribe confirmed `feature_list.json valid after write: YES`, cartographer confirmed `codebase-map updated: YES`, all state files current, work committed.
 
 ## GATE 13 — CLOCK OUT
 
@@ -451,6 +458,7 @@ Loop: Execute → Attribute → Fix the layer → Retry → never fail the same 
 | `correctness-reviewer` (opus) | GATE 11b — adversarial behavior review; runs code-correctness-review; proves each AC with a test |
 | `security-reviewer` (opus) | GATE 11c — security review when triggered; runs security-review |
 | `scribe` (sonnet) | GATE 5c/7/8/12 — single writer of feature_list.json + progress.md |
+| `cartographer` (opus) | GATE 12b — single writer of CODEBASE_MAP.md; re-maps architecture + code flows (function chains with inputs/outputs) after every finished feature |
 
 ---
 
