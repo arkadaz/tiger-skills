@@ -253,6 +253,58 @@ requests still has **no plugin-controllable surface at all** — if a backend re
 thinking/effort combination, that is fixed in transit (the proxy) or upstream
 (`/feedback`), never in this script or the agent definitions.
 
+### Launching through the bundled repair proxy — step by step
+
+Two terminals. The proxy ships inside the plugin, so the cache path below works on any
+machine with the plugin installed (adjust the version segment to the version you have),
+or run it from a checkout of this repo (`tools/anthropic-compat-proxy.js`).
+
+**Terminal 1 — start the proxy and leave it running:**
+
+```bat
+node "%USERPROFILE%\.claude\plugins\cache\arkadaz\tiger-skills\4.10.7\tools\anthropic-compat-proxy.js"
+```
+
+Defaults: listens on `127.0.0.1:8787`, forwards to `https://api.deepseek.com/anthropic`.
+For another backend or port, set `PROXY_TARGET` / `PROXY_PORT` before launching it.
+
+**Terminal 2 — your usual environment with ONE change: `ANTHROPIC_BASE_URL` points at
+the proxy** (cmd syntax shown; bash uses `export NAME=value`, PowerShell
+`$env:NAME = "value"`):
+
+```bat
+set ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+set ANTHROPIC_AUTH_TOKEN=<your API key>
+set ANTHROPIC_MODEL=deepseek-v4-pro[1m]
+set ANTHROPIC_DEFAULT_OPUS_MODEL=deepseek-v4-pro[1m]
+set ANTHROPIC_DEFAULT_SONNET_MODEL=deepseek-v4-pro[1m]
+set ANTHROPIC_DEFAULT_HAIKU_MODEL=deepseek-v4-flash
+set CLAUDE_CODE_SUBAGENT_MODEL=deepseek-v4-pro[1m]
+claude
+```
+
+Notes:
+
+- The auth token still goes to the real backend — the proxy only forwards it, and it
+  binds to `127.0.0.1`, so nothing off-machine can reach it.
+- With the proxy in place you **may keep `CLAUDE_CODE_EFFORT_LEVEL` set** if you want
+  effort on the main loop — the proxy strips effort only where it conflicts (subagent
+  requests with thinking disabled).
+- Keep `CLAUDE_CODE_SUBAGENT_MODEL` on your **strong** tier (e.g. `deepseek-v4-pro[1m]`)
+  so the planner/reviewers/healer don't silently downgrade inside workflows.
+- Then run `/tiger-pipeline` as normal — the canary passes and the explorer actually runs.
+  If Claude Code can't connect, Terminal 1's proxy isn't running (you'll see
+  `ECONNREFUSED`); restart it first.
+
+**Alternative — downgrade Claude Code?** Possible, but strictly worse than the proxy.
+The always-attached `output_config.effort` arrived somewhere in the 2.1.x line and no
+known-good version number is documented, so finding one is trial-and-error
+(`claude install <version>`, test a subagent spawn, repeat — and set `"autoUpdate": false`
+in settings or `DISABLE_AUTOUPDATER=1` so it sticks). Anything below **2.1.154** loses
+dynamic workflows entirely (the `/tiger-pipeline` Workflow path stops existing), and a
+pinned old build misses every later fix. The proxy keeps you on current Claude Code and
+survives auto-updates — prefer it.
+
 ## Determinism rules this file obeys (and why)
 
 The runtime saves progress and **replays** the script to resume, so it must be

@@ -91,6 +91,8 @@ generator runs `git`. No two concurrent agents ever write the same file.
 4. **Watch live** with `/workflows` — `p` pause, `x` stop an agent, `r` restart, `s` save.
 
 > **Prerequisites:** Claude Code ≥ 2.1.154 with dynamic workflows enabled, and the `tiger-skills` plugin installed (the workflow spawns its agents). The Workflow runtime is a research-preview API — dry-run on a small approved feature before making it a team default. Full guide: [`workflows/README.md`](workflows/README.md).
+>
+> **Non-Anthropic backend and every subagent dies with a thinking/effort `400`?** That's a Claude Code runtime param conflict, not a plugin bug — v4.10.7 bundles a repair proxy (`tools/anthropic-compat-proxy.js`) with a step-by-step launch guide: [`workflows/README.md` → Troubleshooting](workflows/README.md#troubleshooting-non-anthropic-backends).
 
 ### Example Prompts
 
