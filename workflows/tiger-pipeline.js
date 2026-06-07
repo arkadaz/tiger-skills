@@ -76,7 +76,7 @@
 // strings, no calls inside it. The runtime reads it before executing anything.
 export const meta = {
   name: "tiger-pipeline",
-  description: "Run one approved feature through the tiger-skills GATES 5-12b agent pipeline: explorer, planner, code-architect, scribe, generator(s), e2e-engineer, executor, healer, reviewers, cartographer. Generation fans out one generator per independent task (waves); the GATE 11 review cluster (quality+correctness+security) runs in parallel. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix; the opus cartographer refreshes CODEBASE_MAP.md after track (GATE 12b). Deterministic and resumable; human grill/spec-approval happens before this runs.",
+  description: "Run one approved feature through the tiger-skills GATES 5-12b agent pipeline: explorer, planner, code-architect, scribe, generator(s), e2e-engineer, executor, healer, reviewers, cartographer. Generation fans out one generator per independent task (waves); the GATE 11 review cluster (quality+correctness+security) runs in parallel. The opus e2e-engineer authors the user-flow E2E after generate (GATE 7b) and re-runs after every fix; the opus cartographer refreshes CODEBASE_MAP.md after track (GATE 12b). Deterministic and resumable; human grill/spec-approval happens before this runs. ARGS-DRIVEN, not free-text: REQUIRES args {featureId, featureTitle, specFile, projectDir, today, + trigger booleans} read from feature_list.json's single in_progress feature (see workflows/README.md -> Run); invoked bare it aborts with usage instructions instead of running.",
   // Loop/wave phases get a 1-based suffix at runtime — generation waves emit
   // `generate-w1`, `generate-w2`, …; heal-loop phases `heal-1`, `regenerate-1`, …;
   // review-fix-loop phases `review-fix-1`, … The base titles are all listed here so
@@ -126,23 +126,55 @@ export const meta = {
 //                     //        a pin is set. Pass it to split tiers deliberately.
 //   sequentialGenerate // optional bool — force the old single-generator path (no fan-out).
 // }
+
+// ── PREFLIGHT (v4.10.5) — validate args BEFORE touching them ─────────────────
+// A saved workflow is its own slash command, so `/tiger-pipeline` typed BARE (or a
+// Workflow call with no args) reaches this script with args === undefined; deref'ing
+// it killed the run with an opaque "undefined is not an object (evaluating
+// 'args.featureId')" before any phase ran. Fail SOFT instead: return a usage report
+// the CALLING session can act on — no agent spawned, no file touched, nothing dirty.
+const A = args || {};
+const MISSING = ["featureId", "featureTitle", "specFile", "projectDir", "today"]
+  .filter((k) => typeof A[k] !== "string" || A[k].trim() === "");
+if (MISSING.length) {
+  return {
+    aborted:
+      "missing required args: " + MISSING.join(", ") +
+      " — tiger-pipeline is args-driven, not free-text. Nothing ran: no agent spawned, no file touched.",
+    howToLaunch:
+      "(1) Read feature_list.json in the target project and find the SINGLE feature with " +
+      "status 'in_progress' (WIP=1). If none is in_progress, STOP and tell the user — the " +
+      "conversational gates come first (grill, human spec approval, pick one feature); do " +
+      "not invent a feature or re-run a 'passing' one unasked. " +
+      "(2) Re-launch /tiger-pipeline passing args: featureId, featureTitle, specFile (that " +
+      "feature's spec_file under specs/, human-approved), projectDir (absolute path), today " +
+      "(this session's date as YYYY-MM-DD — passed in, never read from a clock), the GATE 6 " +
+      "architect-trigger booleans newModule/spans3PlusFiles/newPattern/structuralRisk, and " +
+      "securitySensitive (GATE 11c). Optional: proModel/fastModel (pin models — leave unset " +
+      "to inherit the session/subagent default), sequentialGenerate. " +
+      "Full table: workflows/README.md -> Run.",
+    passed: false,
+    approved: false,
+  };
+}
+
 const F = {
-  id: args.featureId,
-  title: args.featureTitle,
-  spec: args.specFile,
-  dir: args.projectDir,
-  today: args.today,
+  id: A.featureId,
+  title: A.featureTitle,
+  spec: A.specFile,
+  dir: A.projectDir,
+  today: A.today,
 };
 const ARCHITECT_TRIGGER =
-  args.newModule === true ||
-  args.spans3PlusFiles === true ||
-  args.newPattern === true ||
-  args.structuralRisk === true;
+  A.newModule === true ||
+  A.spans3PlusFiles === true ||
+  A.newPattern === true ||
+  A.structuralRisk === true;
 
 // GATE 11c — security review runs only when this flag is set. Passed IN so the
 // run is deterministic (the same args always produce the same gate set), rather
 // than the script sniffing the diff and varying run to run.
-const SECURITY_TRIGGER = args.securitySensitive === true;
+const SECURITY_TRIGGER = A.securitySensitive === true;
 
 const MAX_HEAL = 3; // GATE 9 cap — matches the conductor's "max 3 healing loops"
 const MAX_REVIEW = 3; // GATE 11 cap — matches "max 3 loops, then escalate"
@@ -177,8 +209,8 @@ const step = async (name, thunk) => {
 //   • Pin tiers explicitly (e.g. guarantee the strong tier on an Anthropic session
 //     whose main loop runs a faster model): pass proModel — and optionally fastModel
 //     to split tiers — then MODEL_FOR routes every stage as before.
-const PRO = args.proModel || null; // null ⇒ inherit (no model sent with any agent)
-const FAST = args.fastModel || PRO; // mechanical agents; falls back to PRO
+const PRO = A.proModel || null; // null ⇒ inherit (no model sent with any agent)
+const FAST = A.fastModel || PRO; // mechanical agents; falls back to PRO
 const MODEL_FOR = {
   "tiger-skills:explorer": FAST,
   "tiger-skills:planner": PRO,
@@ -482,7 +514,7 @@ const soloPrompt = (scope) =>
    'code-quality-language invoked: YES — language: <X>, N violations found, N fixed'.`;
 
 let handoff;
-const FAN_OUT = args.sequentialGenerate !== true && TASKS.length >= 2;
+const FAN_OUT = A.sequentialGenerate !== true && TASKS.length >= 2;
 if (!FAN_OUT) {
   // Single task, no structured tasks, or forced sequential ⇒ original whole-blueprint generate.
   handoff = digest(await step("generate", () =>

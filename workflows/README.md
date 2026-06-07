@@ -168,6 +168,14 @@ securitySensitive false
 > workflow — describe the task in your own words (or `ultracode: <task>`) and let Claude
 > write a workflow for it.
 
+> **Invoked bare?** Since v4.10.5 `/tiger-pipeline` with no args (or missing any of the
+> five required strings) **aborts softly with usage instructions** — `{ aborted,
+> howToLaunch, passed: false }` — before any agent spawns; the calling session reads
+> `howToLaunch`, finds the `in_progress` feature in `feature_list.json`, and re-launches
+> with real args (or stops, if no feature is `in_progress`). Pre-v4.10.5 copies instead
+> died with `undefined is not an object (evaluating 'args.featureId')` — if you see that,
+> re-copy the workflow (`/tiger-skills:install-workflow`, overwrite).
+
 Claude passes these as the script's `args`. The run returns one compact summary
 (`{ feature, passed, e2eAuthored, approved, heals, reviews, … }`); the heavy
 intermediate reports stay in each agent's own context, not your session.
@@ -220,6 +228,7 @@ summary, instead of cascading dozens of doomed spawns through the heal/review lo
 
 | Signature | Cause | Fix |
 |---|---|---|
+| `undefined is not an object (evaluating 'args.featureId')` — fails in 0s, before any agent | `/tiger-pipeline` launched **bare** (no args) on a pre-v4.10.5 copy — the script dereferenced `args` unguarded | Re-copy the workflow (`/tiger-skills:install-workflow`, overwrite) — v4.10.5+ aborts softly with `howToLaunch` usage instructions instead; then launch with the full `args` (see *Run* above) |
 | `400`/`404` — model not found / not served | A forced model name your backend doesn't serve (the pre-v4.10.1 default pinned `opus`) | Don't pin: leave `proModel` unset and set `CLAUDE_CODE_SUBAGENT_MODEL=<exact name, incl. variant suffix>` — v4.10.1+ inherits by default |
 | `400 thinking options type cannot be disabled when reasoning_effort is set` (or similar thinking/effort conflicts) | The **Workflow runtime** spawns agents with a disabled thinking config while still propagating the session's effort level — a combination some backends reject. Empirically confirmed: `alwaysThinkingEnabled` and `MAX_THINKING_TOKENS` do **not** change workflow-subagent requests. This is a Claude Code runtime issue, not a plugin one. | **(1)** Remove ALL effort sources — the `CLAUDE_CODE_EFFORT_LEVEL` env var **and** `effortLevel` in settings — restart, re-run: with no `reasoning_effort` param the combination is valid. **(2)** Skip the Workflow runtime: run the same GATES 5–12b **conversationally via the conductor** (`tiger-skills:harness-engineering`) — the same 12 agents spawn through the Agent tool, which honors their frontmatter `model`/`effort: max`. **(3)** Have your router/proxy drop or remap `reasoning_effort` for that model. **(4)** Report it upstream via `/feedback` — the runtime should not send a disabled thinking config alongside `reasoning_effort`. |
 
