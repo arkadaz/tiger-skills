@@ -2,6 +2,7 @@
 name: executor
 description: Task executor agent — runs verification pipelines, interacts with APIs and tools, deploys, and collects results. Runs the code the Generator produced.
 model: sonnet
+effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, WebFetch, Skill
 ---
 

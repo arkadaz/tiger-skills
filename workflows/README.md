@@ -228,6 +228,14 @@ The workflow itself cannot set thinking/effort per agent — the Workflow runtim
 environment or the router, never in this script. A canary abort touches **no code and no
 state files**; fix the environment and re-run.
 
+Since v4.10.3 every agent definition declares **`effort: max`** in its frontmatter — the
+documented subagent field that overrides the session effort level per agent. It is honored
+for Agent-tool spawns; whether the workflow runtime applies a definition's `effort` to
+`agent()` spawns is not documented. The thinking on/off flag for subagent requests has
+**no plugin-controllable surface at all** (verified against the Claude Code docs) — if a
+backend rejects the thinking/effort combination, that is fixed in the session settings or
+the router, or reported to Claude Code via `/feedback`.
+
 ## Determinism rules this file obeys (and why)
 
 The runtime saves progress and **replays** the script to resume, so it must be

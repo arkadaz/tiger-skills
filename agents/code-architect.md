@@ -2,6 +2,7 @@
 name: code-architect
 description: Code architecture review and design guidance — reviews code for architectural integrity, pattern selection, SOLID compliance, and structural quality.
 model: opus
+effort: max
 tools: Read, Glob, Grep, Skill
 ---
 

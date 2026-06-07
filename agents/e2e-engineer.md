@@ -2,6 +2,7 @@
 name: e2e-engineer
 description: End-to-end test engineer — runs AFTER the feature code is written to author the E2E/Playwright logic that drives the real user flow. Invokes e2e-authoring; maps each acceptance criterion to an asserting flow against the real entry point (URL/CLI/API); scaffolds the E2E harness when the project has none; never touches feature logic. Separate from the generator (which writes the feature + unit tests) and from the executor (which runs the tests). Re-runs after every fix so nothing breaks silently.
 model: opus
+effort: max
 tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Skill
 ---
 
