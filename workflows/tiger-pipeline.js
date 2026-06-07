@@ -44,6 +44,9 @@
 //   v4.10.1: MODEL ROUTING IS OPT-IN — by default no model is forced and every agent
 //   inherits the session/subagent default (CLAUDE_CODE_SUBAGENT_MODEL honored), so the
 //   pipeline runs unchanged on non-Anthropic backends; pass proModel/fastModel to pin.
+//   v4.10.2: SPAWN CANARY — if the first agent (explorer) dies at the API level the run
+//   aborts immediately with a diagnostic, instead of cascading dozens of doomed spawns
+//   through the heal/review loops on a backend that rejects subagent requests.
 //
 // ── API — the documented dynamic-workflow runtime (Claude Code ≥ 2.1.154) ──────
 // Matched to https://code.claude.com/docs/en/workflows and the Workflow runtime:
@@ -250,6 +253,27 @@ const recon = await step("explore", () =>
      Begin with the proof line: 'Type Inventory built: YES — N existing types catalogued'.`)
 );
 
+// ── CANARY — fail fast on a backend-level spawn failure ──────────────────────
+// agent() returns null when a subagent dies on a terminal API error after retries.
+// If the very FIRST agent can't spawn, every later spawn will fail the same way
+// (same session/backend settings) — so abort NOW with a diagnostic instead of
+// cascading 30+ doomed spawns through the heal and review loops. Typical causes on
+// non-Anthropic backends: a rejected model name, or an invalid thinking-vs-effort
+// parameter combination on subagent calls (see workflows/README.md → Troubleshooting).
+if (recon === null || recon === undefined) {
+  return {
+    feature: F.id,
+    aborted: "explorer died at spawn (agent returned null) — backend/API incompatibility, " +
+      "not a code problem. Check: the subagent model resolves on your backend " +
+      "(CLAUDE_CODE_SUBAGENT_MODEL, exact name incl. variant suffix), and the thinking/" +
+      "effort combination sent on subagent calls is one your backend accepts " +
+      "(e.g. set MAX_THINKING_TOKENS, or lower the session effort). " +
+      "No code was written or changed; feature state untouched.",
+    passed: false,
+    approved: false,
+  };
+}
+
 // ── GATE 5b — PLAN (structured blueprint: prose + a machine-readable tasks[]) ──
 // schema makes the planner return validated JSON, so the script can SCHEDULE the
 // tasks into parallel waves instead of regex-ing prose. blueprintText carries the
@@ -298,6 +322,19 @@ const blueprint = await step("plan", () =>
     { agentType: "tiger-skills:planner", phase: "plan", model: MODEL_FOR["tiger-skills:planner"], schema: BLUEPRINT_SCHEMA }
   )
 );
+// Same canary for the planner: a null here means it died at the API level (the
+// explorer's success makes a pure backend failure unlikely, but a dead planner ⇒ no
+// blueprint and no tasks[] — generating from a placeholder string would be garbage).
+if (blueprint === null || blueprint === undefined) {
+  return {
+    feature: F.id,
+    aborted: "planner died at spawn (agent returned null) after a successful explore — " +
+      "transient API failure or backend incompatibility. Re-run the workflow; if it " +
+      "recurs, see workflows/README.md → Troubleshooting. No code was written or changed.",
+    passed: false,
+    approved: false,
+  };
+}
 const BP = (blueprint && blueprint.blueprintText) || String(blueprint || "(planner produced no blueprint)");
 const TASKS = (blueprint && Array.isArray(blueprint.tasks)) ? blueprint.tasks : [];
 

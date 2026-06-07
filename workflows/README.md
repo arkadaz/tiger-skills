@@ -212,6 +212,22 @@ to `proModel`; the cartographer is always kept on the pro tier).
 > especially for reasoning models that are strict about `reasoning_effort`/`thinking`
 > parameters. When in doubt, don't pin — set `CLAUDE_CODE_SUBAGENT_MODEL` and inherit.
 
+## Troubleshooting non-Anthropic backends
+
+Both known failure signatures surface as **every agent dying instantly at spawn**. Since
+v4.10.2 a **spawn canary** aborts the run right after the FIRST death with a diagnostic
+summary, instead of cascading dozens of doomed spawns through the heal/review loops.
+
+| Signature | Cause | Fix |
+|---|---|---|
+| `400`/`404` — model not found / not served | A forced model name your backend doesn't serve (the pre-v4.10.1 default pinned `opus`) | Don't pin: leave `proModel` unset and set `CLAUDE_CODE_SUBAGENT_MODEL=<exact name, incl. variant suffix>` — v4.10.1+ inherits by default |
+| `400 thinking options type cannot be disabled when reasoning_effort is set` (or similar thinking/effort conflicts) | Subagent calls inherit the session's effort level but carry a thinking config your backend rejects in that combination | **Session-level, not workflow-level:** (1) set `MAX_THINKING_TOKENS` (e.g. `8000`) in the env you launch Claude Code from, so subagent calls run with thinking enabled; (2) or lower the session effort (`/effort`) so no explicit `reasoning_effort` is sent; (3) or try a non-variant model alias (without a `[…]` suffix); (4) or have your router/proxy drop or remap `reasoning_effort` for that model |
+
+The workflow itself cannot set thinking/effort per agent — the Workflow runtime's
+`agent()` accepts no such options — so these conflicts are always resolved in the session
+environment or the router, never in this script. A canary abort touches **no code and no
+state files**; fix the environment and re-run.
+
 ## Determinism rules this file obeys (and why)
 
 The runtime saves progress and **replays** the script to resume, so it must be
