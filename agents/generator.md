@@ -2,7 +2,6 @@
 name: generator
 description: Code and asset generator agent — translates blueprints from the Planner into executable code, tests, configs, and scripts following strict quality standards.
 model: sonnet
-effort: max
 tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Skill
 ---
 

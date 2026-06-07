@@ -2,7 +2,6 @@
 name: explorer
 description: Read-only reconnaissance agent — maps the codebase, builds the Type Inventory, and surfaces existing patterns, integration points, and risks BEFORE the planner plans. Never writes code or state.
 model: sonnet
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell
 ---
 

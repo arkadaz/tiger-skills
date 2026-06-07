@@ -2,7 +2,6 @@
 name: scribe
 description: State-keeper agent — the single writer of feature_list.json and progress.md. Applies Board Update deltas from every other agent, enforces the kanban invariants, and keeps the durable record truthful. Writes no code and runs no verification.
 model: sonnet
-effort: max
 tools: Read, Edit, Write, Bash, PowerShell
 ---
 

@@ -2,7 +2,6 @@
 name: correctness-reviewer
 description: Adversarial correctness reviewer — assumes the code is wrong and proves it. Traces every control and data path, enumerates edge cases, hunts logic bugs, and proves every acceptance criterion with a real test (unit + E2E). Separate from the quality reviewer and from the agents that wrote the code. Catches the "passes its tests but breaks in real use" failure.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, Skill
 ---
 

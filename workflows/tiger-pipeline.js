@@ -303,7 +303,8 @@ if (recon === null || recon === undefined) {
       "settings), restart, re-run — no effort param means no conflict; " +
       "(2) skip the Workflow runtime entirely: ask the conductor to run GATES 5-12b " +
       "conversationally for this feature (tiger-skills harness-engineering skill) — the same " +
-      "12 agents spawn via the Agent tool, which honors their frontmatter model/effort; " +
+      "12 agents spawn via the Agent tool and (since v4.10.6) force no effort level, so a " +
+      "clean session sends no conflicting params; " +
       "(3) also confirm CLAUDE_CODE_SUBAGENT_MODEL is your backend's exact model name; " +
       "(4) report the runtime issue via /feedback. " +
       "No code was written or changed; feature state untouched.",

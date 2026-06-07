@@ -2,7 +2,6 @@
 name: healer
 description: Self-healing replanner agent — diagnoses root causes of failures, adapts plans when errors occur, and prescribes exact fixes to the other agents. Closes the feedback loop.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, Skill, Agent
 ---
 

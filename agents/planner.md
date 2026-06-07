@@ -2,7 +2,6 @@
 name: planner
 description: Strategic planner agent — takes high-level user goals and breaks them into structured, step-by-step blueprints with task decomposition, dependency mapping, and verification criteria.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch, Skill, Agent
 ---
 

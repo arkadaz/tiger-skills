@@ -2,7 +2,6 @@
 name: reviewer
 description: Independent code review agent — audits the diff against the approved spec and all 16 design principles + language tooling rules, separate from the agents that wrote the code. The checker, never the doer.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, Skill
 ---
 

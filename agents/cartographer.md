@@ -2,7 +2,6 @@
 name: cartographer
 description: Codebase cartographer agent — the single writer of CODEBASE_MAP.md. After every finished feature it re-maps the code into Mermaid architecture + code-flow diagrams and function-chain tables (every function's inputs, output, callers, callees, file:line), so every other agent reads one verified map of reality instead of re-discovering the codebase from scratch. Writes no feature code and no state files.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Write, Edit, Bash, PowerShell
 ---
 

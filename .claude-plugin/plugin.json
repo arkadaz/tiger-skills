@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Harness engineering (outer loop) + Code quality (inner loop), with a 12-agent pipeline (incl. a dedicated E2E engineer, adversarial correctness + trigger-based security review, and a cartographer maintaining CODEBASE_MAP.md — Mermaid code-flow maps agents read first), E2E authored + re-run every pass, and a deterministic, git-committed Workflow. Based on walkinglabs learn-harness-engineering course.",
-  "version": "4.10.5",
+  "version": "4.10.6",
   "author": {
     "name": "arkadaz"
   },

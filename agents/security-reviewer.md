@@ -2,7 +2,6 @@
 name: security-reviewer
 description: Trigger-based security reviewer — when a change touches a security-sensitive surface (auth, untrusted input, SQL/shell, network/file I/O, deserialization, crypto, secrets, new dependency), audits it against the common vulnerability classes and reports findings by severity. Independent of the agents that wrote the code. Spawned only when a security trigger fires.
 model: opus
-effort: max
 tools: Read, Glob, Grep, Bash, PowerShell, Skill
 ---
 
