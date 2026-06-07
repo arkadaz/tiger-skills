@@ -264,10 +264,16 @@ if (recon === null || recon === undefined) {
   return {
     feature: F.id,
     aborted: "explorer died at spawn (agent returned null) — backend/API incompatibility, " +
-      "not a code problem. Check: the subagent model resolves on your backend " +
-      "(CLAUDE_CODE_SUBAGENT_MODEL, exact name incl. variant suffix), and the thinking/" +
-      "effort combination sent on subagent calls is one your backend accepts " +
-      "(e.g. set MAX_THINKING_TOKENS, or lower the session effort). " +
+      "not a code problem. Known case: backends that reject reasoning_effort together with " +
+      "a disabled thinking config — the Workflow RUNTIME builds those request params; " +
+      "neither this script nor the plugin can change them. Options: " +
+      "(1) remove ALL effort settings (CLAUDE_CODE_EFFORT_LEVEL env var AND effortLevel in " +
+      "settings), restart, re-run — no effort param means no conflict; " +
+      "(2) skip the Workflow runtime entirely: ask the conductor to run GATES 5-12b " +
+      "conversationally for this feature (tiger-skills harness-engineering skill) — the same " +
+      "12 agents spawn via the Agent tool, which honors their frontmatter model/effort; " +
+      "(3) also confirm CLAUDE_CODE_SUBAGENT_MODEL is your backend's exact model name; " +
+      "(4) report the runtime issue via /feedback. " +
       "No code was written or changed; feature state untouched.",
     passed: false,
     approved: false,
