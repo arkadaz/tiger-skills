@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Harness engineering + code quality skills. 16 skills, 12 agents, 8 hooks, 2 commands, and a deterministic multi-agent workflow with a dedicated E2E engineer (E2E authored + re-run every pass), adversarial correctness + security review, and a cartographer keeping CODEBASE_MAP.md (Mermaid code-flow maps) current after every feature.",
+      "description": "Harness engineering + code quality skills. 19 skills, 6 agents, 8 hooks, 2 commands, and a deterministic linear single-feature workflow: grill → architect → generator (git worktree, branched from dev) → reviewer + security → e2e (integration test) → fast-forward merge to dev (main protected) → cartographer (update docs). Skills are independent units; agents are a bundle of skills.",
       "author": {
         "name": "arkadaz"
       },
