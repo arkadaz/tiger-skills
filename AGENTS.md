@@ -46,18 +46,18 @@ skills/
 ├── harness-engineering-session/   — Clock-in/clock-out discipline
 ├── harness-engineering-feature/   — Feature lifecycle, WIP=1, state machine
 ├── harness-engineering-verify/    — Verification pipeline, evidence before claims
-├── harness-engineering-review/    — Independent review (separate doer from checker)
 ├── harness-engineering-diagnose/  — Diagnostic loop (attribute failure to 1 of 5 layers)
 ├── code-quality/              — Router skill: 16 principles, 13 patterns (language-agnostic)
 ├── code-quality-language/     — Universal tooling rules; infers any language's idioms (Python/Rust = worked examples)
 ├── code-quality-review/       — Independent code quality review agent
 ├── code-quality-audit/        — Design principle audit with ranked report
-├── code-quality-fix/          — Known fix patterns for each violation type
 ├── code-correctness-review/   — Adversarial correctness review: trace flow, prove each AC with a test (unit + E2E)
 ├── security-review/           — Trigger-based security review: injection, authz, secrets, crypto, deps
 ├── e2e-authoring/             — Author the user-flow E2E (Playwright) after the feature is built; real entry point, one flow per AC
-specs/                     — Approved feature specifications (one per feature)
-agents/                    — 12 custom sub-agents (explorer, planner, code-architect, generator, e2e-engineer, executor, healer, reviewer, correctness-reviewer, security-reviewer, scribe, cartographer)
+├── doc-spec, doc-adr, doc-e2e-cases — per-document format skills (.md, for agents)
+├── doc-business, doc-release  — per-document format skills (.html, for the human)
+specs/                     — Approved feature specs (specs.md, adr.md, e2e_testcases.md per feature)
+agents/                    — 6 sub-agents (code-architect, generator, reviewer, security-reviewer, executor, cartographer)
 commands/                  — Custom slash commands
 hooks/                     — Event-driven hooks
 .claude-plugin/            — Plugin manifest + marketplace config

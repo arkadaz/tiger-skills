@@ -7,7 +7,7 @@ description: Independent code quality review — spawn a review agent to audit a
 
 Independent code review against all 16 design principles + language-specific tooling rules. **The agent that wrote the code cannot be the sole judge of its quality.** Agents systematically over-rate their own output.
 
-**Which review to use:** This skill checks code quality. For harness compliance (state files, verification, clean state), also invoke `harness-engineering-review`. See that skill for a full comparison table. For a complete pre-merge review, invoke both.
+**Which review to use:** This skill checks code quality (design principles + tooling rules). For behavior/correctness and spec compliance, also invoke `code-correctness-review`. The `reviewer` agent invokes both for a complete review.
 
 ## When Review Is Required
 

@@ -46,7 +46,7 @@ Rules:
 - Use the exact state machine: `not_started` → `in_progress` → `passing`, with `blocked` as side exit
 - **Populate with REAL features** — read the README, git log, or ask the user what features exist/are planned
 - Each feature MUST have: `user_visible_behavior` (happy path + error cases), `verification` (specific steps), `status` (one of four)
-- Include the kanban fields: `depends_on`/`blocks` (ticket links, reciprocal, acyclic), `acceptance_criteria` (`{id,text,done}`), and an empty `tasks[]` (the planner fills it later from its blueprint)
+- Include the kanban fields: `depends_on`/`blocks` (ticket links, reciprocal, acyclic), `acceptance_criteria` (`{id,text,done}`), and an empty `tasks[]` (the architect fills it later from its code plan)
 - Include `task_status_legend` and `link_semantics` at the top level (see minimal-pack template)
 - Leave the `evidence` array empty — that gets filled as features pass verification
 
@@ -79,7 +79,7 @@ After creating all four files:
 2. Verify `feature_list.json` has valid JSON syntax
 3. Verify `AGENTS.md` is under 150 lines
 4. Verify `progress.md` reflects current reality
-5. **Seed the codebase map (recommended when the project already has code):** spawn the `cartographer` agent to create `CODEBASE_MAP.md` — Mermaid architecture + code-flow diagrams and the function inventory (inputs/outputs, file:line). From then on it is refreshed automatically at GATE 12b after every finished feature, and the explorer reads it first. For an empty/new project, skip — the first finished feature creates it.
+5. **Seed the codebase map (recommended when the project already has code):** spawn the `cartographer` agent to create `CODEBASE_MAP.md` — Mermaid architecture + code-flow diagrams and the function inventory (inputs/outputs, file:line). From then on it is refreshed after every finished feature, and the architect reads it first. For an empty/new project, skip — the first finished feature creates it.
 6. Report: "Minimal harness pack created. [N] files. [./init.sh] passed. Next: pick feature-001 from feature_list.json."
 
 ## Gate Rule

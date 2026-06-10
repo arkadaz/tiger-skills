@@ -118,7 +118,7 @@ A feature is a **ticket**, not a flat line. Beyond the three required fields, ev
 
 ### `tasks[]` — kanban sub-tickets (the persisted blueprint)
 
-This is the field that stops the plan from evaporating. The **planner writes its blueprint task breakdown here** (one task per blueprint row). Each task is a small ticket:
+This is the field that stops the plan from evaporating. The **architect writes its code-plan task breakdown here** (one task per plan row). Each task is a small ticket:
 
 | Field | Meaning |
 |-------|---------|
@@ -130,7 +130,7 @@ This is the field that stops the plan from evaporating. The **planner writes its
 | `depends_on` | sibling task ids that must be `passing` first |
 | `verification` | the one check that proves this task done |
 
-**Who writes tasks:** the planner produces them; the **conductor persists them** into `feature_list.json` and flips each task's `status` as the generator/executor complete it. Tasks inherit the feature state machine — `not_started → in_progress → passing`, `blocked` as the side exit. A task cannot be `passing` without its verification met.
+**Who writes tasks:** the architect produces them; the **conductor persists them** into `feature_list.json` and flips each task's `status` as the generator/executor complete it. Tasks inherit the feature state machine — `not_started → in_progress → passing`, `blocked` as the side exit. A task cannot be `passing` without its verification met.
 
 **A feature is `passing` only when every task is `passing` and every acceptance criterion is `done`.**
 

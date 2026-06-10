@@ -16,7 +16,6 @@ This skill is a **router**. Load the principles here, then invoke sub-skills for
 | `code-quality-language` | Writing/reviewing code in any language — the 11 tooling rules, applied via that language's inferred idioms |
 | `code-quality-review` | Reviewing a diff for quality violations — independent review agent |
 | `code-quality-audit` | Auditing existing code for design principle violations |
-| `code-quality-fix` | Fixing specific violations with known fix patterns |
 
 ## 16 Design Principles
 
@@ -75,7 +74,7 @@ There is no per-language routing. For code in **any** language:
 
 Python and Rust ship as worked examples (`references/python/`, `references/rust/`); every other language follows the same rule numbers and intents via inference. Don't ask the user what the repo already answers; mirror the tools the project already uses.
 
-Other routes: design/architecture questions → `code-quality-audit`; reviewing a diff → `code-quality-review`; fixing violations → `code-quality-fix`.
+Other routes: design/architecture questions → `code-quality-audit`; reviewing a diff → `code-quality-review`. (Fix patterns are part of this skill — apply them inline.)
 
 ## Reference Files
 

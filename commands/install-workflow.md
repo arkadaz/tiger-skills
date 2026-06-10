@@ -44,8 +44,8 @@ Tell the user:
 - **Commit it:** `git add .claude/workflows/tiger-pipeline.js && git commit -m "Add tiger-pipeline workflow"` so teammates get it on clone.
 - **Prerequisites for anyone who runs it:**
   1. Claude Code ≥ 2.1.154 with dynamic workflows enabled (`/config`; Enterprise admins enable it in managed settings; not disabled via `CLAUDE_CODE_DISABLE_WORKFLOWS=1`).
-  2. The `tiger-skills` plugin installed — the workflow spawns `tiger-skills:explorer`, `…:planner`, etc., which resolve only when the plugin is present.
-- **How to run:** finish GATES 0–4 conversationally (bootstrap, grill, **human-approve the spec**, pick one feature), then launch **`/tiger-pipeline`** (its own slash command) with the feature's `args` (see `workflows/README.md`). It is args-driven, not a free-text task. `/workflows` (no name) is only the dashboard to watch the run.
+  2. The `tiger-skills` plugin installed — the workflow spawns `tiger-skills:code-architect`, `…:generator`, etc., which resolve only when the plugin is present.
+- **How to run:** finish the conversational gates (bootstrap, grill, **human-approve the spec(s)**), then launch **`/tiger-pipeline`** (its own slash command) with `projectDir` + `today` (it reads `feature_list.json` itself; see `workflows/README.md`). `/workflows` (no name) is only the dashboard to watch the run.
 - **Caveat:** dynamic workflows are research-preview (enable in `/config`); a run spawns many agents and costs far more tokens than a normal turn — dry-run it on a small approved feature before making it the team default.
 
 Do not modify the bundled source under `${CLAUDE_PLUGIN_ROOT}`; only write into the project (or home) `.claude/workflows/`.

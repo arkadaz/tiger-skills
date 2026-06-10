@@ -7,7 +7,7 @@ description: Author end-to-end tests that drive the real user flow — runs AFTE
 
 From walkinglabs Lecture 10: *Why End-to-End Testing Changes Results*. Unit tests can all pass while the assembled program is broken in real use. This skill is how you write the test that catches that — an end-to-end test that drives the **real entry point** and asserts the **user-visible outcome** of the spec's workflow.
 
-It pairs with the `e2e-engineer` agent (GATE 7b) and applies the **Layer 3** definition from `harness-engineering-verify`. It runs **after** the feature code is written, when the real entry points exist.
+It is invoked by the `executor` agent (the e2e / verify step) and applies the **Layer 3** definition from `harness-engineering-verify`. It runs **after** the feature code is written, when the real entry points exist.
 
 ## The Iron Rule
 
@@ -17,8 +17,8 @@ An E2E test that mocks away the unit under test, asserts a tautology, or only ch
 
 ## When to use
 
-- A user-facing feature reached GATE 7b — author its user-flow E2E before the executor verifies.
-- A fix landed (heal loop or review-fix loop) — **re-author/extend** the E2E for the changed behavior and add an E2E regression flow if the bug was user-visible, so the full re-run confirms nothing broke.
+- A user-facing feature was built — the executor authors its user-flow E2E before verifying.
+- A fix landed (the generator fix loop) — **re-author/extend** the E2E for the changed behavior and add an E2E regression flow if the bug was user-visible, so the full re-run confirms nothing broke.
 - The project has no E2E harness yet — scaffold the minimal one for its stack as part of the first user-facing feature.
 
 ## The Protocol
@@ -55,7 +55,7 @@ Not just the happy path — the spec's Error Cases and Edge Cases tables become 
 
 ### 6. Tests and test config only
 
-Never modify feature logic to make a flow pass. If a flow cannot be written because the feature is wrong or exposes no hook for it, that is a **finding** for the executor/healer — surface it, do not patch the feature.
+Never modify feature logic to make a flow pass. If a flow cannot be written because the feature is wrong or exposes no hook for it, that is a **finding** that fails verification (back to the generator) — surface it, do not patch the feature.
 
 ## The AC ↔ Flow Map
 
@@ -69,7 +69,7 @@ AC3 → (no flow yet — feature exposes no order-status route) → FINDING
 
 ## Proof line (mandatory)
 
-The `e2e-engineer` agent must begin its report with:
+The agent invoking this skill (the `executor`) must begin its report with:
 
 ```
 e2e-authoring invoked: YES — stack: <playwright|pytest-e2e|supertest|…>, flows covered: N, ACs asserted: X/Y

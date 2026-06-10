@@ -32,11 +32,11 @@ You don't need to remember skill names. Just describe what you want, and the rig
 | "What are we working on?" / "Start a session" | `harness-engineering-session` |
 | "Let's work on feature X" | `harness-engineering-feature` |
 | "Is this done?" / "Verify my changes" | `harness-engineering-verify` |
-| "Review my code" | `harness-engineering-review` or `code-quality-review` |
+| "Review my code" | `code-quality-review` (quality) + `code-correctness-review` (behavior) |
 | "Why did this fail?" / "The agent keeps messing up" | `harness-engineering-diagnose` |
 | "Improve this code" / "Make this cleaner" | `code-quality` (router, delegates to sub-skills) |
 | "Audit this for design violations" | `code-quality-audit` |
-| "Fix these violations" | `code-quality-fix` |
+| "Fix these violations" | `code-quality` (apply the fix patterns inline) |
 | "Write/review code in any language" (Python, Rust, TS, Go, Java, C#, …) | `code-quality-language` (infers the language's idioms) |
 
 ### The Full Workflow
@@ -123,13 +123,11 @@ tiger-skills/
 │   ├── harness-engineering-session/    — Clock-in/clock-out discipline
 │   ├── harness-engineering-feature/    — Feature lifecycle, WIP=1, state machine
 │   ├── harness-engineering-verify/     — Layered verification, evidence before claims
-│   ├── harness-engineering-review/     — Independent review (separate doer from checker)
 │   ├── harness-engineering-diagnose/   — Five-layer failure attribution
 │   ├── code-quality/                   — Router: 16 principles, 13 patterns (language-agnostic)
 │   ├── code-quality-language/          — Universal tooling rules; infers any language (Python/Rust = examples)
 │   ├── code-quality-review/            — Independent code quality review agent (27 items)
 │   ├── code-quality-audit/             — Design principle audit with ranked report
-│   ├── code-quality-fix/               — Known fix patterns for each violation type
 │   ├── code-correctness-review/        — Adversarial correctness review (trace flow, prove each AC with a test)
 │   ├── security-review/                — Trigger-based security review (injection, authz, secrets, crypto, deps)
 │   ├── e2e-authoring/                  — Author the user-flow E2E (Playwright) after the feature is built
@@ -168,7 +166,6 @@ Every complete harness has five subsystems:
 | `harness-engineering-session` | Clock-in (read state) or clock-out (update state, 8-item exit checklist) |
 | `harness-engineering-feature` | Feature lifecycle — pick one feature, WIP=1, definition of done |
 | `harness-engineering-verify` | Evidence before claims — 3-layer pipeline (static → unit → E2E) |
-| `harness-engineering-review` | Independent harness compliance review — separate doer from checker |
 | `harness-engineering-diagnose` | Attribute failure to 1 of 5 layers, fix the harness, retry |
 | `e2e-authoring` | Author the user-flow E2E (Playwright) after the feature is built — real entry point, one asserting flow per acceptance criterion |
 
@@ -180,7 +177,6 @@ Every complete harness has five subsystems:
 | `code-quality-language` | Universal tooling rules for **any** language — infers its idioms (Python/Rust are worked examples) |
 | `code-quality-review` | Independent review against 16 principles + 11 tooling rules (27 items) |
 | `code-quality-audit` | Full design principle audit with ranked violation report |
-| `code-quality-fix` | Apply known fix patterns for specific violation types |
 | `code-correctness-review` | Adversarial behavior review — trace flow, enumerate edge cases, hunt logic bugs, prove every acceptance criterion with a real test (unit + E2E) |
 | `security-review` | Trigger-based security audit — injection, authz, secrets, crypto, deserialization, deps, DoS |
 
