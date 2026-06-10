@@ -116,7 +116,7 @@ A feature is a **ticket**, not a flat line. Beyond the three required fields, ev
 - Links exist between **features** and between **tasks within a feature** (`task.depends_on` references sibling task ids).
 - **Cycle ban:** the dependency graph must be acyclic. A depends_on B depends_on A is a bug — `init.sh` will flag dangling ids; you must not introduce cycles.
 
-### `tasks[]` — kanban sub-tickets (the persisted blueprint)
+### `tasks[]` — kanban sub-tickets (the architect's code plan)
 
 This is the field that stops the plan from evaporating. The **architect writes its code-plan task breakdown here** (one task per plan row). Each task is a small ticket:
 

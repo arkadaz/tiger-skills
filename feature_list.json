@@ -2,12 +2,12 @@
   "project": "your-project-name",
   "last_updated": "2026-01-01",
   "schema_version": 2,
-  "_template_note": "TEMPLATE — this is the worked example the tiger-skills harness ships. Replace the example features with your own. The grill skill (GATE 1) writes a spec and adds the feature; the planner persists its blueprint into tasks[]; the scribe is the single writer. Keep exactly one feature in_progress (WIP=1). ./init.sh validates this file (kanban fields, link reciprocity, acyclicity, task statuses).",
+  "_template_note": "TEMPLATE — this is the worked example the tiger-skills harness ships. Replace the example features with your own. The grill skill (GATE 1) writes the spec docs and adds the feature; the code-architect plans the tasks[]; state is written by the update-docs step (cartographer). Keep exactly one feature in_progress (WIP=1). ./init.sh validates this file (kanban fields, link reciprocity, acyclicity, task statuses).",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
     "do_not_skip_verification": true,
-    "planner_persists_tasks": true,
+    "architect_plans_tasks": true,
     "tasks_inherit_feature_status_machine": true
   },
   "status_legend": {
@@ -25,7 +25,7 @@
   "link_semantics": {
     "depends_on": "This feature/task cannot start until the listed ids reach status 'passing'.",
     "blocks": "The listed ids cannot start until this feature/task reaches status 'passing'. Should be the reciprocal of depends_on.",
-    "tasks": "Kanban sub-tickets. The planner writes them from its blueprint; the conductor flips their status as the generator/e2e-engineer/executor complete them. Each task is itself a small unit with its own status, owner agent, files, and dependencies.",
+    "tasks": "Kanban sub-tickets. The code-architect writes them from its code plan; the conductor flips their status as the generator/executor complete them. Each task is itself a small unit with its own status, owner agent, files, and dependencies.",
     "acceptance_criteria": "Checkable definition of done. Each item flips done=true only when its evidence is recorded."
   },
   "features": [
@@ -44,8 +44,8 @@
         {"id": "AC2", "text": "Another criterion with an asserting test (unit + an E2E flow for the user workflow)", "done": false}
       ],
       "tasks": [
-        {"id": "T1", "title": "Implement the feature + unit tests (planner's first blueprint task)", "agent": "generator", "status": "not_started", "files": ["src/example"], "depends_on": [], "verification": "lint + type-check clean; unit tests pass"},
-        {"id": "T2", "title": "Author the user-flow E2E (Playwright) for the real entry point", "agent": "e2e-engineer", "status": "not_started", "files": ["tests/e2e/feature-001.spec.ts"], "depends_on": ["T1"], "verification": "playwright test drives the real entry point and asserts the visible outcome"},
+        {"id": "T1", "title": "Implement the feature + unit tests (the architect's first plan task)", "agent": "generator", "status": "not_started", "files": ["src/example"], "depends_on": [], "verification": "lint + type-check clean; unit tests pass"},
+        {"id": "T2", "title": "Author the user-flow E2E (Playwright) for the real entry point", "agent": "executor", "status": "not_started", "files": ["tests/e2e/feature-001.spec.ts"], "depends_on": ["T1"], "verification": "playwright test drives the real entry point and asserts the visible outcome"},
         {"id": "T3", "title": "Run the full verification pipeline and record evidence", "agent": "executor", "status": "not_started", "files": [], "depends_on": ["T1", "T2"], "verification": "static + full unit suite + E2E all green from THIS session"}
       ],
       "verification": [

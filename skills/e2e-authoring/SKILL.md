@@ -81,7 +81,7 @@ The counts must be real. `flows covered: 0` or `ACs asserted: 0/Y` is rejected a
 
 E2E authoring is not a one-shot up-front step. It runs on **every pipeline pass** and is **re-run after every fix**:
 
-- GATE 7b authors it against the just-built feature.
+- The executor authors it against the just-built feature (in the worktree).
 - After each heal-loop fix and each review-fix, re-author/extend the affected flows, then the executor re-runs the **full** unit + E2E suite.
 
 This is what makes "the fix didn't break anything" a verified fact instead of a hope.

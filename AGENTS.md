@@ -11,10 +11,10 @@ tiger-skills — a Claude Code plugin providing harness engineering (outer loop)
 
 ## Working Rules
 
-1. **Run the Gate Sequence** — every request flows through the conductor's gates in order (see `skills/harness-engineering/SKILL.md`): bootstrap → spec gate → ledger → clock-in → scope → plan → … → track → clock-out. No gate is skipped silently.
-2. **Spec before build** — a build request with no approved spec goes through `harness-engineering-grill` first (GATE 1). No planning or code without an approved spec.
-3. **Keep a live ledger** — for multi-step work, maintain a phase checklist you tick off (GATE 2), and persist the planner's task breakdown into `feature_list.json` `tasks[]` (GATE 5) so nothing is dropped.
-4. **Explore before code** — discover existing types, functions, and patterns BEFORE writing. Never duplicate an existing function, type, or constant.
+1. **Run the Gate Sequence** — every request flows through the conductor's gates in order (see `skills/harness-engineering/SKILL.md`): bootstrap → grill (spec gate) → clock-in → scope → architect → generate (worktree) → review + security → e2e → fast-forward merge to dev → update docs → clock-out. No gate is skipped silently.
+2. **Spec before build** — a build request with no approved spec goes through `harness-engineering-grill` first (GATE 1). No code without an approved spec.
+3. **Simple, readable code** — the generator writes the simplest logic that works (small flat functions, clear names, shallow nesting); no clever constructs.
+4. **Explore before code** — discover existing types, functions, and patterns BEFORE writing (read `CODEBASE_MAP.md` first). Never duplicate an existing function, type, or constant.
 5. Work on only one feature at a time (WIP=1)
 6. Don't mark a feature complete unless every task is `passing`, every acceptance criterion is `done`, and verification ran and passed
 7. Keep changes within the selected feature scope; prefer durable repo artifacts over chat summaries
@@ -30,11 +30,11 @@ A feature is complete only when:
 
 ## Required Artifacts
 
-- `feature_list.json` — source of truth for feature state. Each feature is a **kanban ticket**: `depends_on`/`blocks` (links, reciprocal, acyclic), `acceptance_criteria` (`{id,text,done}`), and `tasks[]` (the planner's persisted blueprint, each a sub-ticket on the same four-state machine).
+- `feature_list.json` — source of truth for feature state. Each feature is a **kanban ticket**: `depends_on`/`blocks` (links, reciprocal, acyclic), `acceptance_criteria` (`{id,text,done}`), and `tasks[]` (the architect's code-plan tasks).
 - `progress.md` — session log and current verified status
-- `specs/` — approved feature specs (grill output); features link via `spec_file`
-- `init.sh` — standard startup and verification path (Layer 6 validates the feature graph)
-- `CODEBASE_MAP.md` — the living codebase map (Mermaid architecture + code-flow diagrams; function chains with real inputs/outputs, file:line-anchored). Agents read it FIRST as the reference of what exists (then verify what they touch); written ONLY by the `cartographer` agent, refreshed after every finished feature (GATE 12b)
+- `specs/` — approved feature specs (grill output): `specs.md`, `adr.md`, `e2e_testcases.md`; features link via `spec_file`
+- `init.sh` — standard startup and verification path
+- `CODEBASE_MAP.md` — the living codebase map (Mermaid architecture + code-flow diagrams; function chains with real inputs/outputs, file:line-anchored). Agents read it FIRST as the reference of what exists (then verify what they touch); written ONLY by the `cartographer` (update-docs) agent, refreshed after every finished feature.
 
 ## Directory Map
 
@@ -70,10 +70,11 @@ hooks/                     — Event-driven hooks
 - Every harness file must exist before any other work begins (bootstrap gate)
 - **Spec gate** — no build without an approved spec; grill first
 - **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality-audit invoked: YES`), or its handoff is rejected and it is re-spawned
-- **Single writer of state** — only the `scribe` agent writes `feature_list.json` and `progress.md`; every other agent emits a Board Update for it to apply
-- **Parallel-generation safety** — when generation fans out (tiger-pipeline waves), only file-disjoint, dependency-ready tasks run concurrently (paths canonicalized before the disjointness check); a dependency cycle or an undeclared file set degrades to sequential; generators never run git and never write the state files. No two concurrent agents ever write the same file.
-- **Single writer of the map** — only the `cartographer` writes `CODEBASE_MAP.md` (GATE 12b, after every finished feature); every other agent reads it as reference and verifies what it touches
-- **Independent review cluster** — at GATE 11 three agents that never wrote the code audit non-trivial work: `reviewer` (quality), `correctness-reviewer` (behavior — traces the flow, proves each acceptance criterion with a test), and `security-reviewer` (when a security trigger fires)
+- **One feature at a time, in a worktree** — WIP=1; the generator builds in its own git worktree branched from `dev` until the feature is green, then fast-forward merges to `dev` (`main` stays protected — dev → main is a separate release step)
+- **Loop ≤5 tries** — review and e2e loop back to the generator (fix in the worktree) up to 5 times, then escalate
+- **Skills independent, agents = a bundle of skills** — a skill never depends on another skill; an agent composes the set it needs (e.g. `reviewer` = code-quality-review + code-correctness-review)
+- **Single writer of the map + docs** — only the `cartographer` (update-docs) writes `CODEBASE_MAP.md`, flips feature state, and writes release/business html after a feature finishes
+- **Separate doer from checker** — the generator never writes its own E2E or judges its own work; the `executor` authors the E2E, and the `reviewer` (quality + correctness) + `security-reviewer` audit it
 - **Verify behavior, not just structure** — every user-facing feature ships with an E2E test of its real workflow (plus unit tests); the completion run is the full suite (no fail-fast) so regressions surface; every bug fix adds a failing-first regression test
 - Evidence before claims — never say "done" without fresh verification
 - WIP=1 — one feature active at a time

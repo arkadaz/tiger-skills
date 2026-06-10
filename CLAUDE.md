@@ -71,8 +71,8 @@ workflows/                 — Deterministic Claude Code Workflow: the linear fl
 - Every harness file must exist before any other work begins (bootstrap gate)
 - **Spec gate** — no build without an approved spec; grill first
 - **Proof of invocation** — every spawned agent emits its required-skill proof line (e.g. `code-quality-audit invoked: YES`), or its handoff is rejected and it is re-spawned
-- **One feature at a time, in a worktree** — WIP=1; the generator builds in its own git worktree until the feature is green, then merges to main
-- **Loop until pass** — review and e2e loop back to the generator until they pass; no fixed try-count
+- **One feature at a time, in a worktree** — WIP=1; the generator builds in its own git worktree branched from `dev` until the feature is green, then fast-forward merges to `dev` (`main` stays protected — dev → main is a separate release step)
+- **Loop ≤5 tries** — review and e2e loop back to the generator (fix in the worktree) up to 5 times, then escalate
 - **Skills independent, agents = a bundle of skills** — a skill never depends on another skill; an agent composes the set it needs (e.g. `reviewer` = code-quality-review + code-correctness-review)
 - **Single writer of the map + docs** — only the `cartographer` (update-docs) writes `CODEBASE_MAP.md`, flips feature state, and writes release/business html after a feature finishes
 - **Separate doer from checker** — the generator never writes its own E2E or judges its own work; the `executor` authors the E2E, the `reviewer` audits

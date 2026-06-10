@@ -1,7 +1,7 @@
 # Progress
 
 > **TEMPLATE** — the session log + current verified status the tiger-skills harness ships as a worked example.
-> Replace the placeholder content with your project's real state. The scribe is the single writer (you update it at clock-out).
+> Replace the placeholder content with your project's real state. State is written at the update-docs step (cartographer) / clock-out.
 > Pair this with `feature_list.json` (machine-readable feature state). Convert relative dates to absolute.
 
 ## Current State
