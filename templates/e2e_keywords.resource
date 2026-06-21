@@ -1,7 +1,7 @@
 # tiger-stage: e2e
 # tiger-feature-id: {{FEATURE_ID}}
 # ─────────────────────────────────────────────────────────────────────────────
-# TIGER e2e executable IMPLEMENTATIONS, in Robot Framework — the runnable HOW for
+# Tiger e2e executable IMPLEMENTATIONS, in Robot Framework — the runnable HOW for
 # the agreed cases in the sibling e2e_testcases.robot. The tiger-e2e stage WRITES
 # this file (it is the e2e agent's robot-framework write): Playwright behind the
 # scenes via the Browser library for UI cases, Process / OperatingSystem for CLI /

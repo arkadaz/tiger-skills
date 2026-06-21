@@ -3,7 +3,7 @@ name: tiger-docs-readme
 description: Refreshes the target project's README.md after a feature ships — surgical and additive, diff-grounded. Invoke directly ("refresh the README") or loaded by tiger-update-docs at close-out.
 ---
 
-# TIGER Docs — README Writer
+# Tiger Docs — README Writer
 
 Owns `README.md` only. Updates it to reflect what a feature shipped, derived from real diff + artifacts. Loaded by tiger-update-docs at close-out, or invoked standalone.
 

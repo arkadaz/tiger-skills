@@ -2,10 +2,10 @@
 name: tiger-e2e
 description: End-to-end verification gate — the SINGLE quality gate of the v2 pipeline (no in-loop security/reviewer) that AUTHORS the executable Robot Framework layer (e2e_keywords.resource — Playwright behind the scenes for UI cases, Process/OperatingSystem for the rest) for a feature's agreed e2e_testcases.robot cases, then EXECUTES the suite with `robot` plus every architect acceptance check as real OS processes, TRIAGES every defect by PRIORITY (HIGH/MEDIUM block; LOW logged), records a pass/changes/blocked verdict as a namespaced git note (refs/notes/e2e), and owns the board phase pointer during the loop. Use whenever the user says "run e2e", "execute the test cases", "run the robot suite", "verify this feature end-to-end", "run the acceptance checks", or when the pipeline reaches the e2e gate after every build wave is integrated.
 context: fork
-agent: tiger-development-kit:tiger-e2e
+agent: tiger-skills:tiger-e2e
 ---
 
-# TIGER E2E — End-to-End Verification Gate
+# Tiger E2E — End-to-End Verification Gate
 
 The SINGLE quality gate of the v2 pipeline. Runs ONCE after all build waves are integrated; authors the executable Robot Framework keyword layer, executes the agreed suite + acceptance checks, triages defects by priority, and owns the board phase pointer during the loop.
 

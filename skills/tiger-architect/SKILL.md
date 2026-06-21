@@ -1,11 +1,11 @@
 ---
 name: tiger-architect
-description: Turn ONE human-approved TIGER feature into a phased build blueprint with RED-proven acceptance checks, the PLAN fields of the feature board (scope_map + tasks[]), and a bootstrapped tiger/codemap.html — then land the single board-plan commit on feature/<id>. Use whenever the user wants to architect, plan, blueprint, or break down an approved feature, enrich the feature board, create a task breakdown, bootstrap a codemap, or prepare a feature branch for the build loop — even if they never say "architect". Requires an approved spec.html (run tiger-grill first when missing). Read-only on source code; plans the work, never does it.
+description: Turn ONE human-approved Tiger feature into a phased build blueprint with RED-proven acceptance checks, the PLAN fields of the feature board (scope_map + tasks[]), and a bootstrapped tiger/codemap.html — then land the single board-plan commit on feature/<id>. Use whenever the user wants to architect, plan, blueprint, or break down an approved feature, enrich the feature board, create a task breakdown, bootstrap a codemap, or prepare a feature branch for the build loop — even if they never say "architect". Requires an approved spec.html (run tiger-grill first when missing). Read-only on source code; plans the work, never does it.
 context: fork
-agent: tiger-development-kit:tiger-architect
+agent: tiger-skills:tiger-architect
 ---
 
-# TIGER Architect — recon, blueprint, board enrichment
+# Tiger Architect — recon, blueprint, board enrichment
 
 Plans one approved feature into everything the build loop needs: blueprint verified against the real codebase, PLAN fields added to grill's board entry, and a codemap for the generators to navigate by.
 

@@ -1,9 +1,9 @@
 ---
 name: tiger-grill
-description: Mandatory requirements grill for any new feature, behavior change, business process, or integration — the ONLY human gate in the TIGER pipeline. Runs INLINE in the main session, interviewing one question at a time (AskUserQuestion with a recommended answer), exploring the codebase before asking, then writing four artifacts (spec.html, adr.html, business.html, e2e_testcases.robot) into tiger/features/<id>/ and creating the feature's WHY/SPECIFY entry in feature_list.json — flipping the anchored approval token only on an explicit human yes. Use whenever the user asks to add, build, implement, create, automate, integrate, or change anything user-visible or business-logical, even if they never say "spec" or "grill". A long description is input, not approval.
+description: Mandatory requirements grill for any new feature, behavior change, business process, or integration — the ONLY human gate in the Tiger pipeline. Runs INLINE in the main session, interviewing one question at a time (AskUserQuestion with a recommended answer), exploring the codebase before asking, then writing four artifacts (spec.html, adr.html, business.html, e2e_testcases.robot) into tiger/features/<id>/ and creating the feature's WHY/SPECIFY entry in feature_list.json — flipping the anchored approval token only on an explicit human yes. Use whenever the user asks to add, build, implement, create, automate, integrate, or change anything user-visible or business-logical, even if they never say "spec" or "grill". A long description is input, not approval.
 ---
 
-# TIGER Grill — Stage 1, the Only Human Gate
+# Tiger Grill — Stage 1, the Only Human Gate
 
 I convert a vague feature idea into four approved, inspectable artifacts every later stage consumes. I am the pink "grill me" node with the one Human↔grill edge: no other stage talks to the human mid-run. I run INLINE (no `agent:`) because a subagent has no channel to ask a question and wait.
 
@@ -14,7 +14,7 @@ I convert a vague feature idea into four approved, inspectable artifacts every l
 
 ## Contract
 
-**Preflight (hard gate).** `ls tiger/templates/{spec.html,adr.html,business.html,e2e_testcases.robot}` — if any missing, tell the user to run `/tiger-development-kit:install` and STOP. Never improvise templates. Then derive `<id>`: kebab-case from the problem, unique under `tiger/features/`.
+**Preflight (hard gate).** `ls tiger/templates/{spec.html,adr.html,business.html,e2e_testcases.robot}` — if any missing, tell the user to run `/tiger-skills:install` and STOP. Never improvise templates. Then derive `<id>`: kebab-case from the problem, unique under `tiger/features/`.
 
 **Interview rules.**
 - ONE question per cycle via `AskUserQuestion` with 2–4 options + a recommended answer. Never batch.

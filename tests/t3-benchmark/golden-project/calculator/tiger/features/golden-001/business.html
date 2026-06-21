@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tiger business one-pager for ONE feature. Written by the grill skill during the
+     interview, committed with the sibling artifacts on human approval. After the feature
+     passes, the update-docs stage MERGES this page into the cumulative tiger/business.html
+     (which it bootstraps from this same template, flipping the stage meta to update-docs).
+     Grill flips this file's tiger-status to "approved" TOGETHER with its three siblings on human approval, so every artifact visibly shows it was approved as part of the set. The build's single CANONICAL machine gate is still spec.html. -->
+<meta name="tiger-status" content="approved">
+<meta name="tiger-feature-id" content="golden-001">
+<meta name="tiger-stage" content="grill">
+<title>Business — Four-operation calculator module</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#1f2328; --muted:#57606a; --border:#d0d7de; --accent:#0969da;
+    --warn-fg:#9a6700; --warn-bg:#fff8c5; --danger-fg:#cf222e; --danger-bg:#ffebe9;
+    --success-fg:#1a7f37; --success-bg:#dafbe1; --decision-fg:#8250df; --decision-bg:#fbefff;
+    --info-fg:#0969da; --info-bg:#ddf4ff; --canvas:#f6f8fa;
+  }
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); max-width:76ch; margin:2rem auto; padding:0 1rem; line-height:1.6; }
+  a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+  header{ background:var(--canvas); border:1px solid var(--border); border-radius:8px; padding:1rem 1.25rem; }
+  header h1{ margin:0 0 .35rem; font-size:1.45rem; }
+  .meta{ display:flex; flex-wrap:wrap; gap:.4rem .6rem; font-size:.85rem; }
+  .chip{ background:#fff; border:1px solid var(--border); border-radius:999px; padding:.1rem .65rem; color:var(--muted); }
+  h2{ border-bottom:1px solid var(--border); padding-bottom:.25rem; margin-top:2rem; font-size:1.1rem; }
+  table{ border-collapse:collapse; width:100%; font-size:.92rem; }
+  th,td{ border:1px solid var(--border); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+  th{ background:var(--canvas); }
+  code,pre{ background:var(--canvas); border:1px solid var(--border); border-radius:4px; padding:.1rem .3rem; font-size:.88em; }
+  pre{ padding:.7rem; overflow-x:auto; }
+  ol li,ul li{ margin:.25rem 0; }
+  /* .human — stakeholder read-in summary, informational → info palette */
+  .human{ background:var(--info-bg); border-left:4px solid var(--info-fg); border-radius:4px; padding:.8rem 1rem; color:var(--ink); }
+  /* .note — contract/provenance notice, mild caution → warn palette */
+  .note{ background:var(--warn-bg); border-left:4px solid var(--warn-fg); border-radius:4px; padding:.8rem 1rem; color:var(--warn-fg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Business: Four-operation calculator module</h1>
+  <div class="meta">
+    <span class="chip">id: <strong>golden-001</strong></span>
+    <span class="chip">grilled: 2026-06-18</span>
+    <span class="chip">stage: grill</span>
+    <span class="chip">recommendation: go</span>
+    <span class="chip">approval gate: lives in <a href="spec.html">spec.html</a></span>
+  </div>
+</header>
+
+<h2>Problem / Opportunity</h2>
+<p>The Tiger harness benchmark project has no reusable arithmetic module. Developers inline
+arithmetic ad hoc, making the codebase harder to test and maintain. A single, tested
+<code>src/calculator.py</code> module eliminates that duplication and provides a clean,
+importable contract for the four basic operations.</p>
+
+<h2>Target Users</h2>
+<table>
+  <tr><th>Who</th><th>Context</th><th>Volume / frequency</th></tr>
+  <tr><td>Developers on the Tiger benchmark project</td><td>Need arithmetic in numeric utilities; currently inlining it</td><td>All benchmark runs; every feature that touches arithmetic</td></tr>
+</table>
+
+<h2>Value &amp; Business Outcome</h2>
+<p>Shipping a reusable arithmetic module retires the duplication risk and provides the benchmark
+harness with a concrete, testable feature to run the full pipeline against. The capability
+unlocked is a verified, importable module that the T3 benchmark can use as ground truth for
+the code-generator, security, reviewer, and e2e gates. No revenue impact; internal tooling
+value only. We are suited to do it because the scope is exactly one file.</p>
+
+<h2>Key Rules Summary</h2>
+<table>
+  <tr><th>Rule</th><th>One-line statement</th></tr>
+  <tr><td>BR1</td><td>All four operations are pure functions with no external dependencies.</td></tr>
+  <tr><td>BR2</td><td>Division by zero raises <code>ZeroDivisionError</code> — never swallowed.</td></tr>
+</table>
+
+<h2>Metric</h2>
+<ul>
+  <li><strong>Primary metric:</strong> all_operations_pass — baseline: 0 tests → target: 4 operations pass (increase)</li>
+  <li><strong>Measured how:</strong> <code>python3 -m pytest src/ -q</code> run by the e2e gate; pass/fail recorded in the board's acceptance_criteria evidence.</li>
+</ul>
+
+<h2>Risks</h2>
+<table>
+  <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
+  <tr><td>Scope creep — adding a fifth operation or a CLI</td><td>low</td><td>Explicitly out of scope in spec.html; ADR-001 is final for this feature.</td></tr>
+  <tr><td>Test coverage gap on edge cases (zero, negatives)</td><td>low</td><td>E2E case E5 covers divide-by-zero; TDD mandate covers negatives.</td></tr>
+</table>
+
+<h2>What We Are NOT Doing</h2>
+<ul>
+  <li>Floating-point precision beyond Python defaults.</li>
+  <li>Complex numbers, modular arithmetic, or any operation beyond the four basic ones.</li>
+  <li>CLI interface, REPL, or web API.</li>
+  <li>Persistent state (history, accumulator).</li>
+</ul>
+
+<div class="human">
+  <strong>Stakeholder summary.</strong> This page is the read-in-two-minutes version for
+  humans who will never open the spec: the problem, who has it, what success measures, and
+  the lines we will not cross. Anything verifiable lives in
+  <a href="spec.html">spec.html</a>; anything decided lives in <a href="adr.html">adr.html</a>.
+</div>
+
+<p class="note"><strong>Contract.</strong> Written by: grill (with the human, during the
+interview); committed on spec approval. Merged by: update-docs into the cumulative
+<code>tiger/business.html</code> at feature close-out (this per-feature page stays put as
+history). Read by: architect (metric plan + value context) and reviewer (business-logic
+alignment). Siblings: <a href="spec.html">spec.html</a>, <a href="adr.html">adr.html</a>,
+<a href="e2e_testcases.robot">e2e_testcases.robot</a>. Self-contained: one file, inline CSS,
+system fonts, opens from disk, zero external requests.</p>
+</body>
+</html>

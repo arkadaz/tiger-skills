@@ -3,7 +3,7 @@ name: tiger-docs-e2e
 description: Focused writer that authors ONE feature's e2e_testcases.robot — the human-agreed CASES in Robot Framework BDD style (Given/When/Then + [Tags] + [Template] data-driven rows). Writes only the cases; tiger-e2e gate writes the executable keyword implementations. Invoke directly or load as one of grill's skills to write the e2e contract.
 ---
 
-# TIGER Docs — E2E Cases Writer
+# Tiger Docs — E2E Cases Writer
 
 Writes ONE artifact: `tiger/features/<id>/e2e_testcases.robot` — the agreed e2e CASES. Sits at the grill stage: grill loads this skill to capture what the human signed off; `tiger-e2e` implements the HOW later.
 

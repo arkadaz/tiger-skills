@@ -3,7 +3,7 @@ name: tiger-docs-release
 description: Focused writer that adds a feature's entry to tiger/release_docs.html under [Unreleased] with Keep-a-Changelog 1.1.0 discipline — TWO audience bands (User-facing changes benefit-phrased, Internal changes technical), grouped under Added/Changed/Deprecated/Removed/Fixed/Security (empty categories omitted, Security never dropped), ISO-8601 dates, derived from the feature's artifacts and git log main..HEAD. When the e2e gate logged LOW (non-blocking) defects, records them under a "Known issues" entry in the feature's [Unreleased] block. Bootstraps from tiger/templates/release_docs.html when missing. Owns only tiger/release_docs.html. A self-contained reference skill; invoke it directly ("write the release notes") or load it as one of tiger-update-docs's skills.
 ---
 
-# TIGER Docs — Release Notes Writer
+# Tiger Docs — Release Notes Writer
 
 Appends a feature's entry to `tiger/release_docs.html` (Keep-a-Changelog 1.1.0). No agent — executes inline. Sits at close-out, loaded by tiger-update-docs or invoked standalone.
 

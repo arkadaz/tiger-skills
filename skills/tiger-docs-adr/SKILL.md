@@ -3,7 +3,7 @@ name: tiger-docs-adr
 description: Focused writer that authors ONE feature's adr.html from the decisions surfaced during grill — applying the three-part test (hard to reverse, surprising without context, a real trade-off), MADR form when ≥2 real options were weighed, the lightweight Nygard form for tactical calls, and a single "no decisions met the bar" entry when none qualify — instantiating tiger/templates/adr.html into tiger/features/<id>/adr.html with the awaiting_review token. Never approves. A self-contained reference skill; invoke it directly or load it as one of grill's skills to record an ADR.
 ---
 
-# TIGER Docs — ADR Writer
+# Tiger Docs — ADR Writer
 
 Writes `tiger/features/<id>/adr.html` from decisions surfaced during grill. No owned agent — grill loads this skill and authors the file inline.
 

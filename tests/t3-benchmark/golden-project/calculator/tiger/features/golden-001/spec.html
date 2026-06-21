@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tiger machine-read gate: the build pipeline (the tiger-workflow-dev workflow,
+     or the architect skill) proceeds ONLY when the content value below is exactly
+     "approved". The grill skill writes "approved" after an explicit human yes —
+     never edit it by hand mid-interview. -->
+<meta name="tiger-status" content="approved">
+<meta name="tiger-feature-id" content="golden-001">
+<meta name="tiger-stage" content="grill">
+<title>Spec — Four-operation calculator module with web UI</title>
+<style>
+:root{
+  --bg:#ffffff; --ink:#1f2328; --muted:#57606a; --border:#d0d7de; --accent:#0969da;
+  --warn-fg:#9a6700; --warn-bg:#fff8c5; --danger-fg:#cf222e; --danger-bg:#ffebe9;
+  --success-fg:#1a7f37; --success-bg:#dafbe1; --decision-fg:#8250df; --decision-bg:#fbefff;
+  --info-fg:#0969da; --info-bg:#ddf4ff; --canvas:#f6f8fa;
+}
+body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); max-width:76ch; margin:2rem auto; padding:0 1rem; line-height:1.6; }
+a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+header{ background:var(--canvas); border:1px solid var(--border); border-radius:8px; padding:1rem 1.25rem; }
+header h1{ margin:0 0 .35rem; font-size:1.45rem; }
+.meta{ display:flex; flex-wrap:wrap; gap:.4rem .6rem; font-size:.85rem; }
+.chip{ background:#fff; border:1px solid var(--border); border-radius:999px; padding:.1rem .65rem; color:var(--muted); }
+h2{ border-bottom:1px solid var(--border); padding-bottom:.25rem; margin-top:2rem; font-size:1.1rem; }
+table{ border-collapse:collapse; width:100%; font-size:.92rem; }
+th,td{ border:1px solid var(--border); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+th{ background:var(--canvas); }
+code,pre{ background:var(--canvas); border:1px solid var(--border); border-radius:4px; padding:.1rem .3rem; font-size:.88em; }
+pre{ padding:.7rem; overflow-x:auto; }
+ol li,ul li{ margin:.25rem 0; }
+.status{ background:var(--warn-bg); color:var(--warn-fg); border-color:#e8d48a; font-weight:600; }
+.status.approved{ background:var(--success-bg); color:var(--success-fg); border-color:#aedcba; }
+.human{ background:var(--info-bg); border:1px solid var(--info-fg); border-left-width:4px; border-radius:8px; padding:.8rem 1rem; }
+.note{ background:var(--warn-bg); border:1px solid var(--warn-fg); border-left-width:4px; border-radius:8px; padding:.8rem 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spec: Four-operation calculator module with web UI</h1>
+  <div class="meta">
+    <span class="chip">id: <strong>golden-001</strong></span>
+    <span class="chip">grilled: 2026-06-18</span>
+    <span class="chip">stage: grill</span>
+    <span class="chip status approved">status: approved</span>
+    <span class="chip">approved by: benchmark@tiger.test</span>
+    <span class="chip">classification: missing-feature</span>
+  </div>
+</header>
+
+<h2>Problem Statement</h2>
+<p>The codebase has no calculator module; arithmetic is inlined ad hoc across the project.</p>
+
+<h2>Objective &amp; JTBD</h2>
+<p>Provide a reusable arithmetic module for the benchmark harness. When building numeric utilities, I want a reusable calculator module so I do not duplicate arithmetic logic.</p>
+
+<h2>User Context</h2>
+<ul>
+  <li><strong>Primary user:</strong> Developers on the Tiger benchmark project.</li>
+  <li><strong>Environment:</strong> Python 3 project, no external dependencies.</li>
+  <li><strong>Current workflow / pain:</strong> Arithmetic logic is duplicated inline; no single tested module exists.</li>
+</ul>
+
+<h2>Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Requirement</th><th>Notes</th></tr>
+  <tr><td>FR1</td><td><code>add(a, b)</code> returns <code>a + b</code></td><td>Pure function, no side effects.</td></tr>
+  <tr><td>FR2</td><td><code>subtract(a, b)</code> returns <code>a - b</code></td><td>Pure function, no side effects.</td></tr>
+  <tr><td>FR3</td><td><code>multiply(a, b)</code> returns <code>a * b</code></td><td>Pure function, no side effects.</td></tr>
+  <tr><td>FR4</td><td><code>divide(a, b)</code> returns <code>a / b</code>; raises <code>ZeroDivisionError</code> when <code>b</code> is 0</td><td>Do not swallow the exception.</td></tr>
+  <tr><td>FR5</td><td>A Flask web UI in <code>src/app.py</code> serves a numpad-style calculator at <code>/</code> on port 5000</td><td>Digit buttons 0–9, operator buttons <code>+</code> <code>-</code> <code>×</code> <code>÷</code>, a display showing the current expression, and an <code>=</code> button that shows the result. Page <code>&lt;title&gt;</code> must contain "Calculator". Divide-by-zero shows an error message in the display.</td></tr>
+</table>
+
+<h2>Happy Path</h2>
+<ol>
+  <li>Caller imports <code>calculator</code> from <code>src/calculator.py</code> → module loads without error.</li>
+  <li>Caller invokes <code>add(2, 3)</code> → receives <code>5</code>.</li>
+  <li>Caller invokes <code>divide(10, 2)</code> → receives <code>5.0</code>.</li>
+  <li>User opens <code>http://localhost:5000</code> → numpad calculator renders with digit buttons 0–9, operators, display, and <code>=</code>.</li>
+  <li>User clicks <code>7</code> <code>+</code> <code>3</code> <code>=</code> → display shows <code>10</code>.</li>
+  <li>User clicks <code>1</code> <code>÷</code> <code>0</code> <code>=</code> → display shows an error message (not a crash).</li>
+</ol>
+
+<h2>Business Rules</h2>
+<table>
+  <tr><th>Rule</th><th>Statement</th><th>Rationale</th><th>Verification</th></tr>
+  <tr><td>BR1</td><td>All four operations are pure functions with no external dependencies.</td><td>Keeps the module portable and trivially testable.</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td></tr>
+  <tr><td>BR2</td><td>Division by zero raises <code>ZeroDivisionError</code> (not swallowed).</td><td>Caller must handle exceptional cases explicitly.</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td></tr>
+</table>
+
+<h2>Errors &amp; Edge Cases</h2>
+<table>
+  <tr><th>Scenario</th><th>Expected behavior</th></tr>
+  <tr><td>divide(1, 0)</td><td>Raises <code>ZeroDivisionError</code></td></tr>
+  <tr><td>add(-1, -1)</td><td>Returns <code>-2</code></td></tr>
+  <tr><td>multiply(0, 999)</td><td>Returns <code>0</code></td></tr>
+</table>
+
+<h2>Constraints — CAN / CANNOT</h2>
+<ul>
+  <li><strong>CAN modify:</strong> <code>src/calculator.py</code>, <code>src/app.py</code>, <code>src/templates/</code></li>
+  <li><strong>CANNOT modify:</strong> anything outside <code>src/</code></li>
+  <li><strong>Must not break:</strong> no existing tests (none yet)</li>
+</ul>
+
+<h2>Acceptance Criteria</h2>
+<table>
+  <tr><th>ID</th><th>Criterion</th><th>Runnable verification</th><th>Status</th></tr>
+  <tr><td>AC1</td><td>add(a, b) returns a + b</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td><td>pending</td></tr>
+  <tr><td>AC2</td><td>subtract(a, b) returns a - b</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td><td>pending</td></tr>
+  <tr><td>AC3</td><td>multiply(a, b) returns a * b</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td><td>pending</td></tr>
+  <tr><td>AC4</td><td>divide(a, b) returns a / b; raises ZeroDivisionError when b is 0</td><td><code>python3 -m pytest src/ -q 2&gt;&amp;1 | grep -q 'passed'</code></td><td>pending</td></tr>
+  <tr><td>AC5</td><td>Numpad calculator UI loads at http://localhost:5000 — page title contains "Calculator", digit buttons 0–9 and operators are present</td><td><code>curl -s http://localhost:5000 | grep -q 'Calculator'</code></td><td>pending</td></tr>
+  <tr><td>AC6</td><td>Clicking digit and operator buttons via the UI computes the correct result (7 + 3 = 10)</td><td><code>curl -s http://localhost:5000 | grep -q 'Calculator'</code></td><td>pending</td></tr>
+  <tr><td>AC7</td><td>Divide-by-zero via the UI shows an error message in the display rather than crashing</td><td><code>curl -s http://localhost:5000 | grep -q 'Calculator'</code></td><td>pending</td></tr>
+</table>
+
+<h2>Metric</h2>
+<ul>
+  <li><strong>Primary metric:</strong> all_operations_pass (baseline: 0 tests → target: 4 operations + web UI pass, increase)</li>
+  <li><strong>Why the user will notice:</strong> All arithmetic operations have a single, tested, importable home with a usable web interface.</li>
+</ul>
+
+<h2>Out of Scope</h2>
+<ul>
+  <li>Floating-point precision beyond Python defaults.</li>
+  <li>Complex numbers, modular arithmetic, or any operation beyond the four basic ones.</li>
+  <li>REPL or CLI wrapper.</li>
+</ul>
+
+<div class="human">
+  <strong>Human approval.</strong> This spec was produced by the grill interview and approved in
+  conversation. On the explicit yes, the grill skill sets
+  <code>&lt;meta name="tiger-status" content="approved"&gt;</code> in this file's head, updates the
+  status chip above, fills <em>approved by</em>, and commits this artifact set. Until then the
+  pipeline will not build.
+</div>
+
+<p class="note"><strong>Reading this later?</strong> Inputs to: architect, code generator,
+security, reviewer, e2e. Siblings: <a href="adr.html">adr.html</a>,
+<a href="e2e_testcases.robot">e2e_testcases.robot</a>, <a href="business.html">business.html</a>.</p>
+</body>
+</html>

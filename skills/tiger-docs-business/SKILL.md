@@ -3,7 +3,7 @@ name: tiger-docs-business
 description: Focused writer for business.html in BOTH modes — (per-feature) authors tiger/features/<id>/business.html as grill's Cagan/SVPG one-pager (Value Proposition + Target Market + Metrics always answered, rest N/A for internal features); (global-merge) folds it into the CUMULATIVE project tiger/business.html, a catalog keyed by feature id that keeps every shipped feature recorded so the one doc knows the whole product. Metric = the spec's single success metric. Never approves, never closes the board. Load under grill (per-feature) / tiger-update-docs (global-merge), or invoke directly to author or merge a business one-pager.
 ---
 
-# TIGER Docs — Business Writer
+# Tiger Docs — Business Writer
 
 I write `business.html` in one of two modes. Grill loads me for the per-feature one-pager; tiger-update-docs loads me to fold it into the cumulative product overview. I never interview, approve, plan, or code.
 

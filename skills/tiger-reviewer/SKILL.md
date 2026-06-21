@@ -2,10 +2,10 @@
 name: tiger-reviewer
 description: Standalone code-quality gate, human-invoked on demand — NOT part of the automated v2 workflow (e2e is the single in-loop gate). Runs the project's test suite as a real process, audits the diff across seven dimensions, validates each finding, records a pass/changes/blocked verdict as refs/notes/review. Use when the user asks for a code review, "review this diff/branch/commit/MR/PR", "check test quality", or "audit this commit".
 context: fork
-agent: tiger-development-kit:tiger-reviewer
+agent: tiger-skills:tiger-reviewer
 ---
 
-# TIGER Reviewer — Code-Quality Gate
+# Tiger Reviewer — Code-Quality Gate
 
 Standalone, human-invoked code review. Runs the suite, audits a commit/diff across seven dimensions, writes the verdict to `refs/notes/review`. **Not in the v2 automated workflow** — e2e is the single automated gate; this skill is human-on-demand only.
 
@@ -74,7 +74,7 @@ grill → architect → code-generator → **[human invokes tiger-reviewer stand
 
 ## Standalone use
 
-Invoke by intent ("review this commit/branch/MR"). Supply: project dir, target, optional spec path. Forks into the `tiger-development-kit:tiger-reviewer` subagent. Runs the full pipeline including the real suite run. Without a spec, all passes run except the business-logic audit (state this plainly). Still ends with `TIGER_REVIEW:` token.
+Invoke by intent ("review this commit/branch/MR"). Supply: project dir, target, optional spec path. Forks into the `tiger-skills:tiger-reviewer` subagent. Runs the full pipeline including the real suite run. Without a spec, all passes run except the business-logic audit (state this plainly). Still ends with `TIGER_REVIEW:` token.
 
 ## References
 

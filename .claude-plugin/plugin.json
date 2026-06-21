@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Harness engineering (outer loop) + Code quality (inner loop): a lean, linear single-feature pipeline — grill the spec, architect plans where the code goes, generator builds in a git worktree (branched from dev), reviewer + security, an executor that owns the integration E2E, then a fast-forward merge to dev (main stays protected) and a cartographer keeping CODEBASE_MAP.md current. 6 agents, 19 skills, a deterministic git-committed Workflow. Skills are independent units; agents are a bundle of skills. Based on walkinglabs learn-harness-engineering course.",
-  "version": "5.0.2",
+  "description": "Harness engineering (outer loop) + Code quality (inner loop): a lean, linear single-feature pipeline — grill the spec, architect plans where the code goes, generator builds in a git worktree (branched from dev), reviewer + security, an executor that owns the integration E2E, then a fast-forward merge to dev (main stays protected) and a cartographer keeping CODEBASE_MAP.md current. 6 agents, 15 skills, a deterministic git-committed Workflow. Skills are independent units; agents are a bundle of skills. Based on walkinglabs learn-tiger-grill course.",
+  "version": "5.1.0",
   "author": {
     "name": "arkadaz"
   },
@@ -9,8 +9,8 @@
   "repository": "https://github.com/arkadaz/tiger-skills",
   "license": "MIT",
   "keywords": [
-    "harness-engineering",
-    "code-quality",
+    "tiger-grill",
+    "tiger-code-quality",
     "skills",
     "agents",
     "subagent-workflow",
@@ -22,7 +22,7 @@
     "diagnostic-loop",
     "code-review",
     "correctness-review",
-    "security-review",
+    "tiger-security",
     "e2e-testing",
     "tdd",
     "python",
@@ -31,25 +31,21 @@
   ],
   "autoDiscovery": {
     "skills": [
-      "skills/harness-engineering/",
-      "skills/harness-engineering-grill/",
-      "skills/harness-engineering-bootstrap/",
-      "skills/harness-engineering-session/",
-      "skills/harness-engineering-feature/",
-      "skills/harness-engineering-verify/",
-      "skills/harness-engineering-diagnose/",
-      "skills/code-quality/",
-      "skills/code-quality-language/",
-      "skills/code-quality-review/",
-      "skills/code-quality-audit/",
-      "skills/code-correctness-review/",
-      "skills/security-review/",
-      "skills/e2e-authoring/",
-      "skills/doc-spec/",
-      "skills/doc-adr/",
-      "skills/doc-e2e-cases/",
-      "skills/doc-business/",
-      "skills/doc-release/"
+      "skills/tiger-grill/",
+      "skills/tiger-architect/",
+      "skills/tiger-code-generator/",
+      "skills/tiger-code-quality/",
+      "skills/tiger-e2e/",
+      "skills/tiger-security/",
+      "skills/tiger-reviewer/",
+      "skills/tiger-update-docs/",
+      "skills/tiger-docs-spec/",
+      "skills/tiger-docs-adr/",
+      "skills/tiger-docs-business/",
+      "skills/tiger-docs-e2e/",
+      "skills/tiger-docs-codemap/",
+      "skills/tiger-docs-release/",
+      "skills/tiger-docs-readme/"
     ],
     "agents": [
       "agents/"

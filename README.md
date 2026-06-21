@@ -1,278 +1,209 @@
-# tiger-skills
+# Tiger Development Kit
 
-Two Claude Code skill systems that work together — **harness-engineering** (outer loop) builds the engineering infrastructure around AI coding agents, and **code-quality** (inner loop) enforces design principles on every line, in any language. **19 skills, 6 agents, 8 hooks, 2 commands, and a deterministic linear workflow** — one plugin. The flow is simple and linear, **one feature at a time**: grill the spec → architect plans where the code goes → generator builds in a git **worktree** branched from `dev` → reviewer + security → e2e (an integration test, run *in the worktree*) → fast-forward merge the green branch to `dev` (**`main` stays protected**) → update docs. **Skills are independent units; agents are a bundle of skills.** A **cartographer** keeps `CODEBASE_MAP.md` — Mermaid code-flow maps with function chains and inputs/outputs — current after every feature, so agents read a verified map instead of re-exploring.
+Tiger grill-first harness engineering plugin. Seven inspectable, directly-invokable skills — and an optional workflow that runs them all in order. One approved spec, files and git as the only bridge, and every handoff is an HTML artifact you can open in a browser to see exactly what the AI planned and did.
 
-Based on [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) by walkinglabs and *Software Design for Python Programmers* by Ronald Mak.
+Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
-## How It Works
+---
 
-The conductor runs a **Gate Sequence** on every request — mechanical, not advisory, one feature at a time:
+## What It Is
 
-```
-GATE 0 bootstrap → GATE 1 SPEC GATE (no spec → grill first) → clock in → SCOPE (WIP=1) →
-ARCHITECT (plan where the code goes) → GENERATE (worktree branched from dev: code + unit tests) →
-REVIEW + SECURITY → E2E (integration test, in the worktree)
-        └─ any not-pass loops back to the generator (fix in the worktree), up to 5 tries ─┘
-→ fast-forward merge the green branch to dev (main stays protected) → UPDATE DOCS → clock out
-```
+A Claude Code plugin that gives you seven development stages as **pure skills** you invoke directly — grill, architect, code generator, security, reviewer, e2e, update-docs — plus a deterministic **workflow** (`tiger-workflow-dev`) that chains them into a full feature build when you want the whole thing automated. Use one skill on its own (e.g. just a security review of a branch), or run the workflow end to end.
 
-**The outer loop** (harness-engineering) grills out a spec before building, keeps the plan in the repo, stays in scope, verifies before claiming completion, and leaves a clean state. **The inner loop** (code-quality) enforces 16 design principles and language-specific rules on every line — and every agent must prove it invoked its required skill.
+**Why inspectable artifacts.** Every stage's output is a human-openable file under `tiger/`: self-contained HTML for the spec, ADRs, business one-pager, codemap, and release notes; and a Robot Framework suite (`e2e_testcases.robot`) for the e2e cases — plain Given/When/Then a human reads in seconds, with Playwright behind the scenes and Robot's generated `report.html` as the run evidence. You audit the AI's plan and work by opening files, not by scrolling a transcript.
 
-## How to Use
+Document authoring is factored into focused **`tiger-docs-*` writer skills** (spec, adr, business, e2e, codemap, release, readme) — loadable references (no extra agents) that grill and update-docs load to write each artifact.
 
-### Just Talk to Claude — the Skills Activate Automatically
+## Quickstart
 
-You don't need to remember skill names. Just describe what you want, and the right skill activates:
+From zero to a running build in a few steps (0–4). Steps 0–2 are one-time setup.
 
-| You say... | Skill that activates |
-|------------|---------------------|
-| "I want to add X" / "can we build…" / a feature idea | `harness-engineering-grill` (Spec Gate — interviews you, writes a spec, waits for approval) |
-| "Set up this project for AI agents" | `harness-engineering-bootstrap` |
-| "What are we working on?" / "Start a session" | `harness-engineering-session` |
-| "Let's work on feature X" | `harness-engineering-feature` |
-| "Is this done?" / "Verify my changes" | `harness-engineering-verify` |
-| "Review my code" | `code-quality-review` (quality) + `code-correctness-review` (behavior) |
-| "Why did this fail?" / "The agent keeps messing up" | `harness-engineering-diagnose` |
-| "Improve this code" / "Make this cleaner" | `code-quality` (router, delegates to sub-skills) |
-| "Audit this for design violations" | `code-quality-audit` |
-| "Fix these violations" | `code-quality` (apply the fix patterns inline) |
-| "Write/review code in any language" (Python, Rust, TS, Go, Java, C#, …) | `code-quality-language` (infers the language's idioms) |
+### 0. Enable dynamic workflows (one-time, required for the full build)
 
-### The Full Workflow
+The end-to-end build ships as a **dynamic workflow** — a script Claude Code runs as the `/tiger-workflow-dev` slash command. Claude Code only runs dynamic workflows when the feature is turned on:
 
-**Grill (Spec Gate):** Describe a feature and Claude interviews you relentlessly — problem, behavior, edge/error cases, data model, NFRs, rollout, observability, acceptance — one question at a time, then writes the feature's docs (`specs.md`, `adr.md`, `e2e_testcases.md`, `business.html`) plus a `feature_list.json` entry, and waits for your approval. The `spec-gate` hook makes it mechanical — no code without an approved spec. Bug fixes and one-line edits skip it.
+- **Claude Code ≥ v2.1.154** — check with `claude --version`; update if older.
+- **Dynamic workflows enabled.** On **Pro**, turn on the *Dynamic workflows* row in `/config`. On **Max / Team / Enterprise**, with **Anthropic API** access, or on **Bedrock / Vertex AI / Foundry**, it's on by default. (It can be force-disabled by `"disableWorkflows": true` in settings, `CLAUDE_CODE_DISABLE_WORKFLOWS=1`, or managed org settings — if `/tiger-workflow-dev` never shows up, check those.)
 
-**Plan:** The `code-architect` reads `CODEBASE_MAP.md` + the docs and plans **where the code goes** and which patterns to follow (there's no separate planner — the architect plans).
+> You can use every individual skill (grill, architect, e2e, …) **without** this — only the one-command full build needs the workflow feature.
 
-**Build (in a worktree):** The `generator` creates a git worktree branched from `dev`, writes the feature + unit tests there with simple, readable code, and commits. `main` stays untouched.
-
-**Validate (in the worktree):** `reviewer` (quality **and** correctness — proves every acceptance criterion has a real test) and `security-reviewer` (when triggered) audit the code; then the `executor` authors the E2E and runs the **full** suite (static → unit → E2E). Because the worktree holds all of `dev` + the feature, the e2e there is a real integration test. Any not-pass loops back to the generator to fix **in the worktree** — up to 5 tries.
-
-**Ship:** Once everything is green, the branch is **fast-forwarded onto `dev`** (trivial — `dev` hasn't moved, so there's nothing to re-test). **`main` stays protected**; promoting `dev → main` is a separate release step.
-
-**Update docs:** The `cartographer` refreshes `CODEBASE_MAP.md`, flips the feature to `passing` in `feature_list.json` + `progress.md`, and writes `release_docs.html` + refreshes `business.html`.
-
-### Slash Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/tiger-skills:review-branch` | Review the current branch — runs verification pipeline, spawns code quality review, checks spec compliance, produces a report |
-| `/tiger-skills:install-workflow` | Copy the bundled deterministic Workflow into this project's `.claude/workflows/` so the team gets it on clone |
-
-### Deterministic Workflow — run the pipeline the same way every time
-
-The conductor's mechanical part also ships as a **deterministic, git-committed Claude Code Workflow** — a JS script that runs the linear flow the same way every run, instead of the conductor re-improvising. You review it once in a PR and trust it forever.
-
-```
-read backlog → for each approved feature (one at a time):
-   architect (plan) → generator (worktree branched from dev: code + unit tests)
-   → reviewer + security → e2e + full suite (all IN THE WORKTREE)
-        └─ any not-pass → generator fixes in the worktree → re-validate (≤5 tries) ─┘
-   → fast-forward merge the green branch to dev (main stays protected) → update docs
-```
-
-**`main` stays protected, by construction:** each feature builds in its own git worktree branched from `dev`; the worktree holds all of `dev` + the feature, so the e2e there is a real integration test; you only ever fast-forward an *already-green* branch onto an unchanged `dev` — nothing to re-test, nothing left broken. Promoting `dev → main` is a separate release step.
-
-**Boundary:** the human gates stay interactive — bootstrap, grill, and **spec approval** happen in conversation first; the workflow runs only *already-approved* features. The mechanical part is deterministic; the judgment part stays with you.
-
-**Use it:**
-
-1. **Install it into a project (once):** run `/tiger-skills:install-workflow`, then commit `.claude/workflows/tiger-pipeline.js` so teammates get it on clone.
-2. **Finish the human gates in chat:** bootstrap, grill, **approve the spec(s)**.
-3. **Run it by its own name:** `/tiger-pipeline` with `args` — `projectDir`, `today`, and optionally `integrationBranch` (default `dev`), `featureIds`, `proModel`/`fastModel`. It reads `feature_list.json` itself, so you don't pass per-feature details. A saved workflow becomes its own slash command — **`/workflows` (no name) only lists and watches runs, it does not launch one.** Launched **bare**, it aborts softly with `howToLaunch` usage before any agent spawns. See [`workflows/README.md`](workflows/README.md) for the full table.
-4. **Watch live** with `/workflows` — `p` pause, `x` stop an agent, `r` restart, `s` save.
-
-> **Prerequisites:** Claude Code ≥ 2.1.154 with dynamic workflows enabled, and the `tiger-skills` plugin installed (the workflow spawns its agents). The Workflow runtime is a research-preview API — dry-run on a small approved feature before making it a team default. Full guide: [`workflows/README.md`](workflows/README.md).
->
-> **Non-Anthropic backend and every subagent dies with a thinking/effort `400`?** That's a Claude Code runtime param conflict, not a plugin bug — v4.10.7 bundles a repair proxy (`tools/anthropic-compat-proxy.js`) with a step-by-step launch guide: [`workflows/README.md` → Troubleshooting](workflows/README.md#troubleshooting-non-anthropic-backends).
-
-### Example Prompts
-
-```
-"Set up harness files for this project"
-→ Creates AGENTS.md, feature_list.json, progress.md, init.sh
-
-"Make this code better"
-→ Invokes code-quality: reviews against all 16 principles
-
-"Why does Claude keep re-implementing features we already have?"
-→ harness-engineering-diagnose attributes to State layer, fixes progress.md
-
-"Review my PR before I merge"
-→ Runs verification pipeline + independent code quality review
-
-"I'm done for today"
-→ Clock-out: updates all state files, runs exit checklist
-```
-
-## Project Structure
-
-```
-tiger-skills/
-├── skills/
-│   ├── harness-engineering/            — Conductor + 6 references (walkinglabs 5-subsystem model)
-│   ├── harness-engineering-bootstrap/  — Create AGENTS.md, feature_list.json, progress.md, init.sh
-│   ├── harness-engineering-session/    — Clock-in/clock-out discipline
-│   ├── harness-engineering-feature/    — Feature lifecycle, WIP=1, state machine
-│   ├── harness-engineering-verify/     — Layered verification, evidence before claims
-│   ├── harness-engineering-diagnose/   — Five-layer failure attribution
-│   ├── code-quality/                   — Router: 16 principles, 13 patterns (language-agnostic)
-│   ├── code-quality-language/          — Universal tooling rules; infers any language (Python/Rust = examples)
-│   ├── code-quality-review/            — Independent code quality review agent (27 items)
-│   ├── code-quality-audit/             — Design principle audit with ranked report
-│   ├── code-correctness-review/        — Adversarial correctness review (trace flow, prove each AC with a test)
-│   ├── security-review/                — Trigger-based security review (injection, authz, secrets, crypto, deps)
-│   ├── e2e-authoring/                  — Author the user-flow E2E (Playwright) after the feature is built
-│   ├── doc-spec, doc-adr, doc-e2e-cases — per-document format skills (.md, for agents)
-│   ├── doc-business, doc-release       — per-document format skills (.html, for the human)
-├── agents/                             — 6 sub-agents (code-architect, generator, reviewer, security-reviewer, executor, cartographer)
-├── hooks/                               — 8 event-driven hook files
-├── commands/                           — Slash commands (review-branch, install-workflow)
-├── workflows/                          — Deterministic Workflow (tiger-pipeline.js) + README — copy to .claude/workflows/
-├── .claude-plugin/                     — Plugin manifest + marketplace config
-├── init.sh                             — Verification (6 layers)
-├── AGENTS.md                           — Agent operating manual
-├── progress.md                         — Session log + known issues
-├── feature_list.json                   — Machine-readable feature state
-└── README.md
-```
-
-## The Five Subsystems (walkinglabs)
-
-Every complete harness has five subsystems:
-
-| Subsystem | Question It Answers | Minimal Artifact |
-|-----------|-------------------|------------------|
-| **Instructions** | What should the agent know? | `AGENTS.md` |
-| **Environment** | Can the agent run and verify? | `init.sh` |
-| **State** | What happened last session? | `progress.md`, `feature_list.json` |
-| **Scope** | What exactly to work on? | Feature boundaries + definition of done |
-| **Verification** | How to know it's correct? | `./init.sh` verification pipeline |
-
-## Skills Reference
-
-### Harness Engineering (Outer Loop)
-
-| Skill | When to Use |
-|-------|------------|
-| `harness-engineering` | **Conductor** — orchestrates the full agent workflow. Start here for any task. |
-| `harness-engineering-bootstrap` | Creating AGENTS.md, feature_list.json, progress.md, init.sh from scratch |
-| `harness-engineering-session` | Clock-in (read state) or clock-out (update state, 8-item exit checklist) |
-| `harness-engineering-feature` | Feature lifecycle — pick one feature, WIP=1, definition of done |
-| `harness-engineering-verify` | Evidence before claims — 3-layer pipeline (static → unit → E2E) |
-| `harness-engineering-diagnose` | Attribute failure to 1 of 5 layers, fix the harness, retry |
-| `e2e-authoring` | Author the user-flow E2E (Playwright) after the feature is built — real entry point, one asserting flow per acceptance criterion |
-
-### Code Quality (Inner Loop)
-
-| Skill | When to Use |
-|-------|------------|
-| `code-quality` | **Router** — load principles here, route to sub-skills for specific tasks |
-| `code-quality-language` | Universal tooling rules for **any** language — infers its idioms (Python/Rust are worked examples) |
-| `code-quality-review` | Independent review against 16 principles + 11 tooling rules (27 items) |
-| `code-quality-audit` | Full design principle audit with ranked violation report |
-| `code-correctness-review` | Adversarial behavior review — trace flow, enumerate edge cases, hunt logic bugs, prove every acceptance criterion with a real test (unit + E2E) |
-| `security-review` | Trigger-based security audit — injection, authz, secrets, crypto, deserialization, deps, DoS |
-
-### Documents (one skill per doc type — the format authority + a readability gate)
-
-| Skill | Doc it owns |
-|-------|------------|
-| `doc-spec` | `specs.md` — the feature contract (`.md`, agent-facing) |
-| `doc-adr` | `adr.md` — architecture decisions, Michael Nygard format (`.md`) |
-| `doc-e2e-cases` | `e2e_testcases.md` — Given/When/Then, one case per acceptance criterion (`.md`) |
-| `doc-business` | `business.html` — the business case (`.html`, for you) |
-| `doc-release` | `release_docs.html` — the user-facing changelog (`.html`, for you) |
-
-## 16 Design Principles
-
-| # | Principle | # | Principle |
-|---|-----------|---|-----------|
-| 1 | Single Responsibility | 9 | Least Astonishment |
-| 2 | Encapsulate What Varies | 10 | Lazy Evaluation |
-| 3 | Least Knowledge (Law of Demeter) | 11 | Class Invariant |
-| 4 | Don't Repeat Yourself (DRY) | 12 | Precondition |
-| 5 | Open-Closed | 13 | Postcondition |
-| 6 | Code to the Interface | 14 | Delegation |
-| 7 | Liskov Substitution | 15 | Factory |
-| 8 | Composition over Inheritance | 16 | Defensive Programming |
-
-## Hard Constraints (Non-Negotiable)
-
-1. **Explore before code** — read existing files, discover types/functions/patterns BEFORE writing
-2. **Check the harness first** — when the model fails, the problem is in the harness
-3. **Evidence before claims** — never say "done" without fresh verification output
-4. **WIP = 1** — exactly one feature active at a time
-5. **No placeholders** — `pass`, `TODO`, `NotImplementedError` forbidden in committed code
-6. **Leave a clean state** — every session ends with the repo restartable from `./init.sh`
-7. **Separate doer from checker** — the generator never writes its own E2E or judges its own work; the `executor` authors the E2E, and an independent `reviewer` (quality + correctness) + `security-reviewer` audit it — none of them wrote the code. **Skills are independent units; agents are a bundle of skills.**
-8. **Verify behavior, not just structure** — user-facing features ship an E2E test of the real workflow; the full suite runs (no fail-fast) to catch regressions; every fix adds a failing-first regression test
-
-## Hooks
-
-8 event-driven hooks enforce the harness gates mechanically:
-
-| Event | What It Does |
-|-------|-------------|
-| `UserPromptSubmit` | **Spec gate** — build request + no approved spec → invoke `grill` first |
-| `SessionStart` | Clock-in reminder — read state files, run `./init.sh` |
-| `PreToolUse` (Write/Edit) | Bootstrap gate — warn if harness files don't exist |
-| `PreToolUse` (Write/Edit) | Explore-before-code — remind to discover types first |
-| `PreToolUse` (Agent) | **Pre-agent-spawn gate** — confirm spec + ledger + WIP=1 before spawning the pipeline |
-| `PreToolUse` (git commit) | Pre-commit check — confirm verification ran |
-| `PreToolUse` (git push) | Pre-push check — confirm state files updated |
-| `Stop` | Clock-out reminder — 8-item exit checklist |
-
-## Agents
-
-6 sub-agents, run **one at a time** in the linear flow. **Skills are independent units; each agent is a bundle of the skills it needs.**
-
-```
-architect → generator (worktree) → reviewer + security → e2e → fast-forward merge → cartographer (update docs)
-                ▲________ any not-pass: back to the generator (fix IN THE WORKTREE, ≤5 tries) ________|
-```
-
-| Agent | Model | Role | Skills it bundles | Proof line |
-|-------|-------|------|-------------------|------------|
-| `code-architect` | opus | Plan where the code goes (the planning step — no separate planner) | `code-quality-audit` | `code-quality-audit invoked: YES` |
-| `generator` | sonnet | Build the feature + unit tests in a git worktree; run the fix loop | `code-quality-language`, `code-quality` | `code-quality-language invoked: YES` |
-| `reviewer` | opus | Quality **and** correctness in one pass — prove every AC has a real test | `code-quality-review`, `code-correctness-review` | `code-quality-review invoked: YES` |
-| `security-reviewer` | opus | Security audit when a trigger fires (auth, input, secrets, crypto, deps, …) | `security-review` | `security-review invoked: YES` |
-| `executor` | opus | Own the E2E: author it + run static → full unit → E2E in the worktree | `e2e-authoring`, `harness-engineering-verify` | `harness-engineering-verify invoked: YES` |
-| `cartographer` | opus | Update-docs: refresh `CODEBASE_MAP.md` + write state + release/business html | `doc-release`, `doc-business` | `codebase-map updated: YES` |
-
-**Proof of invocation:** every agent must begin its report with its proof line. The conductor rejects a handoff without one and re-spawns the agent — this is what stops an agent from skipping its required skill (e.g. the architect actually running the design audit instead of eyeballing it).
-
-## Install
-
-### From marketplace
+### 1. Install the plugin into your project
 
 ```bash
-claude plugin marketplace add https://github.com/arkadaz/tiger-skills.git
-claude plugin install tiger-skills@arkadaz
+# in your target project
+claude plugin marketplace add --scope project https://gitlab.github.com/arkadaz/tiger-skills
+claude plugin install --scope project tiger-skills@tiger-skills
 ```
 
-### Manual
+> Your project should be a **git repository** — run `git init` first if it isn't (the kit is trunk-based on `main`; `/install` and the build need git). The explicit `name@marketplace` form avoids ambiguity if you have more than one marketplace added.
+
+### 2. Set the project up (inside Claude Code)
+
+```text
+/tiger-skills:install
+```
+
+`/install` is idempotent and never builds. It copies the workflow into `.claude/workflows/tiger-workflow-dev.js` (which **registers the `/tiger-workflow-dev` slash command** for this project), installs + verifies the rm guard, copies the artifact templates, seeds an empty board, `progress.md`, and a born `main` trunk, and **scaffolds `init.sh`** — the verification entrypoint the pipeline runs as the green-cycle gate. It detects your test command (`npm test` / `cargo test` / `go test` / `pytest` / `make test`) and writes a runnable `init.sh`; if it can't detect one, it writes a fail-closed stub for you to fill in (so no build ever runs on an unverified gate). An existing `init.sh` is kept untouched. It prints a status table and stops.
+
+> **Smooth-setup check:** after install, type `/` — `tiger-workflow-dev` should appear in autocomplete. If it doesn't: (a) your Claude Code is older than v2.1.154, (b) dynamic workflows are disabled (step 0), or (c) the session hasn't picked up the new file yet — start a fresh session. A project workflow wins over a personal one of the same name.
+
+### 3. Grill and approve a feature
+
+Tell Claude what you want — "grill: add CSV export to the orders page". The `tiger-grill` skill interviews you one question at a time and writes four artifacts under `tiger/features/<id>/`. Review them and approve the set (the one human gate).
+
+### 4. Run the build
+
+```text
+/tiger-workflow-dev
+```
+
+**No args** — it auto-discovers the approved in-progress feature from `feature_list.json`. Claude Code asks once to allow the workflow (choose **Yes**, or *Yes, and don't ask again*). Watch progress with `/workflows`; re-run the same command to resume (completed stages return cached results within the session).
+
+---
+
+**Developing this plugin** (you have this repo cloned). Validate the source tree before you commit:
 
 ```bash
-git clone https://github.com/arkadaz/tiger-skills.git
-# Plugin auto-discovers skills/, agents/, commands/, hooks/ from .claude-plugin/plugin.json
+./init.sh   # runs scripts/validate-plugin.sh
 ```
 
-### Verification
+## Two ways to work
 
+Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
+
+**1. Pick one skill.** Each stage is a skill you invoke by intent — "grill this feature", "security-review this branch", "update the codemap". The read-only gates (security, reviewer, e2e) need no grill or approval; just point them at a branch or a test file. `tiger-security` and `tiger-reviewer` are **standalone, human-invoked** skills — run them on demand against a branch; they are not part of the automatic build loop. Each skill writes only what it owns.
+
+**2. Run the whole pipeline.** Once a feature is grilled and approved, run the workflow with **no args** — it auto-discovers the approved in-progress feature from `feature_list.json` and resolves today's date and the `main` trunk, then drives every stage in order:
+
+```text
+/tiger-workflow-dev
+```
+
+Re-run it to resume — still no args needed. (Optional overrides only if you need them: `featureId`, `specFile`, `projectDir`, `today`, `proModel`, `fastModel`.)
+
+The build walks this loop. The only two steps where you act are **grill** and **approve**:
+
+| # | Step | Who runs it | You do |
+|---|---|---|---|
+| 1 | **Grill** | the `tiger-grill` skill, one question at a time | Answer each question (a recommended answer is offered) until business rules, edge cases, and acceptance criteria are closed |
+| 2 | **Approve** | you | Review all four artifacts in `tiger/features/<id>/` — `spec.html`, `adr.html`, `business.html`, `e2e_testcases.robot` (the build uses all of them) — then approve the set via the explicit question, or send changes |
+| 3 | Architect | architect agent | nothing; reads grill's board entry, adds the plan (scope + tasks) + codemap, keeps `phase: plan` |
+| 4 | Build | code generator(s) | nothing; per dependency wave — independent file-disjoint tasks built in parallel in isolated worktrees, then integrated onto `feature/<id>` (one semantic commit per task); reuses before it builds (YAGNI → repo utility → stdlib → platform → existing dep → minimal new code) |
+| 5 | Gate | e2e | nothing; the single quality gate, runs once after all waves are integrated — triages every defect by priority: HIGH/MEDIUM block (priority-ordered fix list back to the generator), LOW logged as a known issue; pass = zero HIGH + zero MEDIUM, all tasks done |
+| 6 | Document | update-docs | nothing; refreshes the HTML docs + the project README (loading the `tiger-docs-*` writers), opens the MR |
+| ✓ | Pass | system | `phase: passing`, MR ready to review and merge |
+| ✕ | Block | system | after 3 no-progress rounds, `phase: blocked` + a fix list; read it, decide next step |
+
+**Nothing builds until you approve.** That is the gate that matters.
+
+**Resume after a break.** State lives in git:
 ```bash
-./init.sh
-# Expected: all checks pass (0 failed)
+git log --oneline                 # how far the build got
+git notes --ref=e2e show <commit> # the e2e gate's verdict (the automatic loop writes only refs/notes/e2e;
+                                  # refs/notes/security and refs/notes/review exist only if you ran a standalone gate)
+# feature_list.json "phase": plan | build | validate | blocked | passing
+```
+Re-run `/tiger-workflow-dev` (no args); it reads the phase pointer and continues.
+
+**Can't-skip rules:** grill before building · human approval before code · one feature `in_progress` at a time (WIP=1) · rm guard installed · the workflow installed.
+
+## File Layout
+
+```
+.claude-plugin/plugin.json      Plugin manifest (15 skills: 7 stages + code-quality + 7 tiger-docs-* writers, 1 command, hooks)
+.claude-plugin/marketplace.json Marketplace manifest
+agents/                         6 stage subagents — 4 spawned by the workflow (architect, code-generator, e2e, update-docs); security + reviewer are standalone-only (run on demand)
+├── tiger-architect.md          Opus: enriches grill's board entry → blueprint + plan (scope/tasks) + codemap
+├── tiger-code-generator.md     Sonnet: TDD, one commit per cycle
+├── tiger-security.md           Opus: vuln + secrets audit, --ref=security note
+├── tiger-reviewer.md           Opus: code/test quality audit, --ref=review note
+├── tiger-e2e.md                Opus: writes e2e_keywords.resource (robot/Playwright), runs robot, --ref=e2e note, board phase
+└── tiger-update-docs.md        Opus: docs + README refresh (loads tiger-docs-* skills), board close-out, MR
+workflows/
+└── tiger-workflow-dev.js       The deterministic spine (becomes /tiger-workflow-dev when installed)
+skills/dev/                     The 7 stage skills + reference skills (each invoked directly, or loaded/spawned)
+├── tiger-grill/                Inline interview → 3 HTML artifacts + a robot e2e suite + approval (NOT a subagent)
+├── tiger-{architect,code-generator,security,reviewer,e2e,update-docs}/
+├── tiger-docs-{spec,adr,business,e2e,codemap,release,readme}/  7 focused doc-writer reference skills (no owned agents)
+└── tiger-code-quality/         Independent reference skill: the 16 design principles (loaded by architect/code-gen/reviewer)
+templates/                      Starting-point files for a project + a reference:
+├── {spec,adr,business,codemap,release_docs}.html  5 HTML artifact templates → tiger/templates/
+├── e2e_testcases.robot / e2e_keywords.resource    Robot Framework e2e CASES (grill) + IMPLEMENTATIONS (e2e gate)
+└── feature_list.json           A fully-worked schema-v2 board (tasks + a cross-feature dependency) — the REFERENCE shape only; `/install` seeds an EMPTY board inline and never copies this file
+commands/
+└── install.md                  Copies workflow/guard/templates; verifies harness state
+hooks/                          Real Claude Code hook wiring (NOT markdown; markdown never fires)
+├── hooks.json                  SessionStart wiring, auto-discovered
+└── tiger-session-start.sh      Injects the grill-first contract, only inside Tiger projects
+docs/                           All documentation lives here
+├── README.md                   Index of what's in docs/
+├── dev-loop-v2.md                       The CURRENT design diagram (the v2 pipeline) — source of truth for the shape
+├── dev-architect.md            The prior design diagram (historical; superseded by dev-loop-v2.md)
+├── tiger-cheatsheet.md         One-page operator cheat sheet
+├── tiger-git-best-practice.md  Git handoff conventions (namespaced notes, rebase flow)
+├── tiger-unit-test-best-practice.md  TDD and testing standards
+├── PULL_REQUEST_TEMPLATE.md    MR template the update-docs stage opens with
+├── decisions/                  Architecture decision records (ADRs)
+├── specs/                      This kit's own development specs (e.g. the rebuild spec)
+└── internal/                   Build history (not part of the installed plugin)
+project-hooks/tiger-block-rm.sh rm guard script (copied into target projects)
+scripts/
+├── validate-plugin.sh          Plugin validation (invoked by init.sh)
+└── validate-board.py           Board-invariant checker for feature_list.json
+init.sh                         Standard startup + validation
+CLAUDE.md                       Full agent operating manual
+README.md                       This file
 ```
 
-## Update
+Root holds only the conventional entry-point files (`CLAUDE.md`, `README.md`, `init.sh`) plus the plugin's component and asset directories — everything documentation-shaped lives under `docs/`.
 
-```bash
-cd tiger-skills && git pull
-# Claude Code reloads skills automatically on restart
+### What lives in the plugin vs. what's created in your project
+
+The plugin ships **templates and logic**, not runtime state. The board, the logs, and the per-feature artifacts are **per-project runtime files** — they don't exist in this repo; `/install` and the pipeline create them in *your* project:
+
+| Created in your project by… | Path | What it is |
+|---|---|---|
+| `/install` | `feature_list.json` (project root) | An **empty** schema-v2 kanban board so the project starts clean. The plugin's `templates/feature_list.json` is the full-shape **reference** (it has demo features) — never copied verbatim. **grill** then adds the first feature entry. |
+| `/install` | `progress.md` | Append-only human log |
+| `/install` | `.claude/workflows/tiger-workflow-dev.js`, `.claude/hooks/tiger-block-rm.sh`, `tiger/templates/*` | Copies of the plugin's workflow, rm guard, and the artifact templates (HTML + robot e2e) |
+| `grill` | `tiger/features/<id>/{spec,adr,business}.html` + `e2e_testcases.robot` **+ the `feature_list.json` entry** | The approved per-feature artifact set, plus the board entry's WHY/SPECIFY fields |
+| `architect` | `feature_list.json` (PLAN fields) | Adds `scope_map` + `tasks[]` to grill's entry |
+| `update-docs` | `tiger/{codemap,business,release_docs}.html` + `README.md` | The cumulative project docs + the refreshed project README |
+| `e2e` | `tiger/features/<id>/e2e_keywords.resource` + `tiger/features/<id>/evidence/` | The executable robot keyword layer it authors + Robot's run evidence |
+
+## The Pipeline
+
+```
+human ⇄ grill → architect → ( ‖ code generators → integrate ){per wave} → e2e → update docs → MR
 ```
 
-## License
+The build runs the architect's tasks in **dependency waves**: independent, file-disjoint tasks in a wave are built by parallel code-generator subagents, each in its own isolated git worktree, then integrated onto `feature/<id>` by a serial integrator. **e2e is the single quality gate** and runs once after every wave is integrated. A sequential feature degrades to one task per wave. (The in-loop security ∥ reviewer gates were removed for speed; both still exist as standalone skills a human runs on demand.)
 
-MIT
+| Stage | Model | Role |
+|---|---|---|
+| **grill** (inline skill) | Opus | Interviews you one question at a time (digging deep — it asks more, not fewer); writes the four artifacts (3 HTML + the robot e2e suite, each case priority-tagged with you) by loading the `tiger-docs-*` writers; the only human gate |
+| **architect** | Opus | Validates scope vs the codebase, enriches grill's board entry with the plan (scope + tasks + RED-first checks) + codemap; precise per-task `files[]`/`depends_on` drive the parallelism |
+| **code generator** | Sonnet | Thinks hard, then reuses before it builds (YAGNI → repo utility → stdlib → platform → existing dep → minimal new code), never simplifying away quality gates (validation, error handling, security/authz, accessibility, spec behavior); TDD red→green; solo (one commit on `feature/<id>`) or parallel worktree-per-task (commit on a branch) + serial integrator |
+| **e2e** | Opus | The single quality gate, runs once after all waves are integrated: authors `e2e_keywords.resource` (robot/Playwright), runs the `e2e_testcases.robot` suite + acceptance checks as real processes; triages each defect by priority (HIGH/MEDIUM block, LOW logged as a known issue); owns the board phase |
+| **update-docs** | Opus | Refreshes codemap/business/release HTML + the project README (loads the `tiger-docs-*` writers), closes the board to `passing`, opens the MR (never merges) |
+
+Pass = zero HIGH + zero MEDIUM defects, all tasks done. Bounded retry: 3 no-progress rounds → `phase: blocked` + a priority-ordered fix list.
+
+## Slash Commands & Skills
+
+- `/tiger-skills:install` — copy the workflow/guard/templates and verify harness state. The one command.
+- `/tiger-workflow-dev` — the installed workflow that runs the full pipeline (created by `/install`).
+- The seven stages are **skills**, invoked by intent (`tiger-grill`, `tiger-architect`, `tiger-security`, `tiger-reviewer`, `tiger-e2e`, `tiger-update-docs`, `tiger-code-generator`). No conductor, no `/dev` command.
+- `tiger-code-quality` — an independent reference skill (the 16 design principles). Invoke it on its own to review/explain design quality, or it loads as one of the skills the architect, code generator, and reviewer use. Skills are independent; agents compose the set they need.
+- The seven `tiger-docs-*` **writer skills** (`spec`, `adr`, `business`, `e2e`, `codemap`, `release`, `readme`) — focused, loadable references (no owned agents), one per artifact. Grill loads spec/adr/business/e2e to author its set; update-docs loads codemap/business/release/readme at close-out. Invoke one directly too: "refresh the README", "write the robot e2e cases for `<id>`".
+- No create-skill command. For new plugin capabilities, file a feature through the grill gate.
+
+## Reference Docs
+
+- `CLAUDE.md`: full operating manual — the 11 non-negotiables, the feature board contract, the 7-stage pipeline.
+- `docs/tiger-cheatsheet.md`: the one-page operator reference.
+- `docs/dev-architect.md`: the design diagram (pink = stage skills, blue = human, green = HTML artifacts, yellow = notes).
+- `docs/tiger-git-best-practice.md`: branch model, semantic commits, namespaced git notes, rebase flow.
+- `docs/tiger-unit-test-best-practice.md`: TDD protocol, boundary testing, runnable acceptance checks.
+
+Build history (how the kit was made, not needed to use it) lives in `docs/internal/`.

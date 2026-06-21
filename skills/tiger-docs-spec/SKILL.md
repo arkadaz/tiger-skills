@@ -3,7 +3,7 @@ name: tiger-docs-spec
 description: Focused writer that authors ONE feature's spec.html from a closed grill ledger — problem statement, objective/JTBD, user context, functional requirements, happy path, business rules (each with a runnable verification), errors/edge cases, CAN/CANNOT constraints, acceptance criteria, metric, out-of-scope — instantiating tiger/templates/spec.html into tiger/features/<id>/spec.html with the anchored <meta name="tiger-status" content="awaiting_review"> token. NEVER flips the approval token — only the human, via grill, may approve. A self-contained reference skill; invoke it directly or load it as one of grill's skills to write the spec.
 ---
 
-# TIGER Docs — Spec Writer
+# Tiger Docs — Spec Writer
 
 Writes exactly one artifact: `tiger/features/<id>/spec.html`. Sits inside the grill phase — grill loads this skill to author the spec from its closed ledger, keeping requirement capture and document authoring separate.
 

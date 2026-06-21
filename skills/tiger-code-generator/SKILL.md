@@ -1,11 +1,11 @@
 ---
 name: tiger-code-generator
-description: Build stage of the TIGER pipeline — implements one architect-planned task per cycle with strict TDD (RED→GREEN→verify→commit), reuses before building (lazy-senior ladder), and fixes e2e gate findings priority-first (HIGH→MEDIUM; LOW logged only). Use whenever the user wants to implement a planned TIGER task, run a TDD build cycle, write code for an approved feature, work the next task on a feature branch, or address gate findings — even if they never say "code generator".
+description: Build stage of the Tiger pipeline — implements one architect-planned task per cycle with strict TDD (RED→GREEN→verify→commit), reuses before building (lazy-senior ladder), and fixes e2e gate findings priority-first (HIGH→MEDIUM; LOW logged only). Use whenever the user wants to implement a planned Tiger task, run a TDD build cycle, write code for an approved feature, work the next task on a feature branch, or address gate findings — even if they never say "code generator".
 context: fork
-agent: tiger-development-kit:tiger-code-generator
+agent: tiger-skills:tiger-code-generator
 ---
 
-# TIGER Code Generator
+# Tiger Code Generator
 
 Implements the Architect's `tasks[]`, one task per cycle, with strict TDD. The only stage that writes code.
 

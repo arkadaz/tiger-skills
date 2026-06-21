@@ -3,7 +3,7 @@ name: tiger-docs-codemap
 description: Focused writer that refreshes tiger/codemap.html — ONE mermaid flowchart at C4 Container altitude with stable node ids, an updated Module Index table, and an appended Recent-Changes row. Bootstraps from tiger/templates/codemap.html when missing. Invoke directly ("refresh the codemap") or loaded by tiger-update-docs at close-out.
 ---
 
-# TIGER Docs — Codemap Writer
+# Tiger Docs — Codemap Writer
 
 Owns ONE artifact: `tiger/codemap.html` — the structural map the architect and code generator read on the next feature. No agent; no board writes; no MR.
 

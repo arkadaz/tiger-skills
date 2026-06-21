@@ -2,10 +2,10 @@
 name: tiger-security
 description: Standalone, human-invoked security gate — the v2 automated workflow does NOT run this in-loop; a human invokes it on demand to audit any branch or commit. Use whenever the user mentions security review, security audit, vulnerability scan, secrets scan, leaked credential, hardcoded API key, "is this change safe", or wants a security pass over a diff, commit, or branch.
 context: fork
-agent: tiger-development-kit:tiger-security
+agent: tiger-skills:tiger-security
 ---
 
-# TIGER Security Gate
+# Tiger Security Gate
 
 Standalone, human-invoked gate. Audits the feature branch diff against a 10-category vulnerability taxonomy plus a secrets/hygiene checklist using real executed checks. Records its verdict as a namespaced git note (`refs/notes/security`) on the target commit. NOT in the v2 automated workflow.
 

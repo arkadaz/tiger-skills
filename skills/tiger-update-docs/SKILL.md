@@ -2,10 +2,10 @@
 name: tiger-update-docs
 description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs-* writer skills (codemap → tiger/codemap.html, business → the cumulative tiger/business.html catalog keyed by feature id, release → tiger/release_docs.html, readme → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto main, and on a clean rebase opens the MR (never merges). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "open the MR", or when the loop finishes green and the feature needs finalizing — even standalone.
 context: fork
-agent: tiger-development-kit:tiger-update-docs
+agent: tiger-skills:tiger-update-docs
 ---
 
-# TIGER Update Docs — Close-Out & Finalize
+# Tiger Update Docs — Close-Out & Finalize
 
 Last stage. Make the AI's work human-readable (refresh global docs + README), declare the feature done (the only stage that may close the board), and put the branch in front of the human as an open MR. Never merge.
 
@@ -65,7 +65,7 @@ e2e (PASS handoff, `phase: validate`) → **update-docs** (refresh + close + MR)
 - **Never:** push to `main`, merge/squash-merge, run a release, add/move a git note, edit code/tests, rewrite another stage's fields.
 
 ## Standalone use
-Forks into the `tiger-development-kit:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, loading the matching docs-* skills) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not open an MR — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
+Forks into the `tiger-skills:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, loading the matching docs-* skills) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not open an MR — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
 
 ## References
 - Keep a Changelog 1.1.0 — categories, `[Unreleased]`-on-top, ISO dates: https://keepachangelog.com/en/1.1.0/

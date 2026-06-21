@@ -2,7 +2,7 @@
 # tiger-feature-id: {{FEATURE_ID}}
 # tiger-stage: grill
 # ─────────────────────────────────────────────────────────────────────────────
-# TIGER e2e CASES for ONE feature, in Robot Framework — the human-readable e2e
+# Tiger e2e CASES for ONE feature, in Robot Framework — the human-readable e2e
 # contract. Two-file split, one writer per file:
 #
 #   • THIS file  e2e_testcases.robot   — the agreed CASES. The grill skill writes
