@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- TIGER machine-read gate: the build pipeline (the tiger-workflow-dev workflow,
+     or the architect skill) proceeds ONLY when the content value below is exactly
+     "approved". The grill skill writes "approved" after an explicit human yes —
+     never edit it by hand mid-interview. -->
+<meta name="tiger-status" content="awaiting_review">
+<meta name="tiger-feature-id" content="{{FEATURE_ID}}">
+<meta name="tiger-stage" content="grill">
+<title>Spec — {{FEATURE_TITLE}}</title>
+<style>
+:root{
+  --bg:#ffffff; --ink:#1f2328; --muted:#57606a; --border:#d0d7de; --accent:#0969da;
+  --warn-fg:#9a6700; --warn-bg:#fff8c5; --danger-fg:#cf222e; --danger-bg:#ffebe9;
+  --success-fg:#1a7f37; --success-bg:#dafbe1; --decision-fg:#8250df; --decision-bg:#fbefff;
+  --info-fg:#0969da; --info-bg:#ddf4ff; --canvas:#f6f8fa;
+}
+body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); max-width:76ch; margin:2rem auto; padding:0 1rem; line-height:1.6; }
+a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+header{ background:var(--canvas); border:1px solid var(--border); border-radius:8px; padding:1rem 1.25rem; }
+header h1{ margin:0 0 .35rem; font-size:1.45rem; }
+.meta{ display:flex; flex-wrap:wrap; gap:.4rem .6rem; font-size:.85rem; }
+.chip{ background:#fff; border:1px solid var(--border); border-radius:999px; padding:.1rem .65rem; color:var(--muted); }
+h2{ border-bottom:1px solid var(--border); padding-bottom:.25rem; margin-top:2rem; font-size:1.1rem; }
+table{ border-collapse:collapse; width:100%; font-size:.92rem; }
+th,td{ border:1px solid var(--border); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+th{ background:var(--canvas); }
+code,pre{ background:var(--canvas); border:1px solid var(--border); border-radius:4px; padding:.1rem .3rem; font-size:.88em; }
+pre{ padding:.7rem; overflow-x:auto; }
+ol li,ul li{ margin:.25rem 0; }
+.status{ background:var(--warn-bg); color:var(--warn-fg); border-color:#e8d48a; font-weight:600; }
+.status.approved{ background:var(--success-bg); color:var(--success-fg); border-color:#aedcba; }
+.human{ background:var(--info-bg); border:1px solid var(--info-fg); border-left-width:4px; border-radius:8px; padding:.8rem 1rem; }
+.note{ background:var(--warn-bg); border:1px solid var(--warn-fg); border-left-width:4px; border-radius:8px; padding:.8rem 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spec: {{FEATURE_TITLE}}</h1>
+  <div class="meta">
+    <span class="chip">id: <strong>{{FEATURE_ID}}</strong></span>
+    <span class="chip">grilled: {{DATE}}</span>
+    <span class="chip">stage: grill</span>
+    <span class="chip status">status: awaiting_review</span>
+    <span class="chip">approved by: pending</span>
+    <span class="chip">classification: {{generic|unique|misclassified_generic}}</span>
+  </div>
+</header>
+
+<h2>Problem Statement</h2>
+<p>{{One sentence.}}</p>
+
+<h2>Objective &amp; JTBD</h2>
+<p>{{Why this exists.}} When {{situation}}, I want to {{motivation}}, so I can {{outcome}}.</p>
+
+<h2>User Context</h2>
+<ul>
+  <li><strong>Primary user:</strong> {{…}}</li>
+  <li><strong>Environment:</strong> {{…}}</li>
+  <li><strong>Current workflow / pain:</strong> {{…}}</li>
+</ul>
+
+<h2>Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Requirement</th><th>Notes</th></tr>
+  <tr><td>FR1</td><td>{{…}}</td><td>{{…}}</td></tr>
+</table>
+
+<h2>Happy Path</h2>
+<ol>
+  <li>{{user action}} → {{system response}}</li>
+</ol>
+
+<h2>Business Rules</h2>
+<table>
+  <tr><th>Rule</th><th>Statement</th><th>Rationale</th><th>Verification</th></tr>
+  <tr><td>BR1</td><td>{{…}}</td><td>{{…}}</td><td><code>{{runnable check}}</code></td></tr>
+</table>
+
+<h2>Errors &amp; Edge Cases</h2>
+<table>
+  <tr><th>Scenario</th><th>Expected behavior</th></tr>
+  <tr><td>{{…}}</td><td>{{…}}</td></tr>
+</table>
+
+<h2>Constraints — CAN / CANNOT</h2>
+<ul>
+  <li><strong>CAN modify:</strong> {{…}}</li>
+  <li><strong>CANNOT modify:</strong> {{…}}</li>
+  <li><strong>Must not break:</strong> {{…}}</li>
+</ul>
+
+<h2>Acceptance Criteria</h2>
+<table>
+  <tr><th>ID</th><th>Criterion</th><th>Runnable verification</th><th>Status</th></tr>
+  <tr><td>AC1</td><td>{{…}}</td><td><code>{{command}}</code></td><td>pending</td></tr>
+</table>
+
+<h2>Metric</h2>
+<ul>
+  <li><strong>Primary metric:</strong> {{…}} (baseline {{…}} → target {{…}}, {{increase|decrease|binary}})</li>
+  <li><strong>Why the user will notice:</strong> {{…}}</li>
+</ul>
+
+<h2>Out of Scope</h2>
+<ul><li>{{explicit non-goal}}</li></ul>
+
+<div class="human">
+  <strong>Human approval.</strong> This spec was produced by the grill interview and approved in
+  conversation. On the explicit yes, the grill skill sets
+  <code>&lt;meta name="tiger-status" content="approved"&gt;</code> in this file's head, updates the
+  status chip above, fills <em>approved by</em>, and commits this artifact set. Until then the
+  pipeline will not build.
+</div>
+
+<p class="note"><strong>Reading this later?</strong> Inputs to: architect, code generator,
+security, reviewer, e2e. Siblings: <a href="adr.html">adr.html</a>,
+<a href="e2e_testcases.robot">e2e_testcases.robot</a>, <a href="business.html">business.html</a>.</p>
+</body>
+</html>

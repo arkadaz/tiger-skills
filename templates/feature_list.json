@@ -1,0 +1,70 @@
+{
+  "_comment": "SHAPE REFERENCE — this is what a project's feature_list.json looks like once features are specified, planned, and built: the full schema-v2 kanban with sub-feature tasks, cross-feature dependencies, phases, evidence, and learning. A real project STARTS EMPTY — /install writes {\"schema_version\":2,\"current_feature\":null,\"features\":{}} to the project root, and grill (WHY/SPECIFY fields) then the architect (PLAN fields) fill it one feature at a time. Two example features below: 'order-totals' is done (passing); 'discount-codes' depends on it and is mid-build. WIP=1, links are reciprocal + acyclic, so validate-board.py accepts it.",
+  "schema_version": 2,
+  "current_feature": "discount-codes",
+  "features": {
+    "order-totals": {
+      "title": "Order total calculation",
+      "status": "passing",
+      "phase": "passing",
+      "problem_statement": "Carts show no running total, so shoppers cannot tell what they will pay before checkout.",
+      "jtbd": "When I add items to my cart, I want to see the order total update, so I can decide whether to keep shopping.",
+      "problem_classification": "generic",
+      "user_context": "Storefront shoppers on web; high traffic at checkout.",
+      "spec_file": "tiger/features/order-totals/spec.html",
+      "spec_status": "approved",
+      "approval": { "approved_by": "jane@example.com", "date": "2026-05-30" },
+      "depends_on": [],
+      "blocks": ["discount-codes"],
+      "scope_map": {
+        "modify": ["src/cart/total.ts"],
+        "read_only": ["src/cart/types.ts"],
+        "metric": { "name": "checkout_total_accuracy", "baseline": "n/a", "target": "100% line-sum match", "direction": "binary" }
+      },
+      "acceptance_criteria": [
+        { "id": "AC1", "criterion": "Total equals the sum of line subtotals, rounded once at the end", "verification": "npm test -- total.spec.ts -t 'sums lines' 2>&1 | grep -q '1 passed'", "status": "done", "evidence": ["commit a1b2c3d: 7 passed, exit 0"] }
+      ],
+      "tasks": [
+        { "id": "T1", "title": "Sum line subtotals with single final rounding", "agent": "tiger-code-generator", "status": "done", "files": ["src/cart/total.ts"], "depends_on": [], "verification": "npm test -- total.spec.ts 2>&1 | grep -q '7 passed'", "evidence": ["commit a1b2c3d: RED->GREEN, 7 passed"], "scope_map": { "modify": ["src/cart/total.ts"], "read_only": ["src/cart/types.ts"], "metric": "binary" } }
+      ],
+      "validation": { "user_acceptance": "passed", "business_metric": "line-sum match verified on 1000 sampled carts" },
+      "learning": {
+        "technical": ["round-once-at-end avoids per-line drift"],
+        "product": ["shoppers expect the total before, not at, checkout"],
+        "process": [],
+        "harness_updates": []
+      }
+    },
+    "discount-codes": {
+      "title": "Discount code application",
+      "status": "in_progress",
+      "phase": "build",
+      "problem_statement": "Marketing cannot run promotions because the cart has no way to apply a discount code.",
+      "jtbd": "When I have a promo code, I want to apply it at the cart, so I can get the advertised discount.",
+      "problem_classification": "unique",
+      "user_context": "Shoppers with codes from email campaigns; codes are percentage or fixed-amount.",
+      "spec_file": "tiger/features/discount-codes/spec.html",
+      "spec_status": "approved",
+      "approval": { "approved_by": "jane@example.com", "date": "2026-06-08" },
+      "depends_on": ["order-totals"],
+      "blocks": [],
+      "scope_map": {
+        "modify": ["src/cart/discount.ts", "src/cart/total.ts"],
+        "read_only": ["src/cart/types.ts"],
+        "metric": { "name": "promo_redemption_rate", "baseline": "0%", "target": "8%", "direction": "increase" }
+      },
+      "acceptance_criteria": [
+        { "id": "AC1", "criterion": "A valid percentage code reduces the total by that percent of the pre-discount total", "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'", "status": "done", "evidence": ["commit e4f5a6b: 3 passed, exit 0"] },
+        { "id": "AC2", "criterion": "A valid fixed code reduces the total by the fixed amount, never below zero", "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'", "status": "in_progress", "evidence": [] },
+        { "id": "AC3", "criterion": "An unknown or expired code is rejected and leaves the total unchanged", "verification": "npm test -- discount.spec.ts -t 'rejects invalid' 2>&1 | grep -q 'passed'", "status": "not_started", "evidence": [] }
+      ],
+      "tasks": [
+        { "id": "T1", "title": "Parse + validate a discount code (known/expired/unknown)", "agent": "tiger-code-generator", "status": "done", "files": ["src/cart/discount.ts"], "depends_on": [], "verification": "npm test -- discount.spec.ts -t 'parse' 2>&1 | grep -q 'passed'", "evidence": ["commit e4f5a6b: RED->GREEN"], "scope_map": { "modify": ["src/cart/discount.ts"], "read_only": ["src/cart/types.ts"], "metric": "binary" } },
+        { "id": "T2", "title": "Apply percentage discount to the order total", "agent": "tiger-code-generator", "status": "in_progress", "files": ["src/cart/discount.ts", "src/cart/total.ts"], "depends_on": ["T1"], "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'", "evidence": [], "scope_map": { "modify": ["src/cart/discount.ts", "src/cart/total.ts"], "read_only": [], "metric": "promo_redemption_rate" } },
+        { "id": "T3", "title": "Apply fixed-amount discount with a zero floor", "agent": "tiger-code-generator", "status": "not_started", "files": ["src/cart/discount.ts"], "depends_on": ["T1"], "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'", "evidence": [], "scope_map": { "modify": ["src/cart/discount.ts"], "read_only": [], "metric": "binary" } }
+      ],
+      "validation": { "user_acceptance": "pending", "business_metric": "pending" },
+      "learning": { "technical": [], "product": [], "process": [], "harness_updates": [] }
+    }
+  }
+}

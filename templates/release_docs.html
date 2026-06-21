@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- TIGER release docs — GLOBAL artifact (one per project, lives at tiger/release_docs.html).
+     Written by the update-docs stage at every feature close-out: the feature's entry lands
+     under [Unreleased]; cutting a release renames that block to [VERSION] - YYYY-MM-DD and
+     opens a fresh empty [Unreleased] above it. Keep a Changelog 1.1.0 discipline. -->
+<meta name="tiger-stage" content="update-docs">
+<title>Release Docs — {{PROJECT_NAME}}</title>
+<style>
+  :root{
+  --bg:#ffffff; --ink:#1f2328; --muted:#57606a; --border:#d0d7de; --accent:#0969da;
+  --warn-fg:#9a6700; --warn-bg:#fff8c5; --danger-fg:#cf222e; --danger-bg:#ffebe9;
+  --success-fg:#1a7f37; --success-bg:#dafbe1; --decision-fg:#8250df; --decision-bg:#fbefff;
+  --info-fg:#0969da; --info-bg:#ddf4ff; --canvas:#f6f8fa;
+}
+body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); max-width:76ch; margin:2rem auto; padding:0 1rem; line-height:1.6; }
+a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+header{ background:var(--canvas); border:1px solid var(--border); border-radius:8px; padding:1rem 1.25rem; }
+header h1{ margin:0 0 .35rem; font-size:1.45rem; }
+.meta{ display:flex; flex-wrap:wrap; gap:.4rem .6rem; font-size:.85rem; }
+.chip{ background:#fff; border:1px solid var(--border); border-radius:999px; padding:.1rem .65rem; color:var(--muted); }
+h2{ border-bottom:1px solid var(--border); padding-bottom:.25rem; margin-top:2rem; font-size:1.1rem; }
+table{ border-collapse:collapse; width:100%; font-size:.92rem; }
+th,td{ border:1px solid var(--border); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+th{ background:var(--canvas); }
+code,pre{ background:var(--canvas); border:1px solid var(--border); border-radius:4px; padding:.1rem .3rem; font-size:.88em; }
+pre{ padding:.7rem; overflow-x:auto; }
+ol li,ul li{ margin:.25rem 0; }
+  /* --- release_docs-specific classes --- */
+  h4{ margin:.9rem 0 .3rem; font-size:.95rem; color:var(--ink); }
+  /* .band: base container for changelog audience bands */
+  .band{ border:1px solid var(--border); border-radius:8px; padding:.8rem 1rem; margin:.8rem 0; }
+  .band h3{ margin:0 0 .2rem; font-size:1rem; }
+  /* .band.user — user-facing changes → info (blue) */
+  .band.user{ background:var(--info-bg); border-color:var(--info-fg); }
+  .band.user h3{ color:var(--info-fg); }
+  /* .band.internal — internal/chore changes → neutral canvas */
+  .band.internal{ background:var(--canvas); border-color:var(--border); }
+  .band.internal h3{ color:var(--muted); }
+  /* .band p.who — audience label line */
+  .band p.who{ margin:0 0 .4rem; font-size:.85rem; color:var(--muted); }
+  /* .note — instructional/caution callout → warn */
+  .note{ background:var(--warn-bg); border:1px solid var(--warn-fg); border-radius:8px; padding:.8rem 1rem; color:var(--warn-fg); margin:.8rem 0; }
+  .note strong{ color:var(--warn-fg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Release Docs: {{PROJECT_NAME}}</h1>
+  <div class="meta">
+    <span class="chip">updated: {{DATE}}</span>
+    <span class="chip">stage: update-docs</span>
+    <span class="chip">last feature: {{FEATURE_ID}}</span>
+    <span class="chip">semver: {{followed|not followed}}</span>
+  </div>
+</header>
+
+<p class="note"><strong>Format rules (Keep a Changelog 1.1.0).</strong> Changelogs are for
+humans, not machines. <code>[Unreleased]</code> always sits at the top; below it, latest
+release first, every release headed <code>[VERSION] - YYYY-MM-DD</code> (ISO 8601, date
+always shown). Each release carries TWO audience bands: <em>User-facing changes</em>
+(benefit-phrased — what the user can now do, no jargon) and <em>Internal changes</em>
+(technical — APIs, schemas, migrations, dev environment). Inside each band, group entries
+under exactly these category names: <strong>Added</strong> (new features),
+<strong>Changed</strong> (changes in existing functionality), <strong>Deprecated</strong>
+(soon-to-be removed), <strong>Removed</strong> (now removed), <strong>Fixed</strong>
+(bug fixes), <strong>Security</strong> (vulnerabilities) — and <strong>omit empty
+categories</strong>. An entry for every version; same change types grouped together.</p>
+
+<h2>[Unreleased]</h2>
+<div class="band user">
+  <h3>User-facing changes</h3>
+  <p class="who">For people who use the product — phrase each entry as the benefit.</p>
+  <h4>Added</h4>
+  <ul><li>{{What the user can now do — e.g. "reports load in under two seconds" — not the class you wrote}} ({{FEATURE_ID}})</li></ul>
+  <!-- More categories as needed: Changed / Deprecated / Removed / Fixed / Security. Omit empty ones. -->
+</div>
+<div class="band internal">
+  <h3>Internal changes</h3>
+  <p class="who">For developers — APIs, schema migrations, dev-environment updates.</p>
+  <h4>Added</h4>
+  <ul><li>{{technical detail, file/module level}} ({{FEATURE_ID}})</li></ul>
+  <h4>Changed</h4>
+  <ul><li>{{…}}</li></ul>
+</div>
+
+<!-- ════ Repeat this block per release, latest first. Cutting a release = rename the
+     [Unreleased] block to [VERSION] - YYYY-MM-DD and open a fresh empty [Unreleased]. ════ -->
+<h2>[{{VERSION}}] - {{YYYY-MM-DD}}</h2>
+<div class="band user">
+  <h3>User-facing changes</h3>
+  <h4>Added</h4>
+  <ul><li>{{benefit-phrased entry}}</li></ul>
+  <h4>Fixed</h4>
+  <ul><li>{{what stopped going wrong, from the user's seat}}</li></ul>
+</div>
+<div class="band internal">
+  <h3>Internal changes</h3>
+  <h4>Added</h4>
+  <ul><li>{{technical entry}}</li></ul>
+  <h4>Security</h4>
+  <ul><li>{{vulnerability addressed — never omit a Security entry to save face}}</li></ul>
+</div>
+
+<p class="note"><strong>Contract.</strong> Written by: update-docs ONLY, at each feature
+close-out (one entry per passing feature appended under <code>[Unreleased]</code>, derived
+from the feature's <code>tiger/features/&lt;id&gt;/</code> artifacts and the semantic commit
+log) and at each release cut. Read by: humans — operators read the user band, developers read
+the internal band; no pipeline stage consumes this file. Bootstrapped from
+<code>tiger/templates/release_docs.html</code> when missing. Self-contained: one file, inline
+CSS, system fonts, opens from disk, zero external requests.</p>
+</body>
+</html>
