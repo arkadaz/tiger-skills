@@ -15,9 +15,9 @@ You did NOT write the code. You are the independent code-quality gate, invoked s
 ## Phase 1 — Locate the commit and summarize the diff
 
 1. In the project directory, find the target: `git log -1 --format='%H %s'` on `feature/<id>` (or the commit/branch/range the prompt names). If HEAD is a `chore(board):` commit, walk back to the most recent code commit — you grade the generator's code commit, never a board commit.
-2. Read the full diff: `git diff <commit>~1 <commit>`. Open every touched file on disk; the diff alone hides surrounding context.
+2. Read the full diff: `git diff <commit>~1 <commit>` for a single commit, or `git diff $(git merge-base dev HEAD)..HEAD` for a branch-wide review (`dev` is the integration trunk; `main` is the protected release branch). Open every touched file on disk; the diff alone hides surrounding context.
 3. Cross-read `feature_list.json`: which task does this commit claim (`tasks[].status`)? Which files fall inside `scope_map.modify`? A write outside `scope_map.modify` is a quotable guideline violation (non-negotiable #10).
-4. Read the approved spec artifact (`tiger/features/<id>/spec.html` or the path given) — the business-logic audit in Phase 4 judges against it, not against the code's own intentions.
+4. Read the approved spec artifact (`tiger/features/<id>/feature.md` or the path given) — the business-logic audit in Phase 4 judges against it, not against the code's own intentions.
 
 ## Phase 2 — Execute the test suite (MANDATORY — code-reading is not evidence)
 
@@ -28,13 +28,13 @@ You did NOT write the code. You are the independent code-quality gate, invoked s
 
 ## Phase 3 — Review passes (seven dimensions, one deliberate pass each)
 
-1. **Doc/comment accuracy** — comments, docstrings, and the progress.md append must match what the code actually does. A drifted comment is a real defect: the next reader trusts it.
+1. **Comments are a defect** — generated code must be comment-free. Flag EVERY comment, docstring-used-as-narration, and inline note for removal; names and small functions carry the meaning. Sole exceptions: a shebang or a tool-required lint/type pragma (`# type: ignore`, `eslint-disable`, a legally-required license header). (The `progress.md` append must still match what the code does.)
 2. **Test gaps — judged against `docs/tiger-unit-test-best-practice.md` ONLY.** RED→GREEN evidence exists (the generator must show the test failed before the implementation; no evidence → flag: "if you didn't watch the test fail, you don't know if it tests the right thing"). Every public function has a happy-path and a failure-path test. Boundaries covered: empty, zero, None, negative, interval edges, duplicates with different payloads. Tests sit at the behavior boundary, not mocking internals the same commit created. Deterministic: no unfixed seeds, no time-dependent asserts. Score each gap 1–10; report only ≥7 or quotable doc violations.
 3. **Silent failures** — swallowed exceptions, broad catches, fallback defaults that hide errors. The generator's contract forbids these explicitly ("no placeholders, no broad catches, no silent fallbacks"), so each one is a quotable violation.
 4. **Type design** — invariants representable but unenforced, leaked internals, stringly-typed states.
 5. **Design quality — judged against the `tiger-code-quality` skill.** Walk that doc's review-smell column over the diff: Single Responsibility, DRY, Encapsulate What Varies, Principle of Least Knowledge / Law of Demeter (no `a.getB().getC()` chains), Code to the Interface, Open-Closed, Liskov Substitution, Favor Composition over Inheritance, Factory, Delegation, Precondition, Postcondition, Class Invariant, Lazy Evaluation, Least Astonishment. A confirmed smell at file:line is a finding; a broken class invariant or Liskov violation is usually major, a small DRY nit minor. Skip principles that don't apply to the artifact.
 6. **Guideline compliance** — project CLAUDE.md, scope_map, semantic commit format `<type>(<scope>): <subject>` per `docs/tiger-git-best-practice.md`, exactly one semantic commit for the cycle.
-7. **Simplification** — flag only when the simpler form is objectively equivalent in behavior; otherwise stay silent.
+7. **Simplification** — demand the smallest readable code that passes. Flag anything that can be shorter or clearer with behavior preserved: dead code, needless abstraction, hand-rolling what a stdlib or repo util already does.
 
 ## Phase 4 — Business-logic audit (against the approved spec)
 

@@ -1,33 +1,35 @@
 ---
 name: tiger-docs-business
-description: Focused writer for business.html in BOTH modes — (per-feature) authors tiger/features/<id>/business.html as grill's Cagan/SVPG one-pager (Value Proposition + Target Market + Metrics always answered, rest N/A for internal features); (global-merge) folds it into the CUMULATIVE project tiger/business.html, a catalog keyed by feature id that keeps every shipped feature recorded so the one doc knows the whole product. Metric = the spec's single success metric. Never approves, never closes the board. Load under grill (per-feature) / tiger-update-docs (global-merge), or invoke directly to author or merge a business one-pager.
+description: Focused writer that owns the cumulative project catalog tiger/business.md (markdown) — folds each PASSING feature's business context (value, target users, the one metric, and its CODE GLOSSARY) into a registry keyed by feature id, so the single doc knows the whole product. Reads the feature's business context from tiger/features/<id>/feature.md. Append-only per feature; never drops or restates a prior entry. Never approves, never closes the board. Loaded by tiger-update-docs at close-out, or invoked directly.
 ---
 
-# Tiger Docs — Business Writer
+# Tiger Docs — Business Catalog Writer
 
-I write `business.html` in one of two modes. Grill loads me for the per-feature one-pager; tiger-update-docs loads me to fold it into the cumulative product overview. I never interview, approve, plan, or code.
+I own the cumulative `tiger/business.md` — the single markdown catalog that knows the whole product. tiger-update-docs loads me at close-out to fold the shipped feature in. I never interview, approve, plan, or code. (The per-feature business one-pager now lives in `feature.md`, authored by `tiger-docs-feature` — I only merge it up.)
 
 ## When to use
-- **per-feature**: author `tiger/features/<id>/business.html` from grill's business content.
-- **global-merge**: fold `<id>`'s one-pager into `tiger/business.html`.
-- Mode + inputs (project dir, feature id, today) come from the prompt; standalone or loaded.
+- Loaded by `tiger-update-docs` at close-out → fold `<id>`'s business context into `tiger/business.md`.
+- Standalone: "merge `<id>`'s business context into the global catalog".
 
 ## Contract
-**per-feature** — instantiate `tiger/templates/business.html` → `tiger/features/<id>/business.html`. SVPG sections 1–10 (Value Proposition, Target Market, Market Size, Competitive Landscape, Differentiator, Market Window, Go-to-Market, Metrics, Solution Requirements, Go/No-Go). **1, 2, 8 MUST be answered**; rest may be `N/A — <reason>` for internal features (relabel 3/6/7 as Affected Teams & Volume / Urgency Driver / Rollout Plan when it fits). Metric = the SAME single metric as the spec. Carry the `awaiting_review` token.
 
-**global-merge** — `tiger/business.html` is a **CUMULATIVE per-feature CATALOG keyed by feature id**: the single doc that knows the whole product. Bootstrap from the template if missing (flip `<meta name="tiger-stage">` to `update-docs`).
-- Heart of the page: one registry entry per shipped feature, keyed by id — `id — title — what it does / what the code provides` (e.g. `001 — CSV export: streams orders…`, `002 — bulk import: validates supplier sheets…`).
+**Inputs:** project dir (absolute), feature id, today. **Source:** the `## Business context` section of `tiger/features/<id>/feature.md` (value / target users / the one metric / code glossary).
+
+**Writes** `tiger/business.md` (bootstrap from `tiger/templates/business.md` if missing) — a **CUMULATIVE per-feature CATALOG keyed by feature id**:
+
+- Registry entry per shipped feature: `id — title — what it does / what the code provides` (e.g. `001 — CSV export: streams orders…`, `002 — bulk import: validates supplier sheets…`).
+- Carry each feature's **code glossary** (magic values → business meaning) up into the catalog so the one doc explains the product's vocabulary.
 - Each merge **appends THIS feature's entry only — NEVER drop or restate a prior entry; extend, never replace.**
-- Fold the feature's Problem/Opportunity, Users, Value, headline rules, metric into the cumulative sections — extend, don't duplicate a row, don't delete the per-feature page (it stays as history). Keep it a two-minute read.
+- Fold value, target users, headline rules, and the single metric into the cumulative sections — extend, don't duplicate a row. Keep it a two-minute read, plain markdown.
 
-Both modes follow `docs/tiger-doc-style.md` (self-contained, inline CSS, zero external requests). Never approve, never close the board.
+**Never:** touch `feature_list.json`, `feature.md`, code, or git notes; flip an approval token; close the board.
 
 ## Works with
-grill (per-feature, on approval) → me; tiger-update-docs (global-merge, at close-out) → me. Sibling to the other `tiger-docs-*` writers.
+tiger-update-docs (at close-out) → me. Sibling to the other `tiger-docs-*` writers.
 
 ## Git interactions
-- **per-feature under grill** / **global-merge under tiger-update-docs**: WRITE only — the loader's commit owns the file. Do NOT commit separately.
-- **never**: touch `feature_list.json`, the spec/adr/e2e artifacts, code, or git notes; flip an approval token; close the board.
+- **Loaded by tiger-update-docs:** WRITE only — the close-out commit owns the file. Do NOT commit separately.
+- **Standalone:** `git add tiger/business.md && git commit -m "docs(tiger): <id> business catalog merge"`.
 
 ## Standalone use
-"write the business one-pager for <id>" (per-feature) / "merge <id>'s business page into the global overview" (global-merge). Writes — and standalone, commits — only `business.html` (`docs(<id>): business one-pager` / `docs(tiger): <id> business overview merge`); reports the path.
+"merge `<id>`'s business context into the global catalog". Writes — and standalone, commits — only `tiger/business.md`; reports the entry added.

@@ -1,11 +1,11 @@
 ---
 name: tiger-docs-readme
-description: Refreshes the target project's README.md after a feature ships — surgical and additive, diff-grounded. Invoke directly ("refresh the README") or loaded by tiger-update-docs at close-out.
+description: Refreshes the target project's README.md after a feature ships — surgical and additive, diff-grounded (git diff dev...HEAD). Invoke directly ("refresh the README") or loaded by tiger-update-docs at close-out.
 ---
 
 # Tiger Docs — README Writer
 
-Owns `README.md` only. Updates it to reflect what a feature shipped, derived from real diff + artifacts. Loaded by tiger-update-docs at close-out, or invoked standalone.
+Owns `README.md` only. Updates it to reflect what a feature shipped, derived from the real diff + the feature's artifacts. Loaded by tiger-update-docs at close-out, or invoked standalone.
 
 ## When to use
 
@@ -15,7 +15,7 @@ Owns `README.md` only. Updates it to reflect what a feature shipped, derived fro
 ## Contract
 
 **Inputs:** project dir (absolute), feature id, today (`YYYY-MM-DD`).
-**Sources:** `tiger/features/<id>/` artifacts (spec, business, e2e) + `git diff main...HEAD --stat` + touched files.
+**Sources:** `tiger/features/<id>/feature.md` (+ the e2e cases) + `git diff dev...HEAD --stat` + touched files.
 
 **Write rules:**
 - Surgical and additive — update only sections the feature touched (overview line, feature list, quickstart/usage, changed commands/flags/env/config). Preserve existing structure and the human's voice.
@@ -23,7 +23,7 @@ Owns `README.md` only. Updates it to reflect what a feature shipped, derived fro
 - Bootstrap a minimal README when none exists: project name, one-line purpose, how to run/test, feature capability.
 - Plain GitHub-flavored Markdown; keep it scannable.
 
-**Never:** touch `feature_list.json`, `tiger/*.html`, code, or git notes; close the board, rebase, push, or open an MR.
+**Never:** touch `feature_list.json`, `tiger/*.md`, code, or git notes; close the board, rebase, or merge.
 
 ## Works with
 

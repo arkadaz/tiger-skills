@@ -138,14 +138,12 @@ golden-project/<name>/
 │                             #   current_feature set OR exactly one status:"in_progress"
 │                             #   phase:"plan", WHY/SPECIFY fields filled
 ├── tiger/features/<id>/
-│   ├── spec.html             # MUST carry <meta name="tiger-status" content="approved">
-│   ├── adr.html
-│   ├── business.html
-│   └── e2e_testcases.robot   # priority-tagged Given/When/Then cases
+│   ├── feature.md            # MUST carry the frontmatter line `tiger-status: approved`
+│   └── e2e_testcases.robot   # broad, priority-tagged Given/When/Then cases
 └── …optional seed source (src/…)
 ```
 
-The harness supplies the rest: git init + `main` trunk, the workflow, the rm guard, the
+The harness supplies the rest: git init + `main` + a `dev` integration trunk, the workflow, the rm guard, the
 local plugin install, and the Robot/Playwright tooling. A bare seed (like
 `golden-project/`) and a fully `install`-ed project both work.
 
@@ -158,7 +156,7 @@ local plugin install, and the Robot/Playwright tooling. A bare seed (like
 > ERROR: cannot determine the feature id … (need current_feature, or one in_progress feature)
 > ```
 >
-> Author the feature (spec.html with the approval token + the board entry) first.
+> Author the feature (feature.md with the `tiger-status: approved` token + the board entry) first.
 
 ---
 

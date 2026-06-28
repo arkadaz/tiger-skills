@@ -28,4 +28,34 @@ for field in name description phases; do
     fi
 done
 
+# v6 invariants the spine must keep.
+for marker in "parallel(" "MAX_STUCK" "bootstrap" "E2E_BLOCKERS"; do
+    if grep -qF "$marker" "$WORKFLOW"; then
+        pass "workflow keeps '$marker'"
+    else
+        fail "workflow missing required marker '$marker'"
+    fi
+done
+
+# v6 branch model: dev is the integration trunk; main is the protected release branch.
+if grep -qE 'branchBase[[:space:]]*\|\|[[:space:]]*"dev"' "$WORKFLOW" || grep -qE 'base:[[:space:]]*"dev"' "$WORKFLOW"; then
+    pass "workflow integrates on dev (base = dev)"
+else
+    fail "workflow must set the integration trunk to dev (base = dev)"
+fi
+if grep -qF "merge --ff-only" "$WORKFLOW"; then
+    pass "workflow fast-forward merges to dev"
+else
+    fail "workflow missing fast-forward merge to dev"
+fi
+
+# e2e is the single in-loop gate: the workflow must NOT spawn security/reviewer.
+for gate in tiger-security tiger-reviewer; do
+    if grep -qF "$gate" "$WORKFLOW"; then
+        fail "workflow must NOT spawn standalone gate '$gate'"
+    else
+        pass "workflow does not spawn '$gate'"
+    fi
+done
+
 exit "$FAILURES"

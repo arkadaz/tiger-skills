@@ -18,18 +18,18 @@ Full procedure: agents/tiger-reviewer.md — this skill is the contract + how to
 
 ## Contract
 
-**Inputs:** project dir (absolute), target (default: `git log -1` on current branch), optional `tiger/features/<id>/spec.html` for business-logic audit.
+**Inputs:** project dir (absolute), target (default: `git log -1` on current branch; a branch-wide review baselines on `dev` — `git merge-base dev HEAD`), optional `tiger/features/<id>/feature.md` for business-logic audit.
 
 **Seven review dimensions** (one deliberate pass each):
 | Dimension | What to check |
 |---|---|
-| Doc/comment accuracy | comments, docstrings, progress.md match actual code |
+| Comments are a defect | flag EVERY comment for removal — generated code must be comment-free. Sole exceptions: a shebang or a required lint/type pragma (e.g. `# type: ignore`, eslint-disable) |
 | Test gaps | against `docs/tiger-unit-test-best-practice.md` only — no generic "more tests" |
 | Silent failures | swallowed exceptions, broad catches, error-hiding defaults |
 | Type design | unenforced invariants, leaked internals, stringly-typed state |
-| Design quality | the 16 `tiger-code-quality` smells at file:line |
+| Design quality | the `tiger-code-quality` smells at file:line |
 | Guideline compliance | CLAUDE.md, scope_map writes, semantic-commit format, one-commit discipline |
-| Simplification | only where behavior is preserved and the simpler form is objectively equivalent |
+| Simplification | demand the smallest readable code — flag anything that can be shorter or clearer with behavior preserved |
 
 **Suite run is mandatory.** A real OS process (`./init.sh` or documented path). Code-reading is not evidence. Red suite → automatic non-PASS with failing output quoted in `fixes:`.
 
@@ -79,6 +79,5 @@ Invoke by intent ("review this commit/branch/MR"). Supply: project dir, target, 
 ## References
 
 - `docs/tiger-unit-test-best-practice.md` — test quality standard (enforcement point)
-- `tiger-code-quality` skill — the 16 design principles + review smells
+- `tiger-code-quality` skill — the design principles + review smells
 - `docs/tiger-git-best-practice.md` — commit and note contract
-- git-notes `--ref` namespacing: https://git-scm.com/docs/git-notes
