@@ -162,23 +162,56 @@ write the markdown shape from `tiger/templates/`), then remove the old file.
    Business glossary, Recent changes), then remove `tiger/codemap.html`.
 3. **Global docs** — `tiger/business.html` → `tiger/business.md`; `tiger/release_docs.html` →
    `tiger/release_docs.md` (convert content, remove the old `.html`).
-4. **Board** — in `feature_list.json`, rewrite every `spec_file` ending `/spec.html` to `/feature.md`:
+4. **Board structure** — a v5/earlier `feature_list.json` is a bare object whose `features` is a **list**
+   (no `schema_version`, often no `current_feature`). board.py and the workflow bootstrap require the
+   **schema-v2 dict** shape (`features` keyed by id), so an unmigrated list-board makes grill's board write
+   crash and the workflow abort discovery. Convert it in place, **preserving every field** (back it up first):
+   ```bash
+   [ -f feature_list.json ] && python3 - <<'PY'
+import json, sys
+p="feature_list.json"
+b=json.load(open(p,encoding="utf-8"))
+feats=b.get("features")
+if not isinstance(feats,list):
+    print("board structure: skipped (already schema-v2 dict)"); sys.exit(0)
+import shutil; shutil.copyfile(p,p+".pre-v2.bak")
+PHASE={"plan","build","validate","blocked","passing"}
+d={}
+for x in feats:
+    fid=x.get("id")
+    if not fid:
+        print("board structure: NEEDS HUMAN — a feature has no id; cannot key it"); sys.exit(0)
+    if x.get("phase") not in PHASE:
+        x["phase"]="passing" if x.get("status")=="passing" else "plan"
+    d[fid]=x
+ip=[k for k,v in d.items() if v.get("status")=="in_progress"]
+new={"schema_version":2,"current_feature":(ip[0] if len(ip)==1 else None),"features":d}
+for k,v in b.items():
+    if k not in new: new[k]=v
+json.dump(new,open(p,"w",encoding="utf-8"),indent=2,ensure_ascii=False); open(p,"a",encoding="utf-8").write("\n")
+print(f"board structure: migrated (list -> schema-v2 dict, {len(d)} features; current_feature={new['current_feature']}; backup .pre-v2.bak)")
+PY
+   ```
+   Then run `python3 tiger/board.py summary` to confirm it validates; if board.py reports a broken invariant
+   (e.g. non-reciprocal `depends_on`/`blocks`), mark `board structure` `NEEDS HUMAN` with the message.
+5. **Board spec_file paths** — rewrite every `spec_file` ending `/spec.html` to `/feature.md` (run AFTER the
+   structural migration above, so `features` is a dict):
    ```bash
    [ -f feature_list.json ] && grep -q '/spec\.html"' feature_list.json && {
      python3 - <<'PY'
 import json
-b=json.load(open("feature_list.json"))
+b=json.load(open("feature_list.json",encoding="utf-8"))
 ch=False
 for f in b.get("features",{}).values():
     sf=f.get("spec_file","")
     if sf.endswith("/spec.html"):
         f["spec_file"]=sf[:-len("/spec.html")]+"/feature.md"; ch=True
 if ch:
-    json.dump(b,open("feature_list.json","w"),indent=2); open("feature_list.json","a").write("\n")
+    json.dump(b,open("feature_list.json","w",encoding="utf-8"),indent=2); open("feature_list.json","a",encoding="utf-8").write("\n")
 PY
      echo "board spec_file paths: migrated (.../spec.html -> .../feature.md)"; }
    ```
-5. Report "migration: nothing to convert" when none of the above old forms were present.
+6. Report "migration: nothing to convert" when none of the above old forms were present.
 
 ## Step 6 — Verify / seed harness state
 

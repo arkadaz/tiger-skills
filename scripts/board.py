@@ -39,11 +39,17 @@ LEARN = {"technical", "product", "process", "harness_updates"}
 def load(path):
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            board = json.load(fh)
     except FileNotFoundError:
         sys.exit(f"board not found: {path} (run /tiger-skills:install)")
     except json.JSONDecodeError as exc:
         sys.exit(f"board is not valid JSON: {exc}")
+    if isinstance(board, dict) and (isinstance(board.get("features"), list) or board.get("schema_version") != 2):
+        sys.exit(
+            f"legacy board shape in {path} (features must be a schema-v2 dict keyed by id, not a list; "
+            "schema_version must be 2) -- run /tiger-skills:install to migrate it before reading or writing."
+        )
+    return board
 
 
 def validate(board):
