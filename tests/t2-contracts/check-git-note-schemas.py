@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""T2: Assert each sample gate note contains a valid 'grade:' line."""
+"""T2: Assert each sample gate note contains a valid 'grade:' line.
+
+v6 note model: refs/notes/e2e is the single in-loop grade. refs/notes/security and
+refs/notes/review exist only when a human runs those standalone gates, so they are
+NOT required on HEAD — the sample fixtures below just pin the shared note schema, and
+any live HEAD note is validated only if it happens to be present.
+"""
 import pathlib
 import sys
 import subprocess

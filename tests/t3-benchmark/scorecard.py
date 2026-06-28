@@ -97,9 +97,7 @@ def collect_scorecard(project_dir, version, feature_id=None):
     # Artifacts complete
     feature_dir = project / "tiger" / "features" / feature_id
     artifacts_complete = all([
-        (feature_dir / "spec.html").exists(),
-        (feature_dir / "adr.html").exists(),
-        (feature_dir / "business.html").exists(),
+        (feature_dir / "feature.md").exists(),
         (feature_dir / "e2e_testcases.robot").exists(),
     ])
 

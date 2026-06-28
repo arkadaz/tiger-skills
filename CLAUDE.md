@@ -2,25 +2,35 @@
 
 ## Operating Principle
 
-Humans own the WHY loop. Agents own the HOW loop. The agent must not build until the human has explicitly approved the spec produced by the grill gate. Every handoff between stages is a human-inspectable artifact (HTML or git), so a human can audit what the AI planned and did without reading a transcript.
+Humans own the WHY loop; agents own the HOW loop. **No build until the human approves the grilled spec.** Every handoff is a human-inspectable artifact (markdown or git), so a human can audit what the AI planned and did without reading a transcript.
 
-The kit ships its stages as **pure skills** the user invokes directly, plus one **workflow** (`tiger-workflow-dev`) that runs the build automatically. The **v2 design** (`docs/dev-loop-v2.md`) is the current source of truth; it optimizes for speed. The automated workflow runs five stages in order — **grill → architect → code generator (parallel) → e2e → update-docs** — and the **e2e gate is the single in-loop quality gate**. The old in-loop `security ∥ reviewer` gates were removed from the workflow for speed; **`tiger-security` and `tiger-reviewer` remain as standalone skills** a human invokes on demand (e.g. a one-off security review). There is no conductor and no `/dev` command — the user either picks a single skill or runs the workflow for the full build.
+The kit ships its stages as **pure skills** the user invokes directly, plus one **workflow** (`tiger-workflow-dev`) that runs the build automatically. The automated workflow runs five stages in order — **grill → architect → code generators (parallel) → e2e → update-docs** — and the **e2e gate is the single in-loop quality gate**. **`tiger-security` and `tiger-reviewer` are standalone skills** a human invokes on demand; the workflow never spawns them. There is no conductor and no `/dev` command.
 
-Document authoring is factored into a family of focused **`tiger-docs-*` writer skills** (`tiger-docs-spec`, `tiger-docs-adr`, `tiger-docs-business`, `tiger-docs-e2e`, `tiger-docs-codemap`, `tiger-docs-release`, `tiger-docs-readme`) — each owns one artifact. They are **loadable reference skills with no owned agent** (the `tiger-code-quality` pattern): **grill** loads the spec/adr/business/e2e writers to author its artifacts, and the single **update-docs** agent loads the codemap/business/release/readme writers at close-out. The load is declared via the subagent **`skills:` frontmatter field**: `tiger-update-docs` preloads the four global-doc writers, and `tiger-architect`/`tiger-code-generator`/`tiger-reviewer` preload `tiger-code-quality`. Grill is inline (not a subagent), so it invokes its writers through the Skill tool instead.
+Document authoring is factored into focused **`tiger-docs-*` writer skills** (`tiger-docs-feature`, `tiger-docs-business`, `tiger-docs-e2e`, `tiger-docs-codemap`, `tiger-docs-release`, `tiger-docs-readme`) — loadable references with **no owned agent**. Grill loads `tiger-docs-feature` + `tiger-docs-e2e`; **update-docs** loads `tiger-docs-codemap/business/release/readme`. Loads are declared via the subagent **`skills:` frontmatter**; `tiger-architect`/`tiger-code-generator`/`tiger-reviewer` preload `tiger-code-quality`. Grill runs inline, so it invokes its writers through the Skill tool.
+
+## Branch Model
+
+- `main` = **protected release branch. The workflow and every build stage NEVER touch it.**
+- `dev` = integration trunk; everything integrates here.
+- `feature/<id>` is cut **from `dev`**. Grill creates it (`git checkout -b feature/<id> dev`) and commits the grill artifacts + board entry there.
+- architect / code-gen / e2e work on `feature/<id>`; never commit onto `dev` or `main`.
+- update-docs rebases `feature/<id>` onto `dev`, then **fast-forward merges to `dev`** (`git merge --ff-only`). Pushes `dev` if a remote exists. Never opens an MR, never merges to `main`.
+- **`dev` → `main` is a manual human step** the kit never performs.
 
 ## Non-Negotiables
 
-1. **Grill first for features.** For any new feature, user-visible behavior change, business process, integration, or ambiguous request, invoke `tiger-grill` before planning or coding.
-2. **One question at a time.** During grill, ask a single focused question with a recommended answer or choices. Do not batch questions.
-3. **Business logic must be explicit.** Close rules for roles, permissions, states, calculations, exceptions, data ownership, integrations, reporting, and audit needs.
-4. **Human approval is required.** A generated spec is a draft until the user explicitly approves it. The single human gate is grill approval — once `spec.html` carries the approval token, the rest of the pipeline runs autonomously.
-5. **WIP = 1.** Only one feature may be `in_progress` in `feature_list.json`.
-6. **Explore before code, and reuse before you build.** Read existing docs, state, types, and patterns before editing. The code generator climbs a lazy-senior decision ladder (YAGNI → an existing repo utility → the standard library → a native platform feature → an installed dependency → minimal new code) and **thinks hard about what to do before writing** — if a lib or standard/repo function already does the job, use it rather than reinventing it.
-7. **Evidence before claims.** Never mark a task, criterion, or feature done without fresh verification evidence from real execution.
-8. **One writer per field-group, and each writer commits what it owns.** Grill + human produce `tiger/features/<id>/{spec,adr,business}.html` plus the Robot Framework `e2e_testcases.robot` CASES (each case tagged `priority:high|medium|low`) **and create the feature's board entry with its WHY/SPECIFY fields** (`feature_list.json`: problem/jtbd/spec_file/acceptance_criteria/metric, `status: in_progress`, `phase: plan`), committing all of it on approval. The Architect **enriches** that entry with the PLAN fields (`scope_map.modify`/`read_only`, `tasks[]` each carrying `files`/`depends_on`/`context`/`verification`, RED-proven acceptance-check commands) and bootstraps `tiger/codemap.html` if missing, **and commits that** — it never rewrites grill's WHY/SPECIFY fields. The Code Generator owns code, commits code, flips `tasks[].status`, and appends `progress.md`. The **E2E gate** is the single in-loop gate: it owns `refs/notes/e2e` (the priority-graded note), the board `phase` pointer and `acceptance_criteria[].status` **during the loop**, the executable `e2e_keywords.resource` (the Robot Framework keyword implementations — Playwright behind the scenes — it authors for grill's agreed cases; it never edits the cases), and Robot's run evidence, **and commits each phase update**. **Security and Reviewer are standalone-only** now: when a human runs them they own their namespaced git notes (`refs/notes/security`, `refs/notes/review`) — no commits, no board, no code — but the automated workflow does not run them. Update-Docs owns the global HTML docs, the project `README.md` refresh, and the **passing close-out** of the board (authoring each by loading the `tiger-docs-codemap/business/release/readme` writer skills), **and commits all of it in one close-out commit**. The git note IS the grade. The board must always be committed: that is what makes "resume from `git log` + `git notes` + board phase" real and keeps a dirty board from blocking branch operations.
-9. **Workflow-driven orchestration; spawn the spine, never inline it.** The deterministic spine is the saved dynamic workflow `tiger-workflow-dev.js`. It first runs a **bootstrap** discovery step (reads the board to find the approved in-progress feature, resolves today + the `main` trunk — which is why `/tiger-workflow-dev` needs no args), then spawns Architect → (parallel Code Generators in isolated worktrees → Integrator){per dependency wave} → E2E (bug-priority gate; on "not pass" it loops back to the **Architect to re-plan** delta tasks → rebuild → re-e2e, ≤2 no-progress rounds → blocked) → Update-Docs, in fixed order. The build stages are subagents the workflow spawns; the user may also invoke a single stage skill standalone. A stage never does another stage's work — the boundaries are the git/board ownership in #8. **The grill is the one deliberate exception: it runs inline in the main session** because it interviews the human one question at a time, and a subagent has no channel to ask a question and wait. Grill is therefore a skill, not an agent.
-10. **Scope map + per-task context required.** Every build task must state `MODIFY`, `READ_ONLY`, and `METRIC` before code changes, plus a `context` brief (where the code lives, which existing code to reuse, how it connects, the behavior it must satisfy) so a parallel generator with only the board can build it.
-11. **Project rm guard required.** The `install` command places a PreToolUse Bash hook that blocks `rm` before execution. Do not build if the guard is missing or unverified. The guard is a speed bump, not a sandbox: it blocks the `rm` token, not every deletion path.
+1. **Grill first for features.** For any new feature, behavior change, business process, integration, or ambiguous request, invoke `tiger-grill` before planning or coding.
+2. **One question at a time.** During grill, ask a single focused question with a recommended answer.
+3. **Business logic must be explicit.** Close roles, permissions, states, calculations, exceptions, data ownership, integrations, reporting, audit.
+4. **Human approval is required.** The single gate is grill approval — once `feature.md` carries the frontmatter line `tiger-status: approved`, the rest of the pipeline runs autonomously.
+5. **WIP = 1.** Only one feature may be `in_progress`.
+6. **Explore and reuse before you build.** Read existing docs, state, types, and patterns first. The code generator climbs the lazy-senior ladder (YAGNI → repo utility → stdlib → native platform → installed dependency → minimal new code) and thinks hard before writing.
+7. **Evidence before claims.** Never mark anything done without fresh verification from real execution.
+8. **No comments in generated code.** Generated feature code AND the e2e keyword implementations carry NO comments — names and small functions carry meaning. The only exceptions are tool/language-required directives (shebang, `# type: ignore`, lint pragmas, legally-required license headers). The plugin's own scripts (workflow, validators, hooks) are not generated code; keep their comments but minimal.
+9. **One writer per field-group; each writer commits what it owns.** Grill + human produce `tiger/features/<id>/feature.md` (merged spec + decisions + business context) plus the broad `e2e_testcases.robot` cases (each tagged `priority:high|medium|low`) **and create the board entry** (WHY + SPECIFY fields, `status: in_progress`, `phase: plan`). The **architect** enriches it with PLAN fields (`scope_map.modify`/`read_only`, `tasks[]` with `files`/`depends_on`/`context`/`verification`, RED-proven checks) and maintains `tiger/CODEBASE_MAP.md` — never rewriting grill's fields. The **code generator** owns code, flips `tasks[].status`, appends `progress.md`. The **e2e gate** owns `refs/notes/e2e`, the board `phase` + `acceptance_criteria[].status`, the executable `e2e_keywords.resource`, and Robot's evidence. **update-docs** owns the global markdown docs, the README refresh, and the passing close-out. The git note IS the grade. Always commit the board (so "resume from git + board phase" is real).
+10. **Relaxed e2e case ownership.** Grill owns the agreed cases; the e2e gate must NOT edit or delete them, but **MAY append its own cases** tagged `[Tags] source:e2e`.
+11. **Scope map + per-task context required.** Every task states `MODIFY`, `READ_ONLY`, `METRIC`, plus a `context` brief (where code lives, what to reuse, how it connects, the behavior to satisfy) so a parallel generator with only the board can build it.
+12. **Project rm guard required.** `install` places a PreToolUse Bash hook blocking `rm`. Do not build if it is missing. It is a speed bump, not a sandbox.
 
 ## Standard Startup
 
@@ -28,107 +38,95 @@ Document authoring is factored into a family of focused **`tiger-docs-*` writer 
 ./init.sh
 ```
 
-Read these files before work. They are per-project runtime state that lives in the target project, not this plugin template:
+Read these per-project runtime files before work (they live in the target project, not this template):
 
-- `CLAUDE.md`
-- `progress.md`
-- `feature_list.json`
-- The active `tiger/features/<id>/spec.html`, if any (plus its `adr.html`, `business.html`, and `e2e_testcases.robot` siblings)
-- `tiger/codemap.html` (structural map)
+- `CLAUDE.md`, `progress.md`, `feature_list.json`
+- The active `tiger/features/<id>/feature.md` (plus its `e2e_testcases.robot` sibling), if any
+- `tiger/CODEBASE_MAP.md` (structural map)
 
 ## Feature Board Contract
 
-`feature_list.json` uses schema version 2. Every feature is a detailed kanban ticket with:
+`feature_list.json` uses schema version 2. Each feature is a detailed kanban ticket:
 
-- WHY-loop fields: `problem_statement`, `jtbd`, `problem_classification`, `user_context`
-- SPECIFY fields: `spec_file` (the `spec.html` path), `spec_status`, `approval`, `acceptance_criteria`, `scope_map.metric`
-- PLAN fields: `scope_map.modify`, `scope_map.read_only`, persisted `tasks[]` (each with `files`, `depends_on`, `context`, `verification`)
-- BUILD fields: `tasks[].status`, `tasks[].evidence`
-- VALIDATE fields: `validation`, acceptance evidence, business metric notes
-- LEARN fields: `learning.technical`, `learning.product`, `learning.process`, `learning.harness_updates`
+- **WHY** (grill): `problem_statement`, `jtbd`, `problem_classification`, `user_context`
+- **SPECIFY** (grill): `spec_file` (the `feature.md` path), `spec_status`, `approval`, `acceptance_criteria`, `scope_map.metric`
+- **PLAN** (architect): `scope_map.modify`, `scope_map.read_only`, `tasks[]` (each with `files`, `depends_on`, `context`, `verification`)
+- **BUILD** (code generator): `tasks[].status`, `tasks[].evidence`
+- **VALIDATE** (e2e): `validation`, acceptance evidence, metric notes
+- **LEARN** (update-docs): `learning.technical/product/process/harness_updates`
 
-The field-groups map one-to-one onto the stage that writes them, which is what "one writer per field-group" means: **grill** creates the entry and writes WHY + SPECIFY; **architect** adds PLAN; **code generator** writes BUILD (`tasks[].status`/`evidence`); **e2e** writes VALIDATE during the loop; **update-docs** writes LEARN + the passing close-out. No stage rewrites another's fields.
+The board must preserve reciprocal, acyclic `depends_on`/`blocks` links. `current_feature` must match the single `in_progress` feature or be `null`. The `phase` pointer is `plan | build | validate | blocked | passing`. Resume = `git log` + `git notes --ref=e2e` + board phase. The e2e note (`grade: pass|changes|blocked` + per-priority `blockers:` + ordered `fixes:`) IS the in-loop grade.
 
-The board must preserve reciprocal, acyclic `depends_on`/`blocks` links. `current_feature` must match the single `in_progress` feature or be `null`.
+**Every stage reads the current board first and updates only its own fields — via the Python helper, never by dumping/hand-rewriting the JSON.** `install` copies `scripts/board.py` to the project as `tiger/board.py`. Read with `python3 tiger/board.py summary` (compact overview), `... current`, `... in-progress`, `... get <id> [field]`. Patch with `... set-phase`, `set-status`, `set-current`, `set-task <id> <task> <status> [--evidence …]`, `set-ac`, `add-learning`, `approve`, `add-task`, `add-feature`. It loads the full board, mutates one spot, re-checks the invariants (WIP=1, current_feature, reciprocal + acyclic links, valid status/phase), and writes back preserving everything else — refusing (exit 1, board untouched) any write that would break an invariant. This keeps reads token-cheap and writes corruption-proof.
 
-The board carries a `phase` pointer (`plan | build | validate | blocked | passing`). Resume from interruption = `git log` + `git notes --ref=e2e` + board phase. The e2e gate's git note (`grade: pass|changes|blocked` + per-priority `blockers:` + priority-ordered `fixes:`) IS the in-loop grade; there is no separate board field. (When a human runs the standalone gates, `git notes --ref=security|review` add their grades too.)
+**Memory is in git, not hidden agent state:** the board's `learning.*`, `progress.md`, `tiger/CODEBASE_MAP.md`, `tiger/business.md`, and `CLAUDE.md` — all version-controlled. Subagents deliberately do NOT use the `memory:` frontmatter field. update-docs records durable lessons in `learning.harness_updates` for a human to promote into `CLAUDE.md`.
 
-**Memory is in git, not in hidden agent state.** The kit's cross-feature memory is the board's `learning.*` fields, `progress.md`, `tiger/codemap.html` (structural memory carried feature→feature), `tiger/business.html` (the cumulative per-feature product catalog), and `CLAUDE.md` (conventions) — all version-controlled and human-inspectable. The subagents therefore deliberately do NOT use the `memory:` frontmatter field: a private, cross-session store would add behavior-shaping state outside the artifacts, break the "resume from git" determinism, and (with `user` scope) leak one project's learnings into another. update-docs records durable lessons in `learning.harness_updates` for a human to promote into `CLAUDE.md`.
-
-## The Pipeline (v2 — `docs/dev-loop-v2.md`)
+## The Pipeline
 
 ```
-human ⇄ grill → architect → ( ∥ code generators in worktrees → integrate ){per wave} → e2e[bug-priority] → update docs → MR(→ main)
-  (only human gate)  opus          sonnet, parallel          sonnet         opus: HIGH+MED block,        opus, rebase onto main
-                                                                            LOW logged
+human ⇄ grill → architect → ( ∥ code generators in worktrees → integrate ){per wave} → e2e[bug-priority] → update docs → ff-merge to dev
+  (only gate)   opus           sonnet, parallel              sonnet      opus: HIGH+MED block, LOW logged   opus (main untouched)
         └── e2e "not pass" ⟲ back to ARCHITECT → re-plan (delta tasks) → rebuild → re-e2e   (≤2 no-progress rounds → blocked) ──┘
-tiger-security / tiger-reviewer → STANDALONE-only (invoke on demand; not in the automated loop)
+tiger-security / tiger-reviewer → STANDALONE-only (on demand; not in the loop)
 ```
 
-- **bootstrap** (sonnet) reads `feature_list.json` to find the approved in-progress feature, re-checks the `spec.html` approval token, and resolves `today` + the `main` trunk. This is why the workflow needs no args.
-- **Architect** (opus) reads grill's board entry + the four grill artifacts + codemap, validates scope against the real codebase, writes the blueprint, enriches the board entry with the PLAN fields (scope_map + `tasks[]` with per-task `context`/`files`/`depends_on` + RED-proven checks), bootstraps the codemap, commits the board plan. **The architect is the SOLE reader of `tiger/codemap.html`** — it distils the relevant structure into each task's `context`; the code generators build from that context and never read the codemap. On a re-plan it re-recons and refreshes the codemap.
-- **Code Generator** (sonnet) implements with strict TDD, **reusing before it builds**. The workflow builds the architect's `tasks[]` in **dependency waves**: a 1-task wave is one solo TDD commit; a wave of independent **file-disjoint** tasks is built by concurrent generator subagents, **each in its own isolated git worktree** (full TDD + full verify + one code/tests-only commit on a per-task branch), then a serial integrator cherry-picks those disjoint branches onto `feature/<id>` and records the board.
-- **E2E** (opus) runs **once after all waves are built** (not per round). It authors `e2e_keywords.resource` (the executable Robot Framework keyword implementations, Playwright behind the scenes), then runs the agreed `e2e_testcases.robot` suite with `robot` and the architect's acceptance checks as real processes; **triages every defect by priority** (HIGH/MEDIUM block, LOW logged), records `refs/notes/e2e` with priority-ordered "where to solve" fixes, moves the board phase. On CHANGES the gate **always returns to the Architect to re-plan** (the open blockers become delta tasks that rebuild through the wave machinery → re-e2e), never an ad-hoc code-gen patch; bounded by 2 no-progress rounds → `phase: blocked`.
-- **Update-Docs** (opus) refreshes the codemap/business/release HTML **and the project `README.md`** (loading the `tiger-docs-*` writer skills), records any LOW e2e defects as known issues, closes the board to `passing`, rebases onto `main`, and opens the MR (never merges).
+- **bootstrap** (sonnet): reads `feature_list.json` for the approved in-progress feature, re-checks the `feature.md` approval token, resolves `today` + the `dev` trunk (creates `dev` from `main` if missing). This is why the workflow needs no args.
+- **Architect** (opus): reads the board entry + `feature.md` + `CODEBASE_MAP.md`, validates scope against the real codebase, writes the blueprint, enriches the board with PLAN fields, and **is the SOLE author of `tiger/CODEBASE_MAP.md`** — distilling relevant structure into each task's `context` (generators build from that context and never read the map). Bootstraps the map when missing; refreshes it on a re-plan. Commits the board plan.
+- **Code Generator** (sonnet): implements with strict TDD — **RED → GREEN → SIMPLIFY → re-verify GREEN → commit** — reusing before building. SIMPLIFY = shorten, apply tiger-code-quality, delete dead code, **strip all comments**, tests stay GREEN. The workflow builds tasks in **dependency waves**: a 1-task wave is one solo commit; a wave of file-disjoint tasks builds by concurrent generators each in its own isolated git worktree (full TDD + verify + one commit on a per-task branch), then a serial integrator cherry-picks the disjoint branches onto `feature/<id>` and records the board.
+- **E2E** (opus): runs after all waves are built. Authors `e2e_keywords.resource` (Playwright behind the scenes for UI, Process/OS for the rest), runs the agreed `e2e_testcases.robot` suite + the architect's acceptance checks as real processes, **then thinks of uncovered scenarios and APPENDS new `source:e2e` cases and re-runs (iterates) until no meaningful scenario remains**. Triages by priority (HIGH/MEDIUM block, LOW logged), records `refs/notes/e2e`, moves the board phase. On CHANGES it **always returns to the Architect to re-plan** (open blockers → delta tasks → rebuild → re-e2e); bounded by 2 no-progress rounds → `phase: blocked`.
+- **Update-Docs** (opus): refreshes `tiger/CODEBASE_MAP.md`, `tiger/business.md`, `tiger/release_docs.md`, and the project `README.md` (loading the `tiger-docs-*` writers), logs LOW e2e defects as known issues, closes the board to `passing`, rebases onto `dev` and **fast-forward merges to `dev`** (never touches `main`).
 
-Speed model (the v2 wins): no in-loop security/reviewer gates; independent tasks build in parallel in isolated git worktrees (file-disjoint → conflict-free cherry-pick; shared board written once by the integrator); e2e fires once at the end. A deeply sequential feature degrades gracefully to one task per wave.
-
-Bounded retry: on e2e CHANGES the gate always routes back to the Architect to re-plan (delta tasks → rebuild → re-e2e); a no-progress re-plan round increments a stuck counter; **2 no-progress rounds → `phase: blocked`** with a priority-ordered fix list, stop for human. Git workflow and inter-stage boundaries are in `docs/tiger-git-best-practice.md` (trunk-based on `main`); test standards in `docs/tiger-unit-test-best-practice.md`; design-quality principles in the independent `tiger-code-quality` skill (which the architect, code generator, and standalone reviewer load). The current design diagram is `docs/dev-loop-v2.md`; the prior design is `docs/dev-architect.md` (historical).
+Speed model: no in-loop security/reviewer; independent tasks build in parallel in isolated worktrees (file-disjoint → conflict-free cherry-pick); e2e fires after every wave is integrated. A sequential feature degrades to one task per wave. Git conventions in `docs/tiger-git-best-practice.md`; test standards in `docs/tiger-unit-test-best-practice.md`; design principles in `tiger-code-quality`.
 
 ## Repository Layout
 
-- `skills/dev/tiger-grill/`: grill SKILL.md (inline interview → four artifacts + approval; the only human-interactive stage)
-- `skills/dev/tiger-{architect,code-generator,e2e,update-docs}/`: the four automated build-stage skills, each invoked directly by the user or spawned by the workflow
-- `skills/dev/tiger-{security,reviewer}/`: the two **standalone-only** review gates (invoke on demand; not in the automated workflow)
-- `skills/dev/tiger-docs-{spec,adr,business,e2e,codemap,release,readme}/`: the 7 focused doc-writer reference skills (no owned agents); grill loads spec/adr/business/e2e, update-docs loads codemap/business/release/readme
-- `skills/dev/tiger-code-quality/`: an independent reference skill (the 16 design principles); the architect, code generator, and reviewer load it
-- `workflows/tiger-workflow-dev.js`: the deterministic spine (a saved dynamic workflow; install copies it into a project's `.claude/workflows/`, where it becomes `/tiger-workflow-dev`). Args-optional — bootstrap discovers the feature from the board.
-- `agents/`: 6 self-contained stage subagents (architect, code-generator, e2e, update-docs, plus the standalone security + reviewer); model tier declared in frontmatter (opus everywhere except sonnet for the code generator)
-- `templates/`: the starting-point files install places in a project — 5 self-contained HTML artifact templates (spec, adr, business, codemap, release_docs) plus 2 Robot Framework e2e templates (`e2e_testcases.robot` = the priority-tagged CASES grill writes, `e2e_keywords.resource` = the executable implementations the e2e gate writes) copied into `tiger/templates/`, plus `feature_list.json`, the empty schema-v2 kanban board seeded to the project root
-- `hooks/`: real Claude Code hook wiring, `hooks.json` + `tiger-session-start.sh` (SessionStart context injection, scoped to Tiger projects). Hooks are JSON+script, never markdown.
-- `commands/install.md`: the one slash command — copies the workflow/guard/templates and verifies harness state (including the `main` trunk)
+- `skills/tiger-grill/`: inline interview → `feature.md` + broad robot e2e + approval (the only human-interactive stage)
+- `skills/tiger-{architect,code-generator,e2e,update-docs}/`: the four automated build-stage skills
+- `skills/tiger-{security,reviewer}/`: the two **standalone-only** review gates
+- `skills/tiger-docs-{feature,business,e2e,codemap,release,readme}/`: the 6 doc-writer references (no owned agents)
+- `skills/tiger-code-quality/`: the design principles (loaded by architect, code generator, reviewer)
+- `workflows/tiger-workflow-dev.js`: the deterministic spine (install copies it to a project's `.claude/workflows/`, where it becomes `/tiger-workflow-dev`). Args-optional.
+- `agents/`: 6 stage subagents (architect, code-generator, e2e, update-docs, plus standalone security + reviewer); opus everywhere except sonnet for the code generator
+- `templates/`: the markdown + robot starting-point files install copies into `tiger/templates/` (`feature.md`, `CODEBASE_MAP.md`, `business.md`, `release_docs.md`, `e2e_testcases.robot`, `e2e_keywords.resource`) plus the empty schema-v2 `feature_list.json` seeded to the project root
+- `hooks/`: real hook wiring — `hooks.json` + `tiger-session-start.sh` (SessionStart context injection, scoped to Tiger projects). JSON+script, never markdown.
+- `commands/install.md`: the one slash command — copies workflow/guard/templates, migrates old→new, verifies harness (including `main` + `dev`)
 - `project-hooks/tiger-block-rm.sh`: rm guard copied into target projects
-- `scripts/validate-plugin.sh`: structural + schema validation (run by `init.sh`)
-- `scripts/validate-board.py`: board-invariant checker for `feature_list.json`
+- `scripts/validate-plugin.sh` + `scripts/validate-board.py`: structural/schema + board-invariant validation
 
 ## Doc Style
 
-When producing any standalone HTML page or rich doc (an overview, design doc, report, or a spec/ADR rendered for reading), follow `docs/tiger-doc-style.md` — the house style: light GitHub palette, sticky numbered TOC, semantic callouts, and Mermaid + highlight.js via CDN. Lift its CSS `:root` verbatim so artifacts stay visually identical. This is the plugin-level analog of a user-level doc-style file: it travels with the kit, so the look never depends on anyone's personal `~/.claude` config. The HTML artifact templates under `templates/` follow this palette too — inline and self-contained (no CDN; `codemap` is the only one allowed the Mermaid module import). The e2e contract is the exception: it is a Robot Framework `.robot`/`.resource` pair, not HTML — human-readable as plain Given/When/Then text, and Robot's own generated `report.html` is the browser-openable evidence.
+Per-feature and global docs are **compact markdown** — prefer bullets and tables over paragraphs; YAML frontmatter is the machine gate. The e2e contract is a Robot Framework `.robot`/`.resource` pair (plain Given/When/Then; Robot's generated `report.html` is the browser-openable evidence). `tiger/CODEBASE_MAP.md` may include a fenced ```mermaid flowchart (GitHub renders it; stays plain-text readable) — no CDN, no HTML, no inline CSS. When a standalone rich HTML page is ever needed, follow `docs/tiger-doc-style.md` (the house palette), but the Tiger artifacts themselves are markdown.
 
 ## Skill Extension Rules
 
-Add a new skill only when the new capability has a distinct trigger, owned agents, state contract, workflow phase, or verification evidence. Otherwise, extend the existing skill.
+Add a new skill only when the capability has a distinct trigger, owned agents, state contract, workflow phase, or verification evidence. Otherwise extend the existing skill. When adding or changing a skill:
 
-When adding or changing a skill:
-
-- Update the skill pack under `<chosen-skill-pack-path>/SKILL.md` and its owned agent(s).
+- Update `skills/<skill>/SKILL.md` and its owned agent(s).
 - Add the skill path to `.claude-plugin/plugin.json` under `skills`.
 - Add matching root `agents/*.md` registry files (frontmatter `name`/`description`/`model`/`tools`) when a skill adds owned agents.
-- Update `CLAUDE.md` when operating rules, routing, required artifacts, non-negotiables, or definition of done change.
-- Update `README.md` when users need install/use/invocation guidance.
-- Update `commands/install.md`, `workflows/tiger-workflow-dev.js`, or the plugin-level `hooks/hooks.json` (+ scripts) when the stage spine, setup steps, or mechanical enforcement changes. Hooks must be real JSON+script wiring, never markdown. Do not add other slash commands without explicit approval.
-- Update `feature_list.json` and `progress.md` when the skill work is tracked as a feature.
+- Update `CLAUDE.md` when rules, routing, artifacts, non-negotiables, or definition of done change; `README.md`/`AGENTS.md` for user/orientation guidance.
+- Update `commands/install.md`, `workflows/tiger-workflow-dev.js`, or `hooks/` when the spine, setup, or mechanical enforcement changes. Hooks must be real JSON+script. Do not add other slash commands without explicit approval.
 - Run `./init.sh` before claiming completion.
 
 ## Commands, Skills & the Workflow
 
-- `/tiger-skills:install` — the one slash command. Copies the workflow, rm guard, and the artifact templates (HTML + the Robot Framework e2e `.robot`/`.resource`) into the project and verifies/seeds `init.sh`/board/`progress.md`/`main` trunk. Idempotent; never grills or builds.
-- The automated stages are **skills**, invoked by intent: `tiger-grill`, `tiger-architect`, `tiger-code-generator`, `tiger-e2e`, `tiger-update-docs`. Use one on its own, or grill → approve → run the workflow.
-- The two **review gates** are **standalone skills**: `tiger-security`, `tiger-reviewer` — invoke on demand to audit a branch/commit. They are not part of the automated workflow.
-- The seven **`tiger-docs-*` writer skills** (`spec`, `adr`, `business`, `e2e`, `codemap`, `release`, `readme`) are loadable references with no owned agents — grill and update-docs load them, or invoke one directly (e.g. "refresh the README", "write the robot e2e cases").
-- `/tiger-workflow-dev` — the installed workflow. **No args required**: it auto-discovers the approved in-progress feature from `feature_list.json`. Run it (or re-run it to resume) after a spec is approved. Optional overrides: `featureId`, `specFile`, `projectDir`, `today`, `proModel`, `fastModel`.
+- `/tiger-skills:install` — the one slash command. Copies the workflow, rm guard, and templates; **migrates an old project to the current version every run**; seeds/verifies `init.sh`/board/`progress.md` and a born `main` + `dev`. Idempotent; never grills or builds.
+- The automated stages are **skills**: `tiger-grill`, `tiger-architect`, `tiger-code-generator`, `tiger-e2e`, `tiger-update-docs`. Use one alone, or grill → approve → run the workflow.
+- The two **review gates** are **standalone skills**: `tiger-security`, `tiger-reviewer` — not in the automated loop.
+- The six **`tiger-docs-*` writers** (`feature`, `business`, `e2e`, `codemap`, `release`, `readme`) are loadable references — grill and update-docs load them, or invoke one directly.
+- `/tiger-workflow-dev` — the installed workflow. **No args required**; auto-discovers the approved in-progress feature. Optional overrides: `featureId`, `specFile`, `projectDir`, `today`, `proModel`, `fastModel`.
 
 ## Existing Project Adoption
 
-`/tiger-skills:install` seeds harness state when it is missing — it creates or merges `feature_list.json`, `progress.md`, and a minimal `CLAUDE.md`, installs the rm guard, ensures a born `main` branch, and preserves existing conventions without clobbering. It never reads source, grills, or builds. Existing work without approval evidence gets a retrospective grill (via the `tiger-grill` skill) before any build.
+`/tiger-skills:install` seeds harness state when missing and **migrates** an old-version project on every run — converting old HTML artifacts to the markdown set, rewriting board `spec_file` to `feature.md`, refreshing the installed workflow (old kept as `*.bak`), ensuring a born `main` + `dev` — preserving human-authored content (plugin-owned formats/names are migrated; your content is not clobbered). It never reads source, grills, or builds. Existing work without approval evidence gets a retrospective grill before any build.
 
 ## Definition of Done
 
-A feature can become `passing` (only Update-Docs may set it) when:
+A feature can become `passing` (only update-docs sets it) when:
 
-- The spec is human-approved (the approval token is present in `spec.html`).
+- `feature.md` carries `tiger-status: approved`.
 - Every task in `tasks[]` is complete.
 - Every acceptance criterion is done with evidence from real execution.
-- The e2e gate passed on the built feature with **zero HIGH and zero MEDIUM defects** (LOW defects, if any, are logged as known issues), all with fresh notes.
+- The e2e gate passed with **zero HIGH and zero MEDIUM defects** (LOW logged as known issues), with fresh notes.
 - The verification pipeline has fresh passing output.
-- `feature_list.json`, `progress.md`, the global HTML docs (including the cumulative `tiger/business.html` catalog), and learning fields are current.
+- `feature_list.json`, `progress.md`, the global markdown docs (including the cumulative `tiger/business.md`), and learning fields are current.

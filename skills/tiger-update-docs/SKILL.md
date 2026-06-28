@@ -1,17 +1,17 @@
 ---
 name: tiger-update-docs
-description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs-* writer skills (codemap → tiger/codemap.html, business → the cumulative tiger/business.html catalog keyed by feature id, release → tiger/release_docs.html, readme → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto main, and on a clean rebase opens the MR (never merges). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "open the MR", or when the loop finishes green and the feature needs finalizing — even standalone.
+description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs-* writer skills (codemap → tiger/CODEBASE_MAP.md, business → the cumulative tiger/business.md catalog keyed by feature id, release → tiger/release_docs.md, readme → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto dev and FAST-FORWARD MERGES it to dev (never touches main). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "land on dev", or when the loop finishes green and the feature needs finalizing — even standalone.
 context: fork
 agent: tiger-skills:tiger-update-docs
 ---
 
 # Tiger Update Docs — Close-Out & Finalize
 
-Last stage. Make the AI's work human-readable (refresh global docs + README), declare the feature done (the only stage that may close the board), and put the branch in front of the human as an open MR. Never merge.
+Last stage. Make the AI's work human-readable (refresh global markdown docs + README), declare the feature done (the only stage that may close the board), and land the branch on the `dev` integration trunk. The kit NEVER touches `main` — `dev → main` is a manual human step.
 
 ## When to use
-- "update the docs", "refresh the codemap", "changelog/release notes", "update the README", "close out the feature", "open the MR" — or the workflow's PASS handoff after e2e.
-- In-workflow: full close-out + rebase + MR. Standalone: docs refresh only, no board close-out.
+- "update the docs", "refresh the codemap", "changelog/release notes", "update the README", "close out the feature", "land on dev" — or the workflow's PASS handoff after e2e.
+- In-workflow: full close-out + rebase + ff-merge to dev. Standalone: docs refresh only, no board close-out, no merge.
 
 ## Contract
 
@@ -24,51 +24,50 @@ Full procedure: agents/tiger-update-docs.md — this skill is the contract + how
 - every `acceptance_criteria[]` `status: done` with evidence,
 - every `tasks[]` complete.
 
-Anything less → refresh docs you safely can, report what's missing, STOP. Do not close.
+Anything less → refresh docs you safely can, report what's missing, STOP. Do not close, do not merge.
 
-**Ownership — you write, then commit, exactly these:**
+**Ownership — you write, then commit, exactly these (all markdown):**
 
 | Artifact | Rule |
 |---|---|
-| `tiger/codemap.html` | Refresh from real diff; STABLE node ids; append Recent-Changes row. Mermaid CDN allowed. |
-| `tiger/business.html` | CUMULATIVE per-feature catalog keyed by id (`001 — …`, `002 — …`). Append THIS feature's entry; NEVER drop/restate a prior entry — only extend. |
-| `tiger/release_docs.html` | Append entry under `[Unreleased]`; User-facing then Internal bands; categories Added/Changed/Deprecated/Removed/Fixed/Security (omit empty). LOW e2e defects → **Known issues** line (read from `git notes --ref=e2e`). |
+| `tiger/CODEBASE_MAP.md` | Refresh from real diff (`git diff dev...HEAD`); STABLE node ids; append Recent-changes row. Fenced mermaid, no CDN. |
+| `tiger/business.md` | CUMULATIVE per-feature catalog keyed by id (`001 — …`, `002 — …`) incl. each feature's code glossary. Append THIS feature's entry; NEVER drop/restate a prior entry — only extend. |
+| `tiger/release_docs.md` | Append entry under `[Unreleased]`; User-facing then Internal bands; categories Added/Changed/Deprecated/Removed/Fixed/Security (omit empty). LOW e2e defects → **Known issues** line (read from `git notes --ref=e2e`). |
 | `README.md` | Surgical + additive; touched sections only; preserve human voice. |
 | `feature_list.json` | Close-out (below). |
 | `progress.md` | Append close-out note. |
 
+**Board I/O via `tiger/board.py` only** — read current state first (`python3 tiger/board.py current` / `get <id>`), then close out with `set-status <id> passing`, `set-phase <id> passing`, `set-current null`, `add-learning <id> <bucket> "…"`; each patch preserves every other field and fails closed. Never dump or hand-rewrite the whole `feature_list.json`.
+
 **Board close-out (your EXCLUSIVE window):** set `status: passing`, `phase: passing`, `current_feature: null` (all three agree). Fill `validation.*` + `learning.{technical,product,process,harness_updates}` from real signal (e2e note, fix-up rounds). RECORD harness lessons — never edit `CLAUDE.md` yourself. Preserve WIP=1 + reciprocal acyclic links; run `scripts/validate-board.py` if present, stop on failure.
 
-**Never:** rewrite grill/architect/code-gen/e2e fields; edit code/tests; add/move git notes; push to `main`; merge or squash-merge; run a release. The board chain is architect (init) → e2e (loop phase) → you (passing); only you set `current_feature: null`.
+**Never:** rewrite grill/architect/code-gen/e2e fields; edit code/tests; add/move git notes; touch `main`; open an MR. The board chain is architect (init) → e2e (loop phase) → you (passing); only you set `current_feature: null`.
 
 **One commit:** `docs(tiger): <id> close-out — codemap/business/release/README refresh (phase: passing)` adding the six files above. Code already landed as the generator's commits — don't re-commit code.
 
-**Rebase onto MAIN, never auto-resolve:** rebase `feature/<id>` onto `origin/main` (fallback local `main`). On conflict `git rebase --abort` (NEVER `--continue`), reopen board to `phase: blocked`/`status: in_progress`/`current_feature: <id>`, note the reason, commit `chore(board): <id> phase -> blocked (rebase conflict)`, STOP. Human resolves.
+**Rebase onto `dev`, never auto-resolve:** rebase `feature/<id>` onto `dev` (fetch first when a remote exists). On conflict `git rebase --abort` (NEVER `--continue`), reopen board to `phase: blocked`/`status: in_progress`/`current_feature: <id>`, note the reason, commit `chore(board): <id> phase -> blocked (rebase conflict)`, STOP. Human resolves.
 
-**MR, never merge:** clean rebase + `origin` exists → push `feature/<id>` + OPEN MR targeting `main` (via `PULL_REQUEST_TEMPLATE.md`). Clean rebase + no remote → branch local-ready. Human squash-merges.
+**Fast-forward merge to `dev`, NEVER touch main:** clean rebase → `git checkout dev && git merge --ff-only feature/<id>`; push `dev` if `origin` exists. The kit never merges to `main` and never opens an MR — promoting `dev → main` is a manual human decision.
 
 **Final token (workflow reads the LAST occurrence — emit cleanly, nothing after):**
 
 ```
-FINALIZE_STATUS: MERGED_READY
-FINALIZE_STATUS: NO_REMOTE_READY
+FINALIZE_STATUS: MERGED_TO_DEV
+FINALIZE_STATUS: NO_REMOTE_MERGED
 FINALIZE_STATUS: REBASE_CONFLICT
 ```
-`MERGED_READY` = clean rebase, pushed, MR opened. `NO_REMOTE_READY` = clean rebase, no remote. `REBASE_CONFLICT` = aborted, board reopened to blocked, stopped.
+`MERGED_TO_DEV` = clean rebase, ff-merged to `dev`, pushed. `NO_REMOTE_MERGED` = clean rebase, ff-merged to local `dev`, no remote. `REBASE_CONFLICT` = aborted, board reopened to blocked, stopped.
 
 ## Works with
-e2e (PASS handoff, `phase: validate`) → **update-docs** (refresh + close + MR) → human squash-merge onto main. Last stage; no downstream agent.
+e2e (PASS handoff, `phase: validate`) → **update-docs** (refresh + close + ff-merge to `dev`) → human promotes `dev → main`. Last stage; no downstream agent.
 
 ## Git interactions
-- **Reads:** `git log main..HEAD`, `git diff main...HEAD`, `git notes --ref=e2e`, touched files, `feature_list.json`, `progress.md`, feature `tiger/features/<id>/*.html`, global `tiger/*.html`, `git fetch`/`rev-parse` for rebase target.
-- **Writes:** one docs+board commit (six files); on conflict one `chore(board): … blocked` commit then stop; push `feature/<id>` + open MR (clean rebase + remote only).
-- **Never:** push to `main`, merge/squash-merge, run a release, add/move a git note, edit code/tests, rewrite another stage's fields.
+- **Reads:** `git log dev..HEAD`, `git diff dev...HEAD`, `git notes --ref=e2e`, touched files, `feature_list.json`, `progress.md`, feature `tiger/features/<id>/feature.md`, global `tiger/*.md`, `git fetch`/`rev-parse` for the rebase target.
+- **Writes:** one docs+board commit (six files); on conflict one `chore(board): … blocked` commit then stop; on a clean rebase ff-merge to `dev` + push `dev` (remote only).
+- **Never:** touch `main`, open an MR, run a release, add/move a git note, edit code/tests, rewrite another stage's fields.
 
 ## Standalone use
-Forks into the `tiger-skills:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, loading the matching docs-* skills) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not open an MR — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
+Forks into the `tiger-skills:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, loading the matching docs-* skills) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not merge — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
 
 ## References
-- Keep a Changelog 1.1.0 — categories, `[Unreleased]`-on-top, ISO dates: https://keepachangelog.com/en/1.1.0/
-- C4 container model — codemap altitude: https://c4model.com/diagrams/container
-- Mermaid — `flowchart`+`subgraph`, v11 CDN: https://mermaid.js.org/intro/getting-started.html
-- `docs/tiger-git-best-practice.md` — rebase/MR rules, never-auto-resolve, one-writer-per-file commit scopes.
+- `docs/tiger-git-best-practice.md` — rebase/ff-merge rules, never-auto-resolve, one-writer-per-file commit scopes.

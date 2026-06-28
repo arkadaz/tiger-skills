@@ -1,9 +1,9 @@
 ---
 name: tiger-code-quality
-description: The 16 design principles for well-built code — Single Responsibility, Open-Closed, Liskov Substitution, DRY, Encapsulate What Varies, Code to the Interface, Favor Composition over Inheritance, Factory, Delegation, Least Knowledge / Law of Demeter, Least Astonishment, Precondition, Postcondition, Class Invariant, Lazy Evaluation. Use whenever designing components, writing or refactoring code, or reviewing a diff for design quality — or when asked "is this well designed", "review the design", "does this follow SOLID", "code smell", or any principle by name. A self-contained reference; invoke directly or load as a skill.
+description: The design principles for well-built code — Single Responsibility, Open-Closed, Liskov Substitution, DRY, Encapsulate What Varies, Code to the Interface, Favor Composition over Inheritance, Factory, Delegation, Least Knowledge / Law of Demeter, Least Astonishment, Precondition, Postcondition, Class Invariant, Lazy Evaluation, No Comments — plus the SIMPLIFY pass (smallest readable code that passes). Use whenever designing components, writing or refactoring code, or reviewing a diff for design quality — or when asked "is this well designed", "review the design", "does this follow SOLID", "code smell", or any principle by name. A self-contained reference; invoke directly or load as a skill.
 ---
 
-# Code Quality — 16 design principles
+# Code Quality — design principles + SIMPLIFY
 
 Read-only reference loaded by architect, code-generator, and reviewer. Apply as a review checklist: cite principle + file:line for each confirmed smell.
 
@@ -45,6 +45,14 @@ A principle is binding only when it applies — cite it when it bites, mark N/A 
 | **Class Invariant** | Public setter can produce illegal state; invariant "by convention" only → establish in constructor; every mutator preserves it. |
 | **Lazy Evaluation** | Eagerly computing something often discarded; recomputing in a loop → defer/memoize costly work until first use. |
 
+### Simplicity & clarity
+
+| Principle | Smell → Fix |
+|---|---|
+| **No comments — names and structure carry meaning** | Any comment in generated code (`#`, `//`, block, narration docstring) → delete it; rename the symbol or extract a well-named function so the code reads without prose. Only a shebang or a required lint/type pragma may remain. |
+
+**The SIMPLIFY pass** — the code generator runs it after GREEN, before commit (`RED → GREEN → SIMPLIFY → re-verify GREEN → commit`): rewrite to the **smallest readable version that still passes** — apply these principles, delete dead code, inline needless indirection, and strip ALL comments. Re-run the tests; they must stay GREEN. The simplify goal is least code that passes and reads clearly — not cleverness.
+
 ## Works with
 
 Loaded by architect (planning), code-generator (build), and reviewer (audit). No pipeline position of its own — a reference, not a stage.
@@ -55,10 +63,4 @@ None. Read-only reference — no commits, no git notes, no file writes.
 
 ## Standalone use
 
-Invoke directly to review a diff or design against the 16 principles. Reports only — writes nothing, commits nothing, owns no subagent.
-
-## References
-
-- SOLID: https://en.wikipedia.org/wiki/SOLID
-- Law of Demeter: https://en.wikipedia.org/wiki/Law_of_Demeter
-- Design by Contract: https://en.wikipedia.org/wiki/Design_by_contract
+Invoke directly to review a diff or design against the design principles. Reports only — writes nothing, commits nothing, owns no subagent.

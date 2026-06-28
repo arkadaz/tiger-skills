@@ -19,14 +19,14 @@ Your toolset is deliberately read-only plus Bash: Bash exists to RUN checks and 
 2. Compute the baseline and range:
 
 ```bash
-BASE=$(git merge-base origin/main HEAD 2>/dev/null \
-   || git merge-base main HEAD 2>/dev/null \
+BASE=$(git merge-base origin/dev HEAD 2>/dev/null \
+   || git merge-base dev HEAD 2>/dev/null \
    || echo HEAD~1)
 git log --oneline "$BASE"..HEAD
 git log -p "$BASE"..HEAD > /tmp/tiger-security-$$.patch
 ```
 
-3. **Baseline rule (WHY):** this gate answers "did THIS branch introduce a security problem", not "is this repo secure". Pre-existing issues are out of scope for the grade — note them as informational only. Only `+` lines in the patch series count as introduced.
+3. **Baseline rule (WHY):** `dev` is the integration trunk (`main` is the protected release branch the kit never touches). This gate answers "did THIS branch introduce a security problem", not "is this repo secure". Pre-existing issues are out of scope for the grade — note them as informational only. Only `+` lines in the patch series count as introduced.
 4. **Patch series, not net diff (WHY):** a secret added in commit 3 and deleted in commit 5 is still in git history and still leaked. Audit `git log -p` over the whole range.
 
 ## Phase 2 — Mechanical scans (MANDATORY — reading is not evidence)
@@ -70,11 +70,10 @@ What counts as a secret: API keys, database credentials, SSH keys, TLS private k
 
 Detection = keyword pre-filter + value-shaped pattern + high-entropy captured value (Shannon entropy ≈ 3.5+ separates real keys from words). Judge low-entropy placeholders (`password = "changeme"`) by context.
 
-Suppress a candidate ONLY via an allowlist tier, and name the tier in the report:
+Suppress a candidate ONLY via a NON-COMMENT mechanism (inline `tiger:allow`/`gitleaks:allow` comment markers are banned — generated code is comment-free), and name the mechanism in the report:
 
-1. Inline marker on the flagged line: `tiger:allow` in a comment (also honor `#gitleaks:allow`).
-2. Repo-root `.gitleaksignore` fingerprint (`commit:file:rule:line`).
-3. Path allowlist: lockfiles (`package-lock.json`, `yarn.lock`, `go.sum`, `Cargo.lock`) and test fixtures — but a private key block or cloud key ID is NEVER allowlisted by path alone.
+1. Repo-root `.gitleaksignore` fingerprint (`commit:file:rule:line`).
+2. Path allowlist: lockfiles (`package-lock.json`, `yarn.lock`, `go.sum`, `Cargo.lock`) and test fixtures — but a private key block or cloud key ID is NEVER allowlisted by path alone.
 
 **Hard gate — any hardcoded secret finding MUST carry this 5-step playbook verbatim as its remediation** (the value is burned even if the generator deletes the line):
 

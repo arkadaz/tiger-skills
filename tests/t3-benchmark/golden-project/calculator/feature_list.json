@@ -10,7 +10,7 @@
       "jtbd": "When building numeric utilities, I want a reusable calculator module so I do not duplicate arithmetic logic.",
       "problem_classification": "missing-feature",
       "user_context": "Developers on the Tiger benchmark project.",
-      "spec_file": "tiger/features/golden-001/spec.html",
+      "spec_file": "tiger/features/golden-001/feature.md",
       "spec_status": "approved",
       "approval": { "approved_by": "benchmark@tiger.test", "date": "2026-06-18" },
       "depends_on": [],

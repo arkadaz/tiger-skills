@@ -19,10 +19,10 @@ Full procedure: agents/tiger-security.md — this skill is the contract + how to
 
 ## Contract
 
-**Scope — branch diff only (not pre-existing issues).**
+**Scope — branch diff only (not pre-existing issues). Baseline on `dev` (the integration trunk), never `main`.**
 
 ```bash
-BASE=$(git merge-base main HEAD 2>/dev/null || git merge-base origin/main HEAD 2>/dev/null || echo HEAD~1)
+BASE=$(git merge-base dev HEAD 2>/dev/null || git merge-base origin/dev HEAD 2>/dev/null || echo HEAD~1)
 git log -p "$BASE"..HEAD   # full patch series — audit ALL intermediate commits
 git diff "$BASE"..HEAD     # net change
 ```
@@ -57,6 +57,8 @@ command -v semgrep  >/dev/null && semgrep scan --error --quiet
 [ -f package.json ] && npm audit --omit=dev || true
 command -v bandit   >/dev/null && bandit -q $(git diff --name-only "$BASE"..HEAD -- '*.py') 2>/dev/null || true
 ```
+
+**Suppress a false-positive only via a non-comment mechanism** (inline `tiger:allow`/comment markers are banned — generated code is comment-free): a repo-root `.gitleaksignore` fingerprint (`commit:file:rule:line`), or a path allowlist (lockfiles, test fixtures). Name the mechanism in the report. A private-key block or cloud key ID is NEVER allowlisted by path alone.
 
 **Hardcoded-secret 5-step playbook (include verbatim in every hardcoded-secret finding):**
 
@@ -107,10 +109,3 @@ Invoke by asking for "a security review of `<target>`" — runs in the owned `ti
 Supply: absolute project path + target (branch, commit range `A..B`, single commit, or "working tree").
 
 Report is printed only. Write the `--ref=security` git note only if the user explicitly requests it.
-
-## References
-
-- Anthropic claude-code-security-review — taxonomy, FP exclusions, pluggable instructions: https://github.com/anthropics/claude-code-security-review
-- OWASP Secrets Management Cheat Sheet — hygiene checklist, 5-step playbook: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
-- gitleaks — keyword+entropy heuristic, allowlist tiers: https://github.com/gitleaks/gitleaks
-- git-notes — namespaced refs: https://git-scm.com/docs/git-notes

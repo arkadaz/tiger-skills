@@ -69,16 +69,20 @@ echo "Scorecard: $SCORECARD_OUT"
 # 1. Copy golden project to a fresh temp dir
 cp -r "$GOLDEN_PROJECT" "$BENCH_DIR"
 
-# 2. Set up git: init, MAIN trunk, feature branch.
-# v2 is trunk-based on `main` (the workflow's bootstrap aborts if `main` is absent), so the
-# trunk must be `main` — NOT the old v1 `develop`. `branch -M main` normalizes whatever
-# `git init` produced (master, when init.defaultBranch is unset) to main before branching.
+# 2. Set up git: init, born main, born dev (the integration trunk), feature branch off dev.
+# v6 integration trunk is `dev` — NOT main (the protected release branch the workflow never
+# touches) and NOT the old v1 `develop`. Everything integrates on dev; feature/<id> is cut
+# FROM dev. The pre-approved golden artifact is feature.md carrying the frontmatter line
+# `tiger-status: approved` (was the old spec.html <meta>). `branch -M main` normalizes whatever
+# `git init` produced (master, when init.defaultBranch is unset) to main; we branch dev off
+# main, then cut the feature branch off dev.
 git -C "$BENCH_DIR" init -q
 git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark add -A
 git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark \
 	commit -q -m "chore: seed golden project"
 git -C "$BENCH_DIR" branch -M main
-git -C "$BENCH_DIR" checkout -q -b "feature/$FEATURE_ID" main
+git -C "$BENCH_DIR" branch dev main
+git -C "$BENCH_DIR" checkout -q -b "feature/$FEATURE_ID" dev
 
 # 3. Install harness files into the bench project
 mkdir -p "$BENCH_DIR/.claude/workflows"

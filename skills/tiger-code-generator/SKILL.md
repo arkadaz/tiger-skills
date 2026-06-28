@@ -9,7 +9,7 @@ agent: tiger-skills:tiger-code-generator
 
 Implements the Architect's `tasks[]`, one task per cycle, with strict TDD. The only stage that writes code.
 
-Pipeline position: grill → architect → **[ code-gen waves → integrate ]** → **e2e** → update-docs → MR. No in-loop security/reviewer gates in v2 — those are standalone-only.
+Pipeline position: grill → architect → **[ code-gen waves → integrate ]** → **e2e** → update-docs → **merge to `dev`**. No in-loop security/reviewer gates in v2 — those are standalone-only.
 
 ## When to use
 
@@ -32,6 +32,8 @@ Full procedure: `agents/tiger-code-generator.md` — this skill is the contract 
 
 Never simplify away: input validation, error handling, security/authz, accessibility, spec-required behavior.
 
+**No comments in generated code (hard rule):** feature code is **comment-free** — no `#`, no `//`, no inline/trailing comments, no block comments, no narration docstrings. Names and small functions carry meaning. Only a shebang or a required lint/type pragma may remain. The SIMPLIFY step strips every comment before commit.
+
 **Build modes (prompt declares one; default = Solo):**
 
 | Mode | When | Git |
@@ -41,12 +43,13 @@ Never simplify away: input validation, error handling, security/authz, accessibi
 | Integrator | after parallel wave | cherry-pick branches onto `feature/<id>`, full suite, one `chore(board)` commit |
 | Fix-up | e2e returned CHANGES | fix HIGH→MEDIUM findings (LOW logged only), one semantic commit |
 
-**TDD cycle (one spawn = one cycle = one commit):**
+**TDD cycle (one spawn = one cycle = one commit): RED → GREEN → SIMPLIFY → re-verify GREEN → commit.**
 1. Write a single failing test → run → confirm RED (fails for the right reason).
 2. Write minimal implementation → run → confirm GREEN, no regressions.
-3. Run project verification (`./init.sh` or equivalent).
-4. Green → flip `tasks[].status` with evidence, append `progress.md`, commit once.
-5. Red → fix code (never the test), re-run.
+3. **SIMPLIFY** — cut to the shortest readable version that still passes: apply `tiger-code-quality`, delete dead code, remove ALL comments (generated code is comment-free). Re-run tests → must stay GREEN.
+4. Run project verification (`./init.sh` or equivalent).
+5. Green → flip `tasks[].status` with evidence, append `progress.md`, commit once.
+6. Red → fix code (never the test), re-run.
 
 Never weaken, loosen, delete, or `skip` a test to go green. Any test change must be called out in the report.
 
@@ -54,7 +57,9 @@ Never weaken, loosen, delete, or `skip` a test to go green. Any test change must
 
 **Ownership — writes:** code, tests, `tasks[].status` flips with evidence, `progress.md` appends, one semantic commit per green cycle on `feature/<id>`.
 
-**Never writes:** `acceptance_criteria` status, board `phase` pointer, `current_feature`, git notes (any ref), push, rebase, MR.
+**Board access is through `tiger/board.py`, never by hand-editing the JSON:** ALWAYS read first (`python3 tiger/board.py current` / `get <id>`), then flip ONLY your tasks with `python3 tiger/board.py set-task <id> <task> <status> --evidence "…"` (each patch preserves every other field and fails closed). Never dump or hand-rewrite `feature_list.json`; never `set-ac`/`set-phase` (those belong to e2e).
+
+**Never writes:** `acceptance_criteria` status, board `phase` pointer, `current_feature`, git notes (any ref), push, rebase, merge. **Never pre-grade** your own work (no predicted verdicts, no "this should pass") — that is the e2e gate's call.
 
 **Cycle self-report — end every report with exactly these two lines, last:**
 
@@ -71,9 +76,9 @@ architect (provides `tasks[]` + `scope_map`) → **code-generator** → e2e gate
 
 ## Git interactions
 
-- **Reads:** `feature_list.json`, `tiger/features/<id>/spec.html` + siblings, `tiger/codemap.html`, scope_map, actual source + tests.
-- **Writes:** code/tests, `feature_list.json` (`tasks[].status`/evidence), `progress.md` — one semantic commit per cycle on `feature/<id>`.
-- **Never:** commits on `main`, writes git notes, pushes, rebases, merges, or opens an MR.
+- **Reads:** `feature_list.json` (the architect's `tasks[]`/`scope_map` ARE the plan), the task's `context` brief, `tiger/features/<id>/feature.md` when the task touches its territory, actual source + tests. Does NOT read `tiger/CODEBASE_MAP.md` — the architect distils its structure into each task's `context`.
+- **Writes:** code/tests, `feature_list.json` (`tasks[].status`/evidence), `progress.md` — one semantic commit per cycle on `feature/<id>` (base = `dev`).
+- **Never:** commits on `dev` or `main`, writes git notes, pushes, rebases, or merges.
 
 ## Standalone use
 
@@ -81,6 +86,4 @@ Invoke directly for a single TDD cycle without the workflow. Supply: project dir
 
 ## References
 
-- [obra/superpowers — TDD skill](https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md) — RED→GREEN iron law
-- [DietrichGebert/ponytail — lazy senior developer](https://github.com/DietrichGebert/ponytail) — the reuse ladder
-- Internal: `docs/tiger-unit-test-best-practice.md`, `tiger-code-quality` skill, `docs/tiger-git-best-practice.md`
+- `docs/tiger-unit-test-best-practice.md`, `tiger-code-quality` skill, `docs/tiger-git-best-practice.md`

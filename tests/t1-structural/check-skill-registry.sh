@@ -20,17 +20,45 @@ import sys
 root = pathlib.Path(sys.argv[1])
 plugin_json_path = pathlib.Path(sys.argv[2])
 
+# v6 lineup: 14 skills (docs-spec/docs-adr retired; docs-feature added).
+EXPECTED = {
+    "tiger-grill", "tiger-architect", "tiger-code-generator", "tiger-code-quality",
+    "tiger-e2e", "tiger-security", "tiger-reviewer", "tiger-update-docs",
+    "tiger-docs-feature", "tiger-docs-business", "tiger-docs-e2e",
+    "tiger-docs-codemap", "tiger-docs-release", "tiger-docs-readme",
+}
+
 with plugin_json_path.open() as f:
     manifest = json.load(f)
 
-skills = manifest.get("skills", [])
+# Skills live under manifest.autoDiscovery.skills (a list of "skills/<name>/" paths).
+skill_paths = manifest.get("autoDiscovery", {}).get("skills", [])
 failures = 0
-for skill_path in skills:
+
+if not skill_paths:
+    print("FAIL: manifest.autoDiscovery.skills is empty or missing", file=sys.stderr)
+    sys.exit(1)
+
+declared = {pathlib.PurePosixPath(p.rstrip("/")).name for p in skill_paths}
+
+missing = EXPECTED - declared
+extra = declared - EXPECTED
+if missing:
+    print(f"FAIL: manifest missing skills: {sorted(missing)}", file=sys.stderr)
+    failures += len(missing)
+if extra:
+    print(f"FAIL: manifest has unexpected skills: {sorted(extra)}", file=sys.stderr)
+    failures += len(extra)
+if not missing and not extra:
+    print(f"PASS: manifest.autoDiscovery.skills == the 14 v6 skills")
+
+# Every declared skill must have a SKILL.md on disk.
+for skill_path in skill_paths:
     skill_file = root / skill_path / "SKILL.md"
     if skill_file.exists():
-        print(f"PASS: {skill_path}/SKILL.md exists")
+        print(f"PASS: {skill_path}SKILL.md exists")
     else:
-        print(f"FAIL: {skill_path}/SKILL.md missing", file=sys.stderr)
+        print(f"FAIL: {skill_path}SKILL.md missing", file=sys.stderr)
         failures += 1
 
 sys.exit(failures)
