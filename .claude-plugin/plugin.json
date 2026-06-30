@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Harness engineering (outer loop) + code quality (inner loop): a lean, linear single-feature pipeline. grill writes one compact markdown feature.md (merged spec/ADR/business) + a broad Robot e2e suite and cuts feature/<id> from dev; the architect plans where the code goes and keeps tiger/CODEBASE_MAP.md; generators build in parallel git worktrees with strict TDD, a simplify pass, and NO comments in generated code; the e2e gate is the single in-loop quality gate — it runs the suite for real, adds more cases, and triages by priority; update-docs refreshes the markdown docs and fast-forward merges to dev (main stays protected; dev→main is manual). tiger-security / tiger-reviewer are standalone on-demand gates. 6 agents, 14 skills, a deterministic git-committed Workflow. Based on the walkinglabs learn-tiger-grill course.",
-  "version": "6.0.2",
+  "version": "6.0.3",
   "author": {
     "name": "arkadaz"
   },

@@ -348,6 +348,26 @@ if [ -f "$WF" ]; then
     ' "$WF" 2>/dev/null; then
       pass "workflow script parses (async-wrapped, like the runtime)"; else
       fail "workflow script has a syntax error"; fi
+    # Parsing is not enough: a const referenced in a stage prompt ABOVE its own declaration throws a
+    # temporal-dead-zone ReferenceError only when that prompt template is built at runtime. EXECUTE the
+    # body with stub globals through the bootstrap + architect spawns to catch that class before it ships.
+    if node -e '
+      const fs=require("fs");const src=fs.readFileSync(process.argv[1],"utf8");
+      const body=src.replace(/^export const meta/m,"const meta");
+      const AF=Object.getPrototypeOf(async function(){}).constructor;
+      const fn=new AF("args","budget","agent","parallel","pipeline","phase","log","workflow",body);
+      let n=0;
+      const agent=async()=>{ if(++n>=2){ const e=new Error("ARCH_REACHED"); e.ok=true; throw e; }
+        return {abort:null,featureId:"F1",featureTitle:"v",specFile:"x",projectDir:".",today:"2026-01-01",branchBase:"dev",approved:true}; };
+      const parallel=async(t)=>Promise.all(t.map((f)=>f()));
+      const noop=()=>{};
+      const budget={total:null,spent:()=>0,remaining:()=>Infinity};
+      fn({},budget,agent,parallel,async(i)=>i,noop,noop,async()=>null)
+        .then(()=>process.exit(0))
+        .catch((e)=>{ if(e&&e.ok) process.exit(0); console.error(String((e&&e.message)||e)); process.exit(1); });
+    ' "$WF" 2>/dev/null; then
+      pass "workflow script executes past the architect spawn (no use-before-declaration / TDZ)"; else
+      fail "workflow script throws at runtime before the architect spawn (a const used above its declaration / TDZ)"; fi
   else
     pass "node not found; workflow syntax check skipped"
   fi
