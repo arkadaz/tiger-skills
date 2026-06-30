@@ -101,6 +101,27 @@ const digest = (report, max = 1800) => {
   return t.slice(0, head) + "\n…[handoff trimmed — disk state is authoritative]…\n" + t.slice(-(max - head));
 };
 
+// Shared prompt fragments reused across stage prompts. Declared up front, BEFORE the first stage
+// prompt that interpolates them — a const referenced above its own declaration line throws a
+// ReferenceError (temporal dead zone), which is exactly how the architect prompt used to crash.
+// Stages read + patch the board through the Python helper (installed as tiger/board.py) instead of
+// dumping and hand-rewriting the whole JSON; it preserves every other field and fails closed on a
+// broken invariant. Read: summary|get|current|in-progress. Patch: set-phase/set-status/set-current/
+// set-task/set-ac/add-learning/approve/add-task/add-feature.
+const BOARD_TOOL =
+  "Read the board with `python3 tiger/board.py summary` (or `get <id> [field]`) and patch ONLY your " +
+  "fields with `python3 tiger/board.py` (set-phase/set-status/set-current/set-task/set-ac/add-learning/" +
+  "add-task) — never dump or hand-rewrite the whole feature_list.json. It validates invariants on every write.";
+
+const QUALITY_RULES =
+  `Write to the tiger-code-quality principles (single responsibility, DRY, encapsulate what varies, ` +
+  `asserted pre/postconditions, no train-wreck chains, no placeholders/broad catches/silent fallbacks). ` +
+  `After GREEN run a SIMPLIFY pass: make the code the shortest readable version that still passes, apply ` +
+  `best practices, delete dead code, and remove ALL comments — generated code carries NO comments (no #, ` +
+  `no //, no inline or block comments, no narration docstrings; only a shebang or a required lint/type ` +
+  `pragma may remain). Re-run tests; they MUST stay GREEN; then commit. There is no in-loop reviewer — ` +
+  `your tests + clean, comment-free design ARE the quality bar before the e2e gate.`;
+
 // ── BOOTSTRAP — discover the feature + dev trunk ──────────────────────────────
 const BOOTSTRAP_SCHEMA = {
   type: "object",
@@ -337,24 +358,6 @@ log(
 // ── Prompt builders ─────────────────────────────────────────────────────────
 const sanitize = (s) => String(s).replace(/[^a-zA-Z0-9_.-]/g, "-");
 const waveBranch = (task, waveNum) => `feature/${F.id}-w${waveNum}-${sanitize(task.id)}`;
-
-// Stages read + patch the board through the Python helper (installed as tiger/board.py) instead of
-// dumping and hand-rewriting the whole JSON; it preserves every other field and fails closed on a
-// broken invariant. Read: summary|get|current|in-progress. Patch: set-phase/set-status/set-current/
-// set-task/set-ac/add-learning/approve/add-task/add-feature.
-const BOARD_TOOL =
-  "Read the board with `python3 tiger/board.py summary` (or `get <id> [field]`) and patch ONLY your " +
-  "fields with `python3 tiger/board.py` (set-phase/set-status/set-current/set-task/set-ac/add-learning/" +
-  "add-task) — never dump or hand-rewrite the whole feature_list.json. It validates invariants on every write.";
-
-const QUALITY_RULES =
-  `Write to the tiger-code-quality principles (single responsibility, DRY, encapsulate what varies, ` +
-  `asserted pre/postconditions, no train-wreck chains, no placeholders/broad catches/silent fallbacks). ` +
-  `After GREEN run a SIMPLIFY pass: make the code the shortest readable version that still passes, apply ` +
-  `best practices, delete dead code, and remove ALL comments — generated code carries NO comments (no #, ` +
-  `no //, no inline or block comments, no narration docstrings; only a shebang or a required lint/type ` +
-  `pragma may remain). Re-run tests; they MUST stay GREEN; then commit. There is no in-loop reviewer — ` +
-  `your tests + clean, comment-free design ARE the quality bar before the e2e gate.`;
 
 const waveWorktreePrompt = (task, waveNum) =>
   `Implement ONE task with strict TDD as the Tiger Code Generator — PARALLEL WAVE ${waveNum}, worktree mode.
