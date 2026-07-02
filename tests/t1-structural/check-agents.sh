@@ -5,14 +5,12 @@ FAILURES=0
 fail() { echo "FAIL: $1" >&2; FAILURES=$((FAILURES + 1)); }
 pass() { echo "PASS: $1"; }
 
-# v6 lineup: 6 agents. opus everywhere except code-generator (sonnet).
-EXPECTED_AGENTS="tiger-architect tiger-code-generator tiger-e2e tiger-update-docs tiger-security tiger-reviewer"
-EXPECTED_MODEL_tiger_architect=opus
+# v7 lineup: 3 in-loop agents (architect+e2e merged into tiger-lead; security/reviewer are
+# standalone SKILLS with no owned agent). opus everywhere except code-generator (sonnet).
+EXPECTED_AGENTS="tiger-lead tiger-code-generator tiger-update-docs"
+EXPECTED_MODEL_tiger_lead=opus
 EXPECTED_MODEL_tiger_code_generator=sonnet
-EXPECTED_MODEL_tiger_e2e=opus
 EXPECTED_MODEL_tiger_update_docs=opus
-EXPECTED_MODEL_tiger_security=opus
-EXPECTED_MODEL_tiger_reviewer=opus
 
 front_of() { awk '/^---/{n++; next} n==1' "$1"; }
 

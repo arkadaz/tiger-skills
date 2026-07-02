@@ -2,7 +2,7 @@
 
 T3 runs a **real** Tiger v2 pipeline against a *golden project* and scores the result.
 It copies a golden project into a throwaway repo, drives the saved `/tiger-workflow-dev`
-workflow with a headless `claude` session (bootstrap → architect → parallel build →
+workflow with a headless `claude` session (bootstrap → lead → parallel build →
 e2e → close-out), and collects a `scorecard.json`. Unlike T1 (structural) and T2
 (contract) checks, T3 actually **builds and exercises** a feature — including driving the
 generated UI with Playwright — so it measures whether the workflow *works*, not just
@@ -47,7 +47,7 @@ TIGER_PRO_MODEL=opus   TIGER_FAST_MODEL=sonnet  ./run-benchmark.sh   # defaults
 TIGER_PRO_MODEL=inherit TIGER_FAST_MODEL=inherit ./run-benchmark.sh  # session default (non-Anthropic backends)
 ```
 
-`PRO` drives architect/e2e/update-docs; `FAST` drives code-generator/integrator. These
+`PRO` drives lead/update-docs; `FAST` drives code-generator/integrator. These
 become the workflow's `proModel`/`fastModel` args (the agent frontmatter `model:` is
 ignored by the workflow runtime — it passes these directly).
 
@@ -90,7 +90,7 @@ tests/scorecards/<golden-name>-<timestamp>-<version>/
   "final_phase": "passing",
   "rounds_to_pass": 0,          // e2e fix-up rounds needed (0 = passed first try)
   "blocked_count": 0,           // gate notes graded "blocked"
-  "stages_passed": ["architect", "code-generator", "e2e", "update-docs"],
+  "stages_passed": ["lead", "code-generator", "e2e", "update-docs"],
   "gate_first_pass_rate": 1.0,  // pass-notes / total gate-notes
   "commit_count": 7,            // commits on feature/<id> over main..HEAD
   "elapsed_seconds": 1134,      // first→last feature commit span
@@ -101,7 +101,7 @@ tests/scorecards/<golden-name>-<timestamp>-<version>/
 ```
 
 `e2e_blockers` + `e2e_screenshots` are the "clickable verified" signal: a pass with
-`high=0, medium=0` and N screenshots means the e2e gate launched a real browser, clicked
+`high=0, medium=0` and N screenshots means the lead's verify launched a real browser, clicked
 the UI, and asserted behavior — not just that unit tests passed.
 
 ### Re-score an existing bench dir

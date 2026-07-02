@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     Executable keyword bodies for {{FEATURE_ID}}, written by the tiger-e2e gate.
+Documentation     Executable keyword bodies for {{FEATURE_ID}}, written by tiger-lead.
 ...               One keyword per Given/When/Then name used in e2e_testcases.robot. Each does REAL
 ...               work and asserts the real Then against feature.md — never No Operation, never the
 ...               laziest plausibly-wrong body. NO comments in the bodies (names carry meaning):

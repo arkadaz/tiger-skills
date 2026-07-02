@@ -12,6 +12,8 @@ install copies this next to the board as `tiger/board.py`. Call it from any stag
   python3 tiger/board.py summary
   python3 tiger/board.py current
   python3 tiger/board.py in-progress
+  python3 tiger/board.py newest-approved              # id of the LAST (newest) approved, non-passing feature
+  python3 tiger/board.py candidates                   # every buildable (approved, non-passing) feature, oldest->newest
   python3 tiger/board.py get <feature> [field]        # field may be dotted: scope_map.metric
   python3 tiger/board.py set-phase <feature> <plan|build|validate|blocked|passing>
   python3 tiger/board.py set-status <feature> <not_started|in_progress|passing|blocked>
@@ -138,6 +140,8 @@ def main():
     sub.add_parser("summary")
     sub.add_parser("current")
     sub.add_parser("in-progress")
+    sub.add_parser("newest-approved")
+    sub.add_parser("candidates")
     g = sub.add_parser("get"); g.add_argument("feature", nargs="?"); g.add_argument("field", nargs="?")
     sp = sub.add_parser("set-phase"); sp.add_argument("feature"); sp.add_argument("phase")
     ss = sub.add_parser("set-status"); ss.add_argument("feature"); ss.add_argument("status")
@@ -173,6 +177,24 @@ def main():
     if a.cmd == "in-progress":
         ip = [fid for fid, f in board.get("features", {}).items() if isinstance(f, dict) and f.get("status") == "in_progress"]
         print(ip[0] if len(ip) == 1 else ""); return 0
+
+    if a.cmd in ("newest-approved", "candidates"):
+        # Board dict order IS creation order (grill appends; every load/save preserves it), so the
+        # LAST approved, non-passing feature is the most recently created one — "by the time the
+        # folder was created". `newest-approved` prints that single id (empty if none); `candidates`
+        # lists every buildable feature oldest→newest so the caller can see the queue. This is what
+        # stops bootstrap re-pinning to an old stuck feature when a newer approved one is waiting.
+        elig = [
+            fid for fid, f in board.get("features", {}).items()
+            if isinstance(f, dict) and f.get("spec_status") == "approved" and f.get("status") != "passing"
+        ]
+        if a.cmd == "candidates":
+            for fid in elig:
+                f = board["features"][fid]
+                print(f"{fid:24} {f.get('status',''):12} phase={f.get('phase','')}")
+        else:
+            print(elig[-1] if elig else "")
+        return 0
 
     if a.cmd == "get":
         if not a.feature:

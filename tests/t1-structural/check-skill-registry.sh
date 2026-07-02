@@ -20,10 +20,12 @@ import sys
 root = pathlib.Path(sys.argv[1])
 plugin_json_path = pathlib.Path(sys.argv[2])
 
-# v6 lineup: 14 skills (docs-spec/docs-adr retired; docs-feature added).
+# v7 lineup: 15 skills (architect + e2e merged into tiger-lead; caveman + ponytail added as the
+# say-less / write-less disciplines the loop agents load).
 EXPECTED = {
-    "tiger-grill", "tiger-architect", "tiger-code-generator", "tiger-code-quality",
-    "tiger-e2e", "tiger-security", "tiger-reviewer", "tiger-update-docs",
+    "tiger-grill", "tiger-lead", "tiger-code-generator", "tiger-code-quality",
+    "tiger-caveman", "tiger-ponytail",
+    "tiger-security", "tiger-reviewer", "tiger-update-docs",
     "tiger-docs-feature", "tiger-docs-business", "tiger-docs-e2e",
     "tiger-docs-codemap", "tiger-docs-release", "tiger-docs-readme",
 }
@@ -50,7 +52,7 @@ if extra:
     print(f"FAIL: manifest has unexpected skills: {sorted(extra)}", file=sys.stderr)
     failures += len(extra)
 if not missing and not extra:
-    print(f"PASS: manifest.autoDiscovery.skills == the 14 v6 skills")
+    print(f"PASS: manifest.autoDiscovery.skills == the 15 v7 skills")
 
 # Every declared skill must have a SKILL.md on disk.
 for skill_path in skill_paths:

@@ -12,9 +12,9 @@ The branch model and commit discipline every stage follows.
 | Stage | Commits |
 |---|---|
 | grill | `feature.md` + `e2e_testcases.robot` + the board entry, on `feature/<id>` |
-| architect | board PLAN fields + `tiger/CODEBASE_MAP.md` — `chore(board): <id> plan` |
+| lead | board PLAN fields + `tiger/CODEBASE_MAP.md` — `chore(board): <id> plan` |
 | code generator | code + tests + `tasks[].status` + `progress.md` — one semantic commit per task |
-| e2e | `refs/notes/e2e` grade + board phase/AC + the robot files — `chore(board): <id> phase -> …` |
+| lead | `refs/notes/e2e` grade + board phase/AC + `e2e_keywords.resource` — `chore(board): <id> phase -> …` |
 | update-docs | docs + README + board close-out (one commit), then rebase + **ff-merge to `dev`** |
 
 ## Rules

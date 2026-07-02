@@ -1,6 +1,6 @@
 # Tiger Development Kit
 
-Grill-first harness engineering plugin for Claude Code. **14 inspectable, directly-invokable skills** plus an optional **workflow** that runs the build end to end. One approved spec, git as the only bridge, every handoff a human-inspectable file.
+Grill-first harness engineering plugin for Claude Code. You drive it with **two entry points — `tiger-grill` and the `tiger-workflow-dev` workflow**; **15 skills** power the build the workflow runs. One approved spec, git as the only bridge, every handoff a human-inspectable file.
 
 Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
@@ -8,7 +8,7 @@ Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
 ## What It Is
 
-The stages are **pure skills** you invoke by intent — grill, architect, code generator, e2e, update-docs (in-loop), plus standalone security and reviewer. A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated. Use one skill alone (e.g. a security review of a branch), or run the whole pipeline.
+The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus standalone security and reviewer. The **lead** merges planning and end-to-end verification into one agent: it recons + plans, spawns the coders, then authors + runs the e2e suite in a single context. A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated. Use one skill alone (e.g. a security review of a branch), or run the whole pipeline.
 
 **Inspectable artifacts.** Outputs live under `tiger/` as compact **markdown** plus one Robot Framework suite:
 
@@ -89,10 +89,8 @@ Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
 |---|---|---|---|
 | 1 | **Grill** | `tiger-grill`, one question at a time | Answer each (a recommendation is offered) until rules, edge cases, and acceptance criteria are closed |
 | 2 | **Approve** | you | Review `feature.md` + `e2e_testcases.robot` in `tiger/features/<id>/`, then approve or send changes |
-| 3 | Architect | architect | nothing; reads the board entry + `feature.md`, adds the plan (scope + tasks), refreshes `CODEBASE_MAP.md` |
-| 4 | Build | code generator(s) | nothing; per wave, file-disjoint tasks build in parallel in isolated worktrees, integrated onto `feature/<id>`; TDD + simplify + **no comments**; reuses before it builds |
-| 5 | Gate | e2e | nothing; the single gate — runs the suite, **appends new cases**, triages by priority: HIGH/MEDIUM block, LOW logged; pass = zero HIGH + zero MEDIUM, all tasks done |
-| 6 | Document | update-docs | nothing; refreshes the markdown docs + README, fast-forward merges to `dev` |
+| 3 | Plan · build · verify | lead (spawns code generator(s)) | nothing; the lead recons + plans (scope + tasks, refreshes `CODEBASE_MAP.md`), spawns code-generator coders per wave in parallel isolated worktrees (TDD + simplify + **no comments**; reuse before build) and integrates onto `feature/<id>`, then — same context — authors + runs the Robot e2e suite for real (Playwright for UI), **appends new cases**, triages by priority: HIGH/MEDIUM block (bounded in-context delta re-plan), LOW logged; pass = zero HIGH + zero MEDIUM, all tasks done |
+| 4 | Document | update-docs | nothing; refreshes the markdown docs + README, fast-forward merges to `dev` |
 | ✓ | Pass | system | `phase: passing`; `dev` updated (`dev` → `main` is your manual release step) |
 | ✕ | Block | system | after no-progress rounds, `phase: blocked` + a fix list |
 
@@ -101,7 +99,7 @@ Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
 **Resume after a break** — state lives in git:
 ```bash
 git log --oneline                 # how far the build got
-git notes --ref=e2e show <commit> # the e2e gate's verdict (the loop writes only refs/notes/e2e)
+git notes --ref=e2e show <commit> # the lead's e2e verdict (the loop writes only refs/notes/e2e)
 # feature_list.json "phase": plan | build | validate | blocked | passing
 ```
 Re-run `/tiger-workflow-dev` (no args); it reads the phase pointer and continues.
@@ -111,16 +109,17 @@ Re-run `/tiger-workflow-dev` (no args); it reads the phase pointer and continues
 ## File Layout
 
 ```
-.claude-plugin/plugin.json      Manifest (14 skills, 1 command, hooks)
+.claude-plugin/plugin.json      Manifest (15 skills, 1 command, hooks)
 .claude-plugin/marketplace.json Marketplace manifest
-agents/                         6 subagents — 4 in-loop (architect, code-generator, e2e, update-docs) + standalone security, reviewer
+agents/                         3 subagents (in-loop): lead, code-generator, update-docs
 workflows/tiger-workflow-dev.js The deterministic spine (becomes /tiger-workflow-dev when installed)
-skills/                         14 skills, FLAT:
+skills/                         15 skills, FLAT:
 ├── tiger-grill/                Inline interview → feature.md + broad robot e2e + approval (NOT a subagent)
-├── tiger-{architect,code-generator,e2e,update-docs}/   in-loop stages
-├── tiger-{security,reviewer}/                          standalone gates
+├── tiger-{lead,code-generator,update-docs}/   in-loop stages
+├── tiger-{security,reviewer}/                          standalone gates (skills only, no owned agent)
 ├── tiger-docs-{feature,business,e2e,codemap,release,readme}/  6 doc-writer references (no owned agents)
-└── tiger-code-quality/         The design principles (loaded by architect/code-gen/reviewer)
+├── tiger-code-quality/         The design principles (loaded by lead/code-gen/reviewer)
+└── tiger-{caveman,ponytail}/   say-less (terse handoffs) + write-less (lazy ladder + delete-list), loaded by lead/code-gen
 templates/                      feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json
 commands/install.md             Copies workflow/guard/templates; migrates old→new; verifies harness state
 hooks/                          Real hook wiring (JSON+script, never markdown)
@@ -142,25 +141,24 @@ The plugin ships **templates and logic**, not runtime state. The board, logs, an
 | `/install` | `progress.md` | Append-only human log |
 | `/install` | `.claude/workflows/…js`, `.claude/hooks/tiger-block-rm.sh`, `tiger/templates/*` | Copies of the workflow, rm guard, templates |
 | `grill` | `tiger/features/<id>/feature.md` + `e2e_testcases.robot` **+ the board entry** | Merged per-feature doc + broad e2e + WHY/SPECIFY fields |
-| `architect` | `feature_list.json` (PLAN) + `tiger/CODEBASE_MAP.md` | Adds `scope_map` + `tasks[]`; bootstraps/refreshes the map |
-| `e2e` | `tiger/features/<id>/e2e_keywords.resource` + `evidence/` | Executable keyword layer + Robot run evidence |
+| `lead` | `feature_list.json` (PLAN) + `tiger/CODEBASE_MAP.md` | Adds `scope_map` + `tasks[]`; bootstraps/refreshes the map |
+| `lead` | `tiger/features/<id>/e2e_keywords.resource` + `evidence/` | Executable keyword layer + Robot run evidence |
 | `update-docs` | `tiger/{CODEBASE_MAP,business,release_docs}.md` + `README.md` | Cumulative project docs + refreshed README |
 
 ## The Pipeline
 
 ```
-human ⇄ grill → architect → ( ‖ code generators → integrate ){per wave} → e2e → update docs → ff-merge to dev
+human ⇄ grill → lead ( recon+plan → ‖ spawn code-generator coders in isolated worktrees per wave → integrate → author + run the Robot e2e suite for real (Playwright for UI) → priority triage (HIGH/MEDIUM block, LOW logged) → bounded in-context delta re-plan ) → update docs → ff-merge to dev
 ```
 
-The architect's tasks build in **dependency waves**: independent file-disjoint tasks build by parallel code-generator subagents in isolated worktrees, then a serial integrator cherry-picks them onto `feature/<id>`. **e2e is the single quality gate**, running after every wave is integrated. (In-loop security ∥ reviewer were removed for speed; both remain standalone.)
+The **lead** owns the whole build loop in a single context: it plans the tasks and builds them in **dependency waves** — spawning parallel code-generator coders in isolated worktrees, then integrating their disjoint branches onto `feature/<id>` — and, in the SAME context, authors + runs the Robot e2e suite for real as **the single quality gate** after every wave. Because the planner IS the verifier, every acceptance check and UI path it planned is one it knows how to test, so the loop is short and UI coverage is complete (the old split architect→e2e lost context at the handoff and re-derived coverage twice). On a clean pass the lead spawns update-docs. (In-loop security ∥ reviewer were removed for speed; both remain standalone.)
 
 | Stage | Model | Role |
 |---|---|---|
 | **grill** (inline) | Opus | Interviews one question at a time; writes `feature.md` + a broad priority-tagged robot suite (loads `tiger-docs-feature` + `tiger-docs-e2e`); the only human gate |
-| **architect** | Opus | Validates scope, enriches the board with the plan (scope + tasks + RED-first checks), maintains `CODEBASE_MAP.md` (sole author); per-task `files[]`/`depends_on` drive parallelism |
-| **code generator** | Sonnet | Reuses before it builds (YAGNI → repo util → stdlib → platform → dep → new code); TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
-| **e2e** | Opus | The single gate: authors `e2e_keywords.resource`, runs the suite + acceptance checks for real, **appends new cases for uncovered scenarios**, triages by priority (HIGH/MEDIUM block, LOW logged); owns the board phase |
-| **update-docs** | Opus | Refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
+| **lead** | Opus | The merged plan+verify+orchestrator: validates scope, writes the board plan (scope + tasks + RED-first checks) + phase pointer + acceptance status, sole author of `CODEBASE_MAP.md`; **spawns** the code-generator coders; authors `e2e_keywords.resource` + runs the Robot suite + acceptance checks for real (Playwright for UI), **appends new cases**, triages by priority (HIGH/MEDIUM block, LOW logged), owns `refs/notes/e2e`; bounded in-context delta re-plan; never writes product code |
+| **code generator** | Sonnet | Spawned by the lead; reuses before it builds (YAGNI → repo util → stdlib → platform → dep → new code); TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
+| **update-docs** | Opus | Spawned by the lead on PASS; refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
 
 Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress rounds → `phase: blocked` + a priority-ordered fix list.
 
@@ -168,8 +166,8 @@ Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress round
 
 - `/tiger-skills:install` — copy workflow/guard/templates, migrate old→new, verify harness. The one command.
 - `/tiger-workflow-dev` — the installed workflow (created by `/install`).
-- Stages are **skills**, invoked by intent: `tiger-grill`, `tiger-architect`, `tiger-code-generator`, `tiger-e2e`, `tiger-update-docs`, plus standalone `tiger-security`, `tiger-reviewer`.
-- `tiger-code-quality` — the design principles; invoke alone or loaded by architect/code-gen/reviewer.
+- Stages are **skills**, invoked by intent: `tiger-grill`, `tiger-lead`, `tiger-code-generator`, `tiger-update-docs`, plus standalone `tiger-security`, `tiger-reviewer`.
+- `tiger-code-quality` — the design principles; invoke alone or loaded by lead/code-gen/reviewer.
 - The six `tiger-docs-*` **writer skills** (feature, business, e2e, codemap, release, readme) — focused references (no owned agents). Grill loads feature + e2e; update-docs loads codemap/business/release/readme. Invoke directly too ("refresh the README").
 - No create-skill command. File new capabilities through the grill gate.
 
