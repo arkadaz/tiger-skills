@@ -22,7 +22,7 @@ I convert a vague feature idea into two approved, inspectable artifacts every la
 - Classify the artifact FIRST; grill only dimensions that exist. A library/algorithm/CLI/ML-model/plugin often has no actors or external systems — mark those `closed (N/A: <reason>)` not invented actors.
 - Dig deeper: per applicable dimension ask ≥2 probing questions; surface ≥1 unstated edge/failure, pin every vague word to a number or named entity, ask a boundary "what happens when…". Err toward one more question. A fast "just build it" means probe harder.
 - Push back on contradictions (cite file:line vs code), scope creep (park or split), over-engineering. Sharpen vague/overloaded terms to the canonical one.
-- No implementation, no plan, no tasks, no scope MODIFY/READ-ONLY (the architect owns those).
+- No implementation, no plan, no tasks, no scope MODIFY/READ-ONLY (the lead owns those).
 
 **Security hard-blocks.** If the feature touches PII, authn/authz, secrets/credentials, data deletion, or untrusted input reaching SQL/shell/eval/file-paths — HALT, ask the dedicated question, and do not proceed until the human explicitly acknowledges handling. The answer becomes a business rule with a runnable check in `feature.md` and, where executable, an adversarial e2e case. Silence is not acknowledgment.
 
@@ -62,9 +62,9 @@ I convert a vague feature idea into two approved, inspectable artifacts every la
 Pass each writer the closed ledger content; it instantiates the template and leaves the file `awaiting_review` (it never approves — that stays mine).
 
 - **feature.md** — the MERGED markdown doc (spec + adr + business in one file). Frontmatter (`id`, `title`, `tiger-status: awaiting_review`, `date`, `classification`, `metric`) + compact sections: Problem & JTBD / What we'll do (FRs + happy path + business rules, each rule with a runnable check in backticks) / Why · Decisions (only real hard-to-reverse trade-offs, else `none met the bar`) / Business context (value + target users + the one metric + a **Code glossary** of magic values) / Acceptance criteria (ids align to e2e case ids) / Out of scope · CAN-CANNOT. The frontmatter `tiger-status` line is the machine gate; it stays `awaiting_review` through every redraft — only the approval protocol flips it.
-- **e2e_testcases.robot** — the agreed CASES only, a BROAD suite (see `tiger-docs-e2e`): several boundary, several typical, several adversarial cases; ≥1 case per acceptance criterion and per business rule. BDD Given/When/Then keyword names; `[Tags]` MUST carry exactly one `priority:high|medium|low`; `Resource e2e_keywords.resource` kept. `*** Settings ***` carries `Metadata    tiger-status    awaiting_review` and `Metadata    tiger-feature-id    <id>` — NOT `#` comments. Cases the human did not see are not agreed. The e2e gate runs them verbatim and owns `e2e_keywords.resource`; it MAY append its own cases tagged `source:e2e` but NEVER edits yours.
+- **e2e_testcases.robot** — the agreed CASES only, a BROAD suite (see `tiger-docs-e2e`): several boundary, several typical, several adversarial cases; ≥1 case per acceptance criterion and per business rule. BDD Given/When/Then keyword names; `[Tags]` MUST carry exactly one `priority:high|medium|low`; `Resource e2e_keywords.resource` kept. `*** Settings ***` carries `Metadata    tiger-status    awaiting_review` and `Metadata    tiger-feature-id    <id>` — NOT `#` comments. Cases the human did not see are not agreed. The lead runs them verbatim and owns `e2e_keywords.resource`; it MAY append its own cases tagged `source:e2e` but NEVER edits yours.
 
-**feature_list.json — WHY/SPECIFY fields only** (schema v2; `templates/feature_list.json` is the worked reference). I create the entry; the architect adds PLAN; update-docs closes it.
+**feature_list.json — WHY/SPECIFY fields only** (schema v2; `templates/feature_list.json` is the worked reference). I create the entry; the lead adds PLAN; update-docs closes it.
 
 **Board access via `tiger/board.py` — never dump or hand-rewrite the JSON.** Always read the current board first (`python3 tiger/board.py summary`; `in-progress` for the WIP=1 guard), then create my entry with `add-feature <id> --title … --start` and flip the gate with `approve <id>`. Touch ONLY my WHY/SPECIFY fields through these patch commands; each one preserves every other field and fails closed on a broken invariant.
 
@@ -84,7 +84,7 @@ Pass each writer the closed ledger content; it instantiates the template and lea
     "depends_on": [], "blocks": [],
     "scope_map": { "modify": [], "read_only": [], "metric": { "name": "<metric>", "baseline": "<v>", "target": "<v>", "direction": "increase|decrease|binary" } },
     "acceptance_criteria": [
-      { "id": "AC1", "criterion": "<from ledger>", "verification": "<agreed e2e Run Command, or empty for the architect to wire + prove RED>", "status": "not_started", "evidence": [] }
+      { "id": "AC1", "criterion": "<from ledger>", "verification": "<agreed e2e Run Command, or empty for the lead to wire + prove RED>", "status": "not_started", "evidence": [] }
     ],
     "tasks": [],
     "validation": { "user_acceptance": "pending", "business_metric": "pending" },
@@ -95,7 +95,7 @@ Pass each writer the closed ledger content; it instantiates the template and lea
 
 - **WIP=1 guard.** If a *different* feature is `in_progress`, STOP — human finishes/parks it first.
 - Merge into `features` without disturbing others; set `current_feature: <id>`.
-- `scope_map.modify`/`read_only` and `tasks[]` stay EMPTY (architect fills). Metric = same as `feature.md`. `acceptance_criteria` ids align with e2e case ids. `depends_on`/`blocks` reciprocal + acyclic.
+- `scope_map.modify`/`read_only` and `tasks[]` stay EMPTY (lead fills). Metric = same as `feature.md`. `acceptance_criteria` ids align with e2e case ids. `depends_on`/`blocks` reciprocal + acyclic.
 
 **Approval Protocol (hard gate). The model can NEVER approve on the human's behalf.**
 1. Summarize BOTH artifacts the human is approving (feature.md, e2e cases), linked to open ledger items; call out anything pushed back on.
@@ -114,10 +114,10 @@ Pass each writer the closed ledger content; it instantiates the template and lea
    git commit -m "chore(grill): <id> feature.md approved + board entry (phase: plan)"
    ```
 
-7. STOP. Tell the user what next: run `/tiger-workflow-dev` for the full build (no args — it auto-discovers the approved in-progress feature), or invoke `tiger-architect` to plan only.
+7. STOP. Tell the user what next: run `/tiger-workflow-dev` for the full build (no args — it auto-discovers the approved in-progress feature), or invoke `tiger-lead` to plan + build.
 
 ## Works with
-Upstream: human (the only gate). Me → **tiger-architect** (reads my board entry + feature.md + e2e cases on `feature/<id>`, base `dev`, adds PLAN) → code-gens → e2e → update-docs → **merge to dev**. dev → main is a manual human step the kit never performs. No security/reviewer in the loop — those are standalone-only skills.
+Upstream: human (the only gate). Me → **tiger-lead** (plans + spawns coders + verifies) → update-docs → **merge to dev**. dev → main is a manual human step the kit never performs. No security/reviewer in the loop — those are standalone-only skills.
 
 ## Git interactions
 - **Writes (once, at approval, on `feature/<id>` cut from `dev`):** the two `tiger/features/<id>/` artifacts + the WHY/SPECIFY `feature_list.json` entry, in one commit.

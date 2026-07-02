@@ -5,7 +5,7 @@ description: The design principles for well-built code — Single Responsibility
 
 # Code Quality — design principles + SIMPLIFY
 
-Read-only reference loaded by architect, code-generator, and reviewer. Apply as a review checklist: cite principle + file:line for each confirmed smell.
+Read-only reference loaded by lead, code-generator, and reviewer. Apply as a review checklist: cite principle + file:line for each confirmed smell.
 
 ## When to use
 
@@ -55,7 +55,7 @@ A principle is binding only when it applies — cite it when it bites, mark N/A 
 
 ## Works with
 
-Loaded by architect (planning), code-generator (build), and reviewer (audit). No pipeline position of its own — a reference, not a stage.
+Loaded by lead (planning), code-generator (build), and reviewer (audit). No pipeline position of its own — a reference, not a stage.
 
 ## Git interactions
 

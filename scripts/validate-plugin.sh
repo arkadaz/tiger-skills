@@ -242,10 +242,13 @@ JSON
   python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" set-phase F1 build >/dev/null 2>&1 || BC_OK=0
   python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" set-task F1 T1 done --evidence "x" >/dev/null 2>&1 || BC_OK=0
   python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" get F1 phase 2>/dev/null | grep -q '^build$' || BC_OK=0
+  # recency discovery: an approved, non-passing feature is the newest buildable candidate.
+  python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" approve F1 >/dev/null 2>&1 || BC_OK=0
+  python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" newest-approved 2>/dev/null | grep -q '^F1$' || BC_OK=0
   # a write that breaks WIP=1 must be REFUSED (fail closed): add a second in_progress feature.
   python3 "$BOARD_CLI" --file "$BC_TMP/feature_list.json" add-feature F2 --title t --start >/dev/null 2>&1 && BC_OK=0
   if [ "$BC_OK" -eq 1 ]; then
-    pass "board.py reads + patches the board and refuses an invariant-breaking write"
+    pass "board.py reads + patches the board (incl. newest-approved recency) and refuses an invariant-breaking write"
   else
     fail "board.py must read/patch the board surgically and fail closed on invariant breaks"
   fi
@@ -274,20 +277,31 @@ if [ -z "$SS_SILENT" ]; then pass "SessionStart hook is silent outside a Tiger p
 rm -rf "$SS_IN" "$SS_OUT"
 
 # ── Stage spine ─────────────────────────────────────────────────────────────────
-# grill is interactive (inline skill, no agent). Six autonomous stages own agents.
-for agent in tiger-architect tiger-code-generator tiger-security tiger-reviewer tiger-e2e tiger-update-docs; do
+# grill is interactive (inline skill, no agent). v7: 3 in-loop stages own agents — the merged
+# lead (architect+e2e), the code generator it spawns, and update-docs.
+for agent in tiger-lead tiger-code-generator tiger-update-docs; do
   if [ -f "$ROOT_DIR/agents/$agent.md" ]; then pass "agent $agent present"; else fail "agent $agent.md missing"; fi
 done
-for retired in tiger-planner tiger-generator tiger-evaluator tiger-grill-interviewer tiger-conductor tiger-dev; do
-  if [ -f "$ROOT_DIR/agents/$retired.md" ]; then fail "agents/$retired.md must not exist (retired)"; fi
+# architect + e2e merged into tiger-lead; security/reviewer are standalone SKILLS with no owned
+# agent — none of these agent files may exist.
+for retired in tiger-planner tiger-generator tiger-evaluator tiger-grill-interviewer tiger-conductor tiger-dev tiger-architect tiger-e2e tiger-security tiger-reviewer; do
+  if [ -f "$ROOT_DIR/agents/$retired.md" ]; then fail "agents/$retired.md must not exist (retired/merged/standalone-skill)"; fi
 done
 WF_FILES="$(cd "$ROOT_DIR/workflows" 2>/dev/null && ls *.js 2>/dev/null | sort | tr '\n' ' ')"
-if [ "$WF_FILES" = "tiger-workflow-dev.js " ]; then
-  pass "workflows/ contains exactly the dev spine"; else
-  fail "workflows/ must contain exactly tiger-workflow-dev.js (found: ${WF_FILES:-none})"; fi
+if [ "$WF_FILES" = "research-workflow.js tiger-workflow-dev.js " ]; then
+  pass "workflows/ contains the two spines (dev + research)"; else
+  fail "workflows/ must contain exactly {research-workflow.js, tiger-workflow-dev.js} (found: ${WF_FILES:-none})"; fi
+
+# Research loop (second spine + its git-free novelty engine): parse + key markers + compiles.
+RWF="$ROOT_DIR/workflows/research-workflow.js"
+if node --check "$RWF" 2>/dev/null; then pass "research-workflow.js parses"; else fail "research-workflow.js has syntax errors"; fi
+if grep -qF 'tiger-skills:tiger-researcher' "$RWF" 2>/dev/null; then pass "research spine spawns tiger-researcher"; else fail "research spine must spawn tiger-skills:tiger-researcher"; fi
+if grep -qF 'tiger-status' "$RWF" 2>/dev/null; then pass "research spine approval-gates goal.md"; else fail "research spine must gate on tiger-status: approved"; fi
+if python3 -m py_compile "$ROOT_DIR/scripts/research.py" 2>/dev/null; then pass "research.py compiles"; else fail "scripts/research.py has syntax errors"; fi
+if python3 -m py_compile "$ROOT_DIR/scripts/validate-research.py" 2>/dev/null; then pass "validate-research.py compiles"; else fail "scripts/validate-research.py has syntax errors"; fi
 
 # Model routing mirrors agent frontmatter: opus everywhere except the code generator (sonnet).
-for agent in tiger-architect tiger-security tiger-reviewer tiger-e2e tiger-update-docs; do
+for agent in tiger-lead tiger-update-docs; do
   if grep -Eq '^model:[[:space:]]*opus[[:space:]]*$' "$ROOT_DIR/agents/$agent.md" 2>/dev/null; then
     pass "agent $agent routes to opus"; else fail "agents/$agent.md must declare model: opus"; fi
 done
@@ -307,14 +321,33 @@ if grep -qi 'simplif' "$GEN_MD" 2>/dev/null && grep -qiE 'no comment|comment-fre
   pass "tiger-code-generator.md requires the simplify pass + no-comments rule"; else
   fail "tiger-code-generator.md must require a simplify pass and forbid comments in generated code"; fi
 
-# E2E gate: priority triage, the E2E_BLOCKERS token the workflow reads, and case iteration.
-E2E_MD="$ROOT_DIR/agents/tiger-e2e.md"
-if grep -qi 'priority' "$E2E_MD" 2>/dev/null && grep -q 'E2E_BLOCKERS' "$E2E_MD" 2>/dev/null; then
-  pass "tiger-e2e.md triages by priority and emits E2E_BLOCKERS"; else
-  fail "tiger-e2e.md must triage by priority and emit E2E_BLOCKERS"; fi
-if grep -qiE 'append|source:e2e|add (more|new) (e2e )?cases|expand coverage' "$E2E_MD" 2>/dev/null; then
-  pass "tiger-e2e.md iterates and adds more cases"; else
-  fail "tiger-e2e.md must iterate and append more e2e cases (not a single fixed pass)"; fi
+# Merged lead: it must carry BOTH the planning half (architect) and the verify half (e2e gate),
+# spawn the coders itself (Agent tool), and drive UI for real.
+LEAD_MD="$ROOT_DIR/agents/tiger-lead.md"
+# frontmatter: opus + the Agent tool (so it can spawn the code-generator subagents) + Write (so it
+# can author the e2e keyword layer — the old e2e agent lacked Write, a root cause of missed UI cases).
+LEAD_TOOLS=$(grep -E '^tools:' "$LEAD_MD" | head -1)
+if printf '%s' "$LEAD_TOOLS" | grep -q 'Agent' && printf '%s' "$LEAD_TOOLS" | grep -q 'Write'; then
+  pass "tiger-lead.md has the Agent tool (spawns coders) and Write (authors the e2e keyword layer)"; else
+  fail "tiger-lead.md must list Agent (to spawn tiger-code-generator) and Write (to author e2e_keywords.resource)"; fi
+# planning half + verify half + the priority triage / token the workflow reads.
+if grep -qiE 'blueprint|acceptance check|scope_map|CODEBASE_MAP' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md carries the planning half (blueprint + acceptance checks + codemap)"; else
+  fail "tiger-lead.md must carry the architect planning half"; fi
+if grep -qi 'priority' "$LEAD_MD" 2>/dev/null && grep -q 'E2E_BLOCKERS' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md triages by priority and emits E2E_BLOCKERS"; else
+  fail "tiger-lead.md must triage by priority and emit E2E_BLOCKERS"; fi
+if grep -qiE 'append|source:e2e|expand coverage' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md appends more e2e cases (bounded coverage expansion)"; else
+  fail "tiger-lead.md must expand coverage with appended source:e2e cases"; fi
+if grep -qF 'tiger-skills:tiger-code-generator' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md spawns tiger-code-generator subagents itself"; else
+  fail "tiger-lead.md must spawn the tiger-code-generator coders (that is the merge's point)"; fi
+# UI is not optional — the merged lead must mandate a real browser drive (Playwright), the fix for
+# the missed-UI-testcase pain.
+if grep -qiE 'browser|playwright|rfbrowser' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md mandates real UI (Playwright/Browser) verification"; else
+  fail "tiger-lead.md must mandate real-browser UI verification"; fi
 
 # ── Workflow script (v6) ─────────────────────────────────────────────────────────
 WF="$ROOT_DIR/workflows/tiger-workflow-dev.js"
@@ -323,22 +356,25 @@ if [ -f "$WF" ]; then
   if head -n 40 "$WF" | grep -q '^export const meta = {'; then
     pass "workflow meta is an export-const literal near the top"; else
     fail "workflow meta must be 'export const meta = {' as the first statement"; fi
-  if grep -q 'parallel(' "$WF" && grep -q 'MAX_STUCK' "$WF"; then
-    pass "workflow encodes parallel build worktrees + the bounded retry cap"; else
-    fail "workflow must encode parallel( ) and a MAX_STUCK retry cap"; fi
+  # v7 slim spine: it launches the merged lead, which owns the parallel worktree build + bounded
+  # re-plan loop internally (those markers live in agents/tiger-lead.md now).
+  if grep -qF 'tiger-skills:tiger-lead' "$WF"; then
+    pass "workflow launches the merged lead (owns build + verify + bounded loop)"; else
+    fail "workflow must launch tiger-skills:tiger-lead"; fi
   if grep -qi 'bootstrap' "$WF"; then pass "workflow has a bootstrap discovery step"; else
     fail "workflow must auto-discover the feature via a bootstrap step"; fi
-  if grep -qE 'tiger-skills:tiger-(security|reviewer)' "$WF"; then
-    fail "workflow must NOT spawn tiger-security/tiger-reviewer (standalone in v6)"; else
-    pass "workflow does not spawn the in-loop security/reviewer gates"; fi
+  if grep -qE 'tiger-skills:tiger-(security|reviewer|architect|e2e)' "$WF"; then
+    fail "workflow must NOT spawn security/reviewer (standalone) or architect/e2e (merged into lead)"; else
+    pass "workflow does not spawn standalone/merged-away agents directly"; fi
   if grep -q 'E2E_BLOCKERS' "$WF"; then pass "workflow reads the e2e priority blocker counts"; else
     fail "workflow must read E2E_BLOCKERS"; fi
   # v6: dev is the integration trunk; main is never the workflow's build base.
   if grep -qE '"dev"|\bdev\b' "$WF"; then pass "workflow integrates on dev"; else
     fail "workflow must use dev as the integration trunk"; fi
-  if grep -qiE 'merge --ff-only|fast-forward merge to dev' "$WF"; then
-    pass "workflow fast-forward merges to dev (never main)"; else
-    fail "workflow must fast-forward merge to dev (the kit never touches main)"; fi
+  # The lead finalizes by spawning update-docs (ff-merge to dev); the slim workflow hands that off.
+  if grep -qiE 'tiger-update-docs|fast-forward merge' "$WF"; then
+    pass "workflow delegates finalize (ff-merge to dev via update-docs) to the lead"; else
+    fail "workflow must hand finalize (update-docs / ff-merge to dev) to the lead"; fi
   if command -v node >/dev/null 2>&1; then
     if node -e '
       const fs=require("fs");const src=fs.readFileSync(process.argv[1],"utf8");
@@ -350,14 +386,14 @@ if [ -f "$WF" ]; then
       fail "workflow script has a syntax error"; fi
     # Parsing is not enough: a const referenced in a stage prompt ABOVE its own declaration throws a
     # temporal-dead-zone ReferenceError only when that prompt template is built at runtime. EXECUTE the
-    # body with stub globals through the bootstrap + architect spawns to catch that class before it ships.
+    # body with stub globals through the bootstrap + lead spawns to catch that class before it ships.
     if node -e '
       const fs=require("fs");const src=fs.readFileSync(process.argv[1],"utf8");
       const body=src.replace(/^export const meta/m,"const meta");
       const AF=Object.getPrototypeOf(async function(){}).constructor;
       const fn=new AF("args","budget","agent","parallel","pipeline","phase","log","workflow",body);
       let n=0;
-      const agent=async()=>{ if(++n>=2){ const e=new Error("ARCH_REACHED"); e.ok=true; throw e; }
+      const agent=async()=>{ if(++n>=2){ const e=new Error("LEAD_REACHED"); e.ok=true; throw e; }
         return {abort:null,featureId:"F1",featureTitle:"v",specFile:"x",projectDir:".",today:"2026-01-01",branchBase:"dev",approved:true}; };
       const parallel=async(t)=>Promise.all(t.map((f)=>f()));
       const noop=()=>{};
@@ -366,8 +402,8 @@ if [ -f "$WF" ]; then
         .then(()=>process.exit(0))
         .catch((e)=>{ if(e&&e.ok) process.exit(0); console.error(String((e&&e.message)||e)); process.exit(1); });
     ' "$WF" 2>/dev/null; then
-      pass "workflow script executes past the architect spawn (no use-before-declaration / TDZ)"; else
-      fail "workflow script throws at runtime before the architect spawn (a const used above its declaration / TDZ)"; fi
+      pass "workflow script executes past the lead spawn (no use-before-declaration / TDZ)"; else
+      fail "workflow script throws at runtime before the lead spawn (a const used above its declaration / TDZ)"; fi
   else
     pass "node not found; workflow syntax check skipped"
   fi

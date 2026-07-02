@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Harness engineering + code quality skills. 14 skills, 6 agents, 1 command, and a deterministic linear single-feature workflow: grill (merged markdown feature.md + broad Robot e2e, cuts feature/<id> from dev) → architect (plan + tiger/CODEBASE_MAP.md) → generators (parallel git worktrees, TDD + simplify + no comments) → e2e (single gate: run for real, add cases, triage by priority) → update-docs (refresh markdown docs, fast-forward merge to dev; main protected, dev→main manual). tiger-security / tiger-reviewer are standalone on-demand gates. Skills are independent units; agents bundle skills.",
+      "description": "Harness engineering + code quality skills. 19 skills, 5 agents, 1 command, and two deterministic workflows. Build pipeline: grill (merged markdown feature.md + broad Robot e2e, cuts feature/<id> from dev) → lead (the merged architect + e2e gate: plan + tiger/CODEBASE_MAP.md, spawns tiger-code-generator subagents in parallel git worktrees with TDD + simplify + no comments, then authors + runs the Robot suite for real as the single quality gate — Playwright for UI, triage by priority, in-context delta re-plan) → update-docs (refresh markdown docs, fast-forward merge to dev; main protected, dev→main manual). tiger-security / tiger-reviewer are standalone on-demand gates. Second workflow — the git-free research loop (/research-goal then /research-workflow): an autonomous, self-deliberating series of genuinely-different experiments (a novelty engine forbids parameter tuning; web/arxiv-grounded; results in local research/<goalId>/experimentN/ folders). Skills are independent units; agents bundle skills.",
       "author": {
         "name": "arkadaz"
       },

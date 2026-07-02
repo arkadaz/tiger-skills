@@ -46,7 +46,7 @@ metric: { name: <…>, baseline: <…>, target: <…>, direction: increase|decre
 **Style:** plain compact markdown, no HTML, no CDN. Metric = the single success metric (same value as the board and e2e).
 
 ## Works with
-grill (loads this skill) → **feature.md produced here** → human approval via grill → architect (reads it as the PLAN input).
+grill (loads this skill) → **feature.md produced here** → human approval via grill → lead (reads it as the PLAN input).
 
 ## Git interactions
 - **Under grill:** write the file only; grill owns the single atomic commit on `feature/<id>`. Do not commit.

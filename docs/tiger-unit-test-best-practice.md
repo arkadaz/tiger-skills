@@ -20,4 +20,4 @@ A suite that only exercises the happy path proves nothing. Across the tests cove
 - One reason to fail per test; name it for what it checks.
 - No comments in test code — the test name says what it verifies (see [tiger-doc-style](tiger-doc-style.md)).
 - Evidence before claims: a task/criterion is done only with fresh RED→GREEN output from real execution.
-- The e2e gate (Robot Framework) covers end-to-end behavior on top of unit tests; it adds its own cases and triages by priority.
+- The lead's e2e verify (Robot Framework) covers end-to-end behavior on top of unit tests; it adds its own cases and triages by priority.

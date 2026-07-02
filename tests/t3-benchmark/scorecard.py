@@ -101,11 +101,12 @@ def collect_scorecard(project_dir, version, feature_id=None):
         (feature_dir / "e2e_testcases.robot").exists(),
     ])
 
-    # Stages passed (inferred from board tasks + gate notes + phase)
+    # Stages passed (inferred from board tasks + gate notes + phase). v7: the merged tiger-lead
+    # does plan (tasks exist) AND verify (the refs/notes/e2e pass below); "lead" = planned.
     tasks = feature.get("tasks", [])
     stages_passed = []
     if tasks:
-        stages_passed.append("architect")
+        stages_passed.append("lead")
     if any(t.get("status") == "done" for t in tasks):
         stages_passed.append("code-generator")
     if any(n["ref"] == "security" and n["grade"] == "pass" for n in gate_notes):

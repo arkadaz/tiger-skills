@@ -1,20 +1,19 @@
 # Tiger Cheatsheet
 
 ## Setup
-- `/tiger-skills:install` — set up AND migrate a project: workflow, rm guard, `board.py`, markdown templates, born `main` + `dev`. Idempotent; converts old HTML artifacts to v6 markdown.
+- `/tiger-skills:install` — set up AND migrate a project: workflow, rm guard, `board.py`, markdown templates, born `main` + `dev`. Idempotent; converts old HTML artifacts to the current markdown.
 
 ## Run a feature
 1. `tiger-grill` — interview (one question at a time), write `tiger/features/<id>/feature.md` + a broad `e2e_testcases.robot`, create the board entry, cut `feature/<id>` from `dev`. On your explicit yes it flips `tiger-status: approved`.
-2. `/tiger-workflow-dev` — no args; auto-discovers the approved in-progress feature and runs architect → generators → e2e → update-docs, then fast-forward merges to `dev`.
+2. `/tiger-workflow-dev` — no args; auto-discovers the approved in-progress feature and runs bootstrap → lead (which plans, spawns coders, verifies, and hands to update-docs), then fast-forward merges to `dev`.
 3. You cut the release: `dev → main` manually.
 
 ## Stages (skills; each forks to its agent)
 | Skill | Does |
 |---|---|
 | `tiger-grill` | the only human gate — spec + e2e cases + board entry |
-| `tiger-architect` | plan, board PLAN fields, `tiger/CODEBASE_MAP.md` |
+| `tiger-lead` | plan + spawn coders + verify + bounded re-plan, one context |
 | `tiger-code-generator` | TDD + simplify + no-comments build of one task |
-| `tiger-e2e` | single gate: run + add cases + triage by priority |
 | `tiger-update-docs` | refresh markdown docs, close board, ff-merge to dev |
 | `tiger-security` / `tiger-reviewer` | standalone, on-demand gates (not in the loop) |
 

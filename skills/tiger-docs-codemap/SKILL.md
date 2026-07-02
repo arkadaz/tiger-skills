@@ -5,7 +5,7 @@ description: Focused writer that refreshes tiger/CODEBASE_MAP.md — a compact M
 
 # Tiger Docs — Codebase Map Writer
 
-Owns ONE artifact: `tiger/CODEBASE_MAP.md` — the structural map the architect reads on the next feature (the architect is its sole reader; code generators never read it). Plain markdown, compact, refreshed every run. No agent; no board writes; no merge.
+Owns ONE artifact: `tiger/CODEBASE_MAP.md` — the structural map the lead reads on the next feature (the lead is its sole reader; code generators never read it). Plain markdown, compact, refreshed every run. No agent; no board writes; no merge.
 
 ## When to use
 
@@ -33,7 +33,7 @@ Owns ONE artifact: `tiger/CODEBASE_MAP.md` — the structural map the architect 
 
 ## Works with
 
-`tiger-update-docs` loads this skill → refreshes the map → included in the single close-out commit. Architect reads `tiger/CODEBASE_MAP.md` as planning input on each new feature.
+`tiger-update-docs` loads this skill → refreshes the map → included in the single close-out commit. The lead reads `tiger/CODEBASE_MAP.md` as planning input on each new feature.
 
 ## Git interactions
 

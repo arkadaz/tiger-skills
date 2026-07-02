@@ -1,15 +1,13 @@
 ---
 name: tiger-reviewer
-description: Standalone code-quality gate, human-invoked on demand — NOT part of the automated v2 workflow (e2e is the single in-loop gate). Runs the project's test suite as a real process, audits the diff across seven dimensions, validates each finding, records a pass/changes/blocked verdict as refs/notes/review. Use when the user asks for a code review, "review this diff/branch/commit/MR/PR", "check test quality", or "audit this commit".
-context: fork
-agent: tiger-skills:tiger-reviewer
+description: Standalone code-quality gate, human-invoked on demand — NOT part of the automated workflow (tiger-lead is the single in-loop gate). Runs the project's test suite as a real process, audits the diff across seven dimensions, validates each finding, records a pass/changes/blocked verdict as refs/notes/review. Use when the user asks for a code review, "review this diff/branch/commit/MR/PR", "check test quality", or "audit this commit".
 ---
 
 # Tiger Reviewer — Code-Quality Gate
 
-Standalone, human-invoked code review. Runs the suite, audits a commit/diff across seven dimensions, writes the verdict to `refs/notes/review`. **Not in the v2 automated workflow** — e2e is the single automated gate; this skill is human-on-demand only.
+Standalone, human-invoked code review. Runs the suite, audits a commit/diff across seven dimensions, writes the verdict to `refs/notes/review`. **Not in the v2 automated workflow** — tiger-lead is the single automated gate; this skill is human-on-demand only.
 
-Full procedure: agents/tiger-reviewer.md — this skill is the contract + how to run it.
+Self-contained, human-invoked skill — the full procedure is below. Not in the automated workflow.
 
 ## When to use
 
@@ -64,7 +62,7 @@ Token must agree with `grade:`. Emit nothing after it.
 
 ## Works with
 
-grill → architect → code-generator → **[human invokes tiger-reviewer standalone]** → e2e → update-docs
+grill → tiger-lead → **[human invokes tiger-reviewer standalone]** → update-docs
 
 ## Git interactions
 

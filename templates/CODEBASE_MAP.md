@@ -1,7 +1,7 @@
 # Codebase Map — {{PROJECT_NAME}}
 
 > Updated: {{DATE}} · Last feature: {{FEATURE_ID}}
-> The architect maintains this (sole reader/writer during the loop); update-docs refreshes it
+> The lead maintains this (sole reader/writer during the loop); update-docs refreshes it
 > at close-out. Generators do NOT read it. Keep it compact and current every run.
 
 ## Overview

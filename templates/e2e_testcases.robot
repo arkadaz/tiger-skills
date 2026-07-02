@@ -2,7 +2,7 @@
 Documentation     E2E cases for {{FEATURE_TITLE}} ({{FEATURE_ID}}).
 ...               grill writes the agreed cases (a BROAD suite: several boundary, several typical,
 ...               several adversarial — one per acceptance criterion and business rule, not one each).
-...               The tiger-e2e gate writes the keyword bodies in e2e_keywords.resource, runs the
+...               tiger-lead writes the keyword bodies in e2e_keywords.resource, runs the
 ...               suite verbatim, and may APPEND new cases (tagged source:e2e) — it never edits the
 ...               agreed cases here. Every case carries exactly one priority tag:
 ...               priority:high and priority:medium BLOCK the gate; priority:low is logged.
