@@ -145,6 +145,35 @@ elif cmp -s "$BSRC" "$BDST"; then echo "board helper: skipped (already correct)"
 else cp "$BSRC" "$BDST"; echo "board helper: migrated (refreshed to plugin version)"; fi
 ```
 
+**Research loop (git-free).** Copy the second workflow, its novelty-engine CLI, and the research templates so `/research-goal` + `/research-workflow` work. `research.py` lands at the **project root** (the loop is deliberately standalone — it drives a local `research/<goalId>/` tree, no git, no board):
+
+```bash
+# second workflow → /research-workflow
+RSRC="$PLUGIN_ROOT/workflows/research-workflow.js"; RDST=".claude/workflows/research-workflow.js"
+[ -f "$RSRC" ] || { echo "FATAL: research workflow source missing at $RSRC — stopping."; exit 1; }
+mkdir -p .claude/workflows
+if [ ! -f "$RDST" ]; then cp "$RSRC" "$RDST"; echo "research workflow: created"
+elif cmp -s "$RSRC" "$RDST"; then echo "research workflow: skipped (already correct)"
+else cp "$RDST" "$RDST.bak"; cp "$RSRC" "$RDST"; echo "research workflow: migrated (previous saved as $RDST.bak)"; fi
+
+# novelty engine + ledger CLI → project-root research.py
+PSRC="$PLUGIN_ROOT/scripts/research.py"; PDST="research.py"
+[ -f "$PSRC" ] || { echo "FATAL: research.py source missing at $PSRC — stopping."; exit 1; }
+if [ ! -f "$PDST" ]; then cp "$PSRC" "$PDST"; echo "research helper: created (research.py)"
+elif cmp -s "$PSRC" "$PDST"; then echo "research helper: skipped (already correct)"
+else cp "$PSRC" "$PDST"; echo "research helper: migrated (refreshed to plugin version)"; fi
+
+# research templates → tiger/templates/research/
+mkdir -p tiger/templates/research
+for f in goal.md taxonomy.md experiment.md research_ledger.json; do
+  TS="$PLUGIN_ROOT/templates/research/$f"; TD="tiger/templates/research/$f"
+  [ -f "$TS" ] || { echo "FATAL: research template $f missing at $TS — stopping."; exit 1; }
+  if [ ! -f "$TD" ]; then cp "$TS" "$TD"; echo "research template $f: created"
+  elif cmp -s "$TS" "$TD"; then echo "research template $f: skipped (already correct)"
+  else echo "research template $f: NEEDS HUMAN — customized copy DIFFERS; kept theirs."; fi
+done
+```
+
 ## Step 5 — Migrate old-version artifacts (every run; no-op on a current project)
 
 Convert any v5/earlier artifacts to the v6 markdown format, **preserving human content**. Do each only

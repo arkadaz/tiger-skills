@@ -5,12 +5,16 @@ FAILURES=0
 fail() { echo "FAIL: $1" >&2; FAILURES=$((FAILURES + 1)); }
 pass() { echo "PASS: $1"; }
 
-# v7 lineup: 3 in-loop agents (architect+e2e merged into tiger-lead; security/reviewer are
-# standalone SKILLS with no owned agent). opus everywhere except code-generator (sonnet).
-EXPECTED_AGENTS="tiger-lead tiger-code-generator tiger-update-docs"
+# v7 lineup: 5 agents. Dev loop (3): the merged lead (architect+e2e), the code generator it spawns,
+# update-docs — security/reviewer are standalone SKILLS with no owned agent. Research loop (+2):
+# tiger-researcher (owns one iteration) + tiger-novelty-critic (the semantic novelty veto).
+# opus everywhere except the code generator (sonnet).
+EXPECTED_AGENTS="tiger-lead tiger-code-generator tiger-update-docs tiger-researcher tiger-novelty-critic"
 EXPECTED_MODEL_tiger_lead=opus
 EXPECTED_MODEL_tiger_code_generator=sonnet
 EXPECTED_MODEL_tiger_update_docs=opus
+EXPECTED_MODEL_tiger_researcher=opus
+EXPECTED_MODEL_tiger_novelty_critic=opus
 
 front_of() { awk '/^---/{n++; next} n==1' "$1"; }
 

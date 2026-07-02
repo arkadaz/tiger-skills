@@ -1,6 +1,6 @@
 # Tiger Development Kit
 
-Grill-first harness engineering plugin for Claude Code. You drive it with **two entry points — `tiger-grill` and the `tiger-workflow-dev` workflow**; **15 skills** power the build the workflow runs. One approved spec, git as the only bridge, every handoff a human-inspectable file.
+Grill-first harness engineering plugin for Claude Code. You drive it with **two entry points — `tiger-grill` and the `tiger-workflow-dev` workflow**; **19 skills** power the build the workflow runs. One approved spec, git as the only bridge, every handoff a human-inspectable file.
 
 Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
@@ -109,18 +109,21 @@ Re-run `/tiger-workflow-dev` (no args); it reads the phase pointer and continues
 ## File Layout
 
 ```
-.claude-plugin/plugin.json      Manifest (15 skills, 1 command, hooks)
+.claude-plugin/plugin.json      Manifest (19 skills, 1 command, hooks)
 .claude-plugin/marketplace.json Marketplace manifest
-agents/                         3 subagents (in-loop): lead, code-generator, update-docs
-workflows/tiger-workflow-dev.js The deterministic spine (becomes /tiger-workflow-dev when installed)
-skills/                         15 skills, FLAT:
+agents/                         5 subagents: dev (lead, code-generator, update-docs) + research (tiger-researcher, tiger-novelty-critic)
+workflows/tiger-workflow-dev.js The deterministic dev spine (becomes /tiger-workflow-dev when installed)
+workflows/research-workflow.js  The git-free research spine (becomes /research-workflow when installed)
+skills/                         19 skills, FLAT:
 ├── tiger-grill/                Inline interview → feature.md + broad robot e2e + approval (NOT a subagent)
 ├── tiger-{lead,code-generator,update-docs}/   in-loop stages
 ├── tiger-{security,reviewer}/                          standalone gates (skills only, no owned agent)
 ├── tiger-docs-{feature,business,e2e,codemap,release,readme}/  6 doc-writer references (no owned agents)
 ├── tiger-code-quality/         The design principles (loaded by lead/code-gen/reviewer)
-└── tiger-{caveman,ponytail}/   say-less (terse handoffs) + write-less (lazy ladder + delete-list), loaded by lead/code-gen
-templates/                      feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json
+├── tiger-{caveman,ponytail}/   say-less (terse handoffs) + write-less (lazy ladder + delete-list), loaded by lead/code-gen
+└── research-goal/ + tiger-{researcher,novelty-critic,experiment-log}/  the research loop: /research-goal gate + iteration agent + novelty veto + experiment writer
+templates/                      feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json, research/*
+scripts/                        board.py + research.py (project helpers), validate-plugin.sh, validate-board.py, validate-research.py
 commands/install.md             Copies workflow/guard/templates; migrates old→new; verifies harness state
 hooks/                          Real hook wiring (JSON+script, never markdown)
 ├── hooks.json                  SessionStart wiring
@@ -161,6 +164,19 @@ The **lead** owns the whole build loop in a single context: it plans the tasks a
 | **update-docs** | Opus | Spawned by the lead on PASS; refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
 
 Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress rounds → `phase: blocked` + a priority-ordered fix list.
+
+## Research Loop (discovery, git-free)
+
+A **second, standalone loop** alongside the dev pipeline — **discovery, not delivery**. The dev pipeline *delivers* one approved feature onto `dev` (git bridges every handoff); the research loop *discovers* a better method by running many **novel** experiments against a frozen, deterministic metric. It is **git-free — local files/folders only** (no branch, commit, note, or merge), so it runs in **any directory**: no repo, no board.
+
+Two entry points (everything else is internal):
+
+- **`/research-goal`** — the goal grill (mirrors `tiger-grill`): inline, one question at a time, writes `research/<goalId>/goal.md` (metric + direction + target, frozen controlled vars, the one deterministic harness command, budget, taxonomy). Gated by a `tiger-status: approved` line — the one human gate.
+- **`/research-workflow`** — the autonomous loop. **No args**; reads the approved goal and self-paces. Each iteration a fresh `tiger-researcher` (opus) reconstructs from files, **deliberates** a next-move (recorded in `deliberation.md`), mines fresh sources, clears the **novelty gate** (`research.py`: no pure tuning; every experiment must add a never-seen method component + a freshly-fetched source), then builds + runs the harness **for real** and logs one immutable `experiments/experimentN/` card.
+
+Internal, workflow-spawned, `tiger-*` namespaced: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `research.py`.
+
+**State is the folder tree — resume = re-run `/research-workflow`** (it reads `research/<goalId>/research_ledger.json` + the experiment folders and continues from the last iteration). On stop it writes `research/<goalId>/REPORT.md` (idea → hypothesis → result table, the winning method + its provenance chain, the dead-ends) that **points at** the best experiment folder — promoting a winner into real code is a **manual human step**.
 
 ## Slash Commands & Skills
 

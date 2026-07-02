@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Harness engineering (outer loop) + code quality (inner loop): a lean, linear single-feature pipeline. grill writes one compact markdown feature.md (merged spec/ADR/business) + a broad Robot e2e suite and cuts feature/<id> from dev; the lead — the merged architect + e2e gate — then owns the whole build in one context: it plans where the code goes and keeps tiger/CODEBASE_MAP.md, SPAWNS tiger-code-generator subagents itself (parallel git worktrees, strict TDD, a simplify pass, NO comments in generated code), then authors + runs the Robot suite for real (Playwright for UI) as the single quality gate — triaging by priority and re-planning the delta in-context on HIGH/MEDIUM — and on a clean pass hands off to update-docs to refresh the markdown docs and fast-forward merge to dev (main stays protected; dev→main is manual). tiger-security / tiger-reviewer are standalone on-demand gates. 3 agents, 15 skills, a deterministic git-committed Workflow. Based on the walkinglabs learn-tiger-grill course.",
-  "version": "7.0.0",
+  "description": "Harness engineering (outer loop) + code quality (inner loop): a lean, linear single-feature pipeline. grill writes one compact markdown feature.md (merged spec/ADR/business) + a broad Robot e2e suite and cuts feature/<id> from dev; the lead — the merged architect + e2e gate — then owns the whole build in one context: it plans where the code goes and keeps tiger/CODEBASE_MAP.md, SPAWNS tiger-code-generator subagents itself (parallel git worktrees, strict TDD, a simplify pass, NO comments in generated code), then authors + runs the Robot suite for real (Playwright for UI) as the single quality gate — triaging by priority and re-planning the delta in-context on HIGH/MEDIUM — and on a clean pass hands off to update-docs to refresh the markdown docs and fast-forward merge to dev (main stays protected; dev→main is manual). tiger-security / tiger-reviewer are standalone on-demand gates. A SECOND, git-free workflow — the research loop (/research-goal to grill + approve a goal, then /research-workflow) — drives an autonomous, self-deliberating series of genuinely-different experiments (novelty engine forbids parameter tuning; web/arxiv-grounded; results logged to local research/<goalId>/experimentN/ folders). 5 agents, 19 skills, two deterministic Workflows. Based on the walkinglabs learn-tiger-grill course.",
+  "version": "7.1.0",
   "author": {
     "name": "arkadaz"
   },
@@ -41,7 +41,11 @@
       "skills/tiger-docs-e2e/",
       "skills/tiger-docs-codemap/",
       "skills/tiger-docs-release/",
-      "skills/tiger-docs-readme/"
+      "skills/tiger-docs-readme/",
+      "skills/research-goal/",
+      "skills/tiger-researcher/",
+      "skills/tiger-novelty-critic/",
+      "skills/tiger-experiment-log/"
     ],
     "agents": [
       "agents/"

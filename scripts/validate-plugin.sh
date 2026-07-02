@@ -288,9 +288,17 @@ for retired in tiger-planner tiger-generator tiger-evaluator tiger-grill-intervi
   if [ -f "$ROOT_DIR/agents/$retired.md" ]; then fail "agents/$retired.md must not exist (retired/merged/standalone-skill)"; fi
 done
 WF_FILES="$(cd "$ROOT_DIR/workflows" 2>/dev/null && ls *.js 2>/dev/null | sort | tr '\n' ' ')"
-if [ "$WF_FILES" = "tiger-workflow-dev.js " ]; then
-  pass "workflows/ contains exactly the dev spine"; else
-  fail "workflows/ must contain exactly tiger-workflow-dev.js (found: ${WF_FILES:-none})"; fi
+if [ "$WF_FILES" = "research-workflow.js tiger-workflow-dev.js " ]; then
+  pass "workflows/ contains the two spines (dev + research)"; else
+  fail "workflows/ must contain exactly {research-workflow.js, tiger-workflow-dev.js} (found: ${WF_FILES:-none})"; fi
+
+# Research loop (second spine + its git-free novelty engine): parse + key markers + compiles.
+RWF="$ROOT_DIR/workflows/research-workflow.js"
+if node --check "$RWF" 2>/dev/null; then pass "research-workflow.js parses"; else fail "research-workflow.js has syntax errors"; fi
+if grep -qF 'tiger-skills:tiger-researcher' "$RWF" 2>/dev/null; then pass "research spine spawns tiger-researcher"; else fail "research spine must spawn tiger-skills:tiger-researcher"; fi
+if grep -qF 'tiger-status' "$RWF" 2>/dev/null; then pass "research spine approval-gates goal.md"; else fail "research spine must gate on tiger-status: approved"; fi
+if python3 -m py_compile "$ROOT_DIR/scripts/research.py" 2>/dev/null; then pass "research.py compiles"; else fail "scripts/research.py has syntax errors"; fi
+if python3 -m py_compile "$ROOT_DIR/scripts/validate-research.py" 2>/dev/null; then pass "validate-research.py compiles"; else fail "scripts/validate-research.py has syntax errors"; fi
 
 # Model routing mirrors agent frontmatter: opus everywhere except the code generator (sonnet).
 for agent in tiger-lead tiger-update-docs; do

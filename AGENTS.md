@@ -4,7 +4,7 @@ Quick orientation for agents. The binding manual is `CLAUDE.md`; this is a short
 
 ## Project Overview
 
-tiger-skills — a Claude Code plugin: grill-first harness engineering (outer loop) + code quality (inner loop). **15 skills, 3 agents.** Pipeline: **grill → lead → update-docs → ff-merge to dev**, where `tiger-lead` owns the whole build loop in one context — it plans, spawns the coders in parallel isolated worktrees, runs the Robot e2e suite for real, triages by priority, and re-plans in-context — then spawns update-docs to finalize on a clean pass. `tiger-security` / `tiger-reviewer` are standalone-only.
+tiger-skills — a Claude Code plugin: grill-first harness engineering (outer loop) + code quality (inner loop). **19 skills, 5 agents.** Two workflows: the **dev pipeline** (**grill → lead → update-docs → ff-merge to dev**) and a git-free **research loop** (**/research-goal → /research-workflow**). where `tiger-lead` owns the whole build loop in one context — it plans, spawns the coders in parallel isolated worktrees, runs the Robot e2e suite for real, triages by priority, and re-plans in-context — then spawns update-docs to finalize on a clean pass. `tiger-security` / `tiger-reviewer` are standalone-only.
 
 ## Quick Start
 
@@ -49,15 +49,17 @@ The old planner (`tiger-architect`) and verifier (`tiger-e2e`) were separate age
 ## Directory Map
 
 ```
-skills/                         15 skills, FLAT (skills/tiger-*):
+skills/                         19 skills, FLAT (skills/tiger-* + skills/research-goal):
 ├── tiger-grill/                inline interview → feature.md + broad robot e2e + approval (NOT a subagent)
 ├── tiger-{lead,code-generator,update-docs}/            in-loop stages
 ├── tiger-{security,reviewer}/                          standalone skills (no owned agent)
 ├── tiger-docs-{feature,business,e2e,codemap,release,readme}/  6 doc-writer references (no owned agents)
 ├── tiger-code-quality/         design principles + SIMPLIFY (loaded by lead/code-gen/reviewer)
-└── tiger-{caveman,ponytail}/   say-less + write-less economy skills (loaded by lead/code-gen)
-agents/                         3 subagents (tiger-lead, tiger-code-generator, tiger-update-docs; frontmatter: name/description/model/tools)
+├── tiger-{caveman,ponytail}/   say-less + write-less economy skills (loaded by lead/code-gen)
+└── research-goal/ + tiger-{researcher,novelty-critic,experiment-log}/  research loop: /research-goal gate + iteration agent + novelty veto + experiment writer
+agents/                         5 subagents (tiger-lead, tiger-code-generator, tiger-update-docs, tiger-researcher, tiger-novelty-critic; frontmatter: name/description/model/tools)
 workflows/tiger-workflow-dev.js slim spine — bootstrap → tiger-lead → /tiger-workflow-dev when installed
+workflows/research-workflow.js  git-free research spine — bootstrap → tiger-researcher loop → /research-workflow when installed
 templates/                      feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json
 commands/install.md             copies workflow/guard/templates, migrates old→new, verifies harness
 hooks/                          hooks.json + tiger-session-start.sh (real JSON+script wiring)

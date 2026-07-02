@@ -133,3 +133,111 @@ A feature can become `passing` (only update-docs sets it) when:
 - The lead's e2e verification passed with **zero HIGH and zero MEDIUM defects** (LOW logged as known issues), with fresh notes.
 - The verification pipeline has fresh passing output.
 - `feature_list.json`, `progress.md`, the global markdown docs (including the cumulative `tiger/business.md`), and learning fields are current.
+
+## The Research Loop (second workflow)
+
+A **second, standalone, GIT-FREE research loop** lives ALONGSIDE the dev pipeline. Where the dev pipeline builds ONE approved feature, this loop hunts for a genuinely **new method** that moves ONE frozen metric — iterating, self-deliberating, and mining fresh sources until the goal is met or novelty is exhausted. Shares the dev idioms (grill-first, one human gate, memory-in-files, board.py-style helper, fail-closed spine) but touches NO git.
+
+### Operating Principle
+
+Humans approve ONE grilled `research/<goalId>/goal.md`; the loop then runs **autonomously**. Same shape as dev: the human owns the WHY (what metric, what's frozen, what harness), the agents own the HOW (which new method to try). **No experiments until the human approves the grilled goal** (`tiger-status: approved`). Every handoff is a human-inspectable file — the experiment card, the recorded deliberation, the raw evidence — so a human audits the search without reading a transcript.
+
+### Non-Negotiables (research)
+
+1. **Novelty over tuning.** The whole point. A run must find a **new way**, not a better knob. Enforced by the **frozen controlled-vars + the G0–G4 gate, run TWICE** (PRE on the declared vector, POST on the actually-built method files). Moving only a controlled var is REFUSED as tuning.
+2. **Every experiment cites a freshly-fetched source AND adds a never-seen component.** G4 requires ≥1 source fetched THIS iteration and present in that experiment's `sources.md` (blocks hallucinated/recycled citations). G3 requires ≥1 method component never seen in any prior experiment.
+3. **Evidence from a real harness run (the Iron Law).** The metric comes from a REAL run of the goal's pinned deterministic fixture harness THIS iteration — bounded background process, hard timeout, seeded/deterministic — **NEVER asserted**. No number without a run log in `evidence/`.
+4. **In-loop semantic critic.** `tiger-novelty-critic` is spawned EVERY iteration on the real method for a NOVEL-and-smart veto (`TIGER_NOVELTY: NOVEL|DUPLICATE`) — the structural gate is necessary, the semantic critic catches gaming the gate passes.
+5. **Frozen vars core, one carve-out.** Controlled vars equal the goal's frozen set (G0). The ONLY exception: a genuinely NEW component MAY bring its OWN intrinsic var, allowed **only** when it attaches to a never-seen component (G3).
+6. **Big-swing when stalled.** Pacing escalates: exploit → explore → force an untried family. Repeats and micro-moves are the enemy.
+
+### Git-Free Files-Only Model
+
+**State is the folder tree — no branches, no notes, no merge.** Runs in ANY directory; requires no git repo and no board. Resume = read the ledger + experiment folders.
+
+```
+research/<goalId>/
+  goal.md                     grilled spec + approval token + metric + controlled vars + harness + budget + taxonomy
+  research_ledger.json        append-only, invariant-checked state index (schema_version 1)
+  taxonomy.md                 approach-family vocabulary (goal-authored; ML-seeded default families)
+  experiment0/                the baseline run (bootstrap), same shape
+  experiments/experimentN/    one per iteration, N monotonic from 1, IMMUTABLE once done
+    experiment.md             the card: approach vector (frontmatter) + method + result + notes
+    deliberation.md           recorded self-discussion: candidate next-moves weighed + why this one won
+    run.sh (+ method files)   the comment-free reproducible method under the frozen controlled vars
+    sources.md                fetched web/arxiv sources (provenance)
+    metrics.json              raw harness numbers
+    evidence/                 real run logs/outputs (the openable proof)
+  REPORT.md                   synthesis, written on stop (points at the best experiment folder)
+```
+
+`research.py` is the ledger helper — SEPARATE from `board.py`, same discipline: **load → validate → mutate ONE spot → re-check invariants → save preserving everything else; fail-closed** (exit 1 = REFUSED, ledger UNTOUCHED); reads are token-cheap to stdout. Subcommands: `init --goal <goalId>`, `summary`, `vectors`, `frontier`, `next-n`, `novelty-check <vector.json> [--built <dir>]`, `register <experimentN>`, `record-result <experimentN> --metric <v> --status <improved|neutral|regressed>`, `alias <tagA> <tagB>`, `stall-check`, `set-status <running|success|stalled|blocked>`, `close`. Install copies it to the project as `research.py`.
+
+### The Novelty Engine (the anti-tuning crux)
+
+`approach_vector = { family (one taxonomy value), components[] (method-element slugs), controlled_vars{} (= goal frozen set), sources[] (fetched ids/urls), hypothesis, nearest_prior }`. The **structural set S = {family} ∪ components, POINTEDLY EXCLUDING controlled_vars** — that exclusion is the anti-tuning lever. Guards, run PRE (declared vector) and POST (parsed from the built files — NO git):
+
+| Guard | Rule | REFUSE reason |
+|---|---|---|
+| **G0** frozen-vars | `controlled_vars` = goal frozen set (carve-out: a NEW component MAY add its own intrinsic var, only per G3) | "controlled variables changed = tuning, not a new way" |
+| **G1** near-duplicate | `max Jaccard(S, any prior S) ≥ 0.8` | near-duplicate of a prior approach |
+| **G2** pure-tuning | S identical to a prior AND only `controlled_vars` moved | "parameter tuning, not a new way" |
+| **G3** new-component | `components(new) − ∪ all prior components == ∅` | every accepted experiment MUST add ≥1 never-seen component |
+| **G4** new-source | `sources(new) ⊆ some single prior experiment's sources` | must cite ≥1 freshly-fetched source absent from all priors AND present in that experiment's `sources.md` |
+
+The POST-check (`--built`) reads the real method files to extract the ACTUAL component set and compares to the declared vector — a researcher who promised a new method but shipped a constant tweak is REFUSED and left uncredited. `alias <tagA> <tagB>` folds synonym component tags so the gate can't be gamed by renaming.
+
+### The Research Pipeline
+
+```
+human ⇄ /research-goal → /research-workflow ──────────────────────────────────────→ REPORT.md (no merge — git-free)
+   (only gate)   bootstrap (fast, once): approval-gate goal.md → seed experiment0 → research.py init
+                 LOOP (SERIAL, self-paced): tiger-researcher (opus, FRESH each iter, memory-from-files)
+                   reconstruct → deliberate (∥ ideation panel) → mine sources → vector → novelty PRE
+                   → spawn tiger-code-generator (method) → run harness (REAL) → novelty POST(--built)
+                   → tiger-novelty-critic → write experimentN/ → research.py register + record-result → 6 tokens
+                 PACING: exploit (noImprove 0–1) | explore (2) | big-swing (≥3, force untried family)
+                 STOP fail-closed: goal-met→SUCCESS | budget→BUDGET | exhausted/patience/novelty-floor→STALL | 2×BLOCKED→BLOCKED
+```
+
+- **bootstrap** (fast model, once): resolves `projectDir`/`today` (via a `date +%F` shell call — never a JS clock), **approval-gates** `goal.md` by grepping `tiger-status:.*approved` (aborts with a "run `/research-goal` to grill + approve a goal first" message if absent — same shape as the dev `feature.md` gate), reads `metric{name,direction,target,baseline}`, frozen controlled vars, the harness command, `budget{max_iters,patience_K,epsilon,novelty_floor,wall_hours}`, and the taxonomy; seeds `experiment0` by running the harness once if the baseline is missing; runs `research.py init`. Creates NO branches.
+- **tiger-researcher** (opus, ONE merged context, **FRESH each iteration with NO prior agent memory** — reconstruct from files only): (1) RECONSTRUCT via `research.py summary + vectors + frontier` + the last 2–3 `experiment.md` bodies; (2) DELIBERATE — spawn a small PARALLEL ideation panel (Explore/general-purpose) from DISTINCT angles (learn-from-the-worst-failure / attack-the-current-best-weakness / import-a-fresh-source / bold cross-family composition), debate+rank grounded in prior results + novelty + feasibility, WRITE `deliberation.md`; (3) MINE SOURCES — WebSearch + WebFetch (arxiv for technical goals), SAVE each `{id-or-url,title,quoted_claim}` to `sources.md`, distill ONE falsifiable hypothesis; (4) build the vector, `novelty-check` PRE must exit 0 or re-deliberate (bounded 3 tries → `NOVELTY_EXHAUSTED`); (5) IMPLEMENT under frozen vars — spawn `tiger-code-generator` (NO comments); (6) RUN the harness for REAL; (7) `novelty-check --built` POST, mark rejected+uncredited if REFUSED; (8) spawn `tiger-novelty-critic`; (9) WRITE `experimentN/` (card via `tiger-experiment-log`, `metrics.json`, `evidence/`), `research.py register` + `record-result`; (10) END with the six machine tokens.
+- **tiger-novelty-critic** (spawned every iteration): semantic NOVEL-and-smart veto on the real method. Ends with `TIGER_NOVELTY: NOVEL|DUPLICATE` (+ a smart? y/n note).
+- **tiger-code-generator** (reused from the dev pipeline): implements the method under the frozen vars, no comments.
+- **SYNTHESIS** on any clean stop: `tiger-researcher` in a synthesis mode writes `REPORT.md` — an idea→hypothesis→result table, the winning method + its provenance chain, the dead-ends. **NO merge** (git-free): `REPORT.md` points at the best experiment folder; promoting a winner into real code is a MANUAL human step.
+
+**Machine tokens** — `tiger-researcher` ENDS its report with these six lines; the workflow JS parses the LAST occurrence of each, fail-closed (mirrors `tiger-workflow-dev.js` `lastToken`/`lastTokenLine`):
+
+```
+TIGER_RESEARCH: <IMPROVED|NEUTRAL|REGRESSED|NOVELTY_EXHAUSTED|BLOCKED>
+EXPERIMENT: <experimentN>
+METRIC: <numeric metric value measured THIS iteration>
+NOVELTY_DISTANCE: <0..1>
+DELTA_VS_BEST: <signed number>
+GOAL_MET: <YES|NO>
+```
+
+`GOAL_MET` is advisory — **the workflow JS RE-derives goal-met** from best-vs-target given direction (max: `best ≥ target`; min: `best ≤ target`) and never trusts the token blindly. A missing/garbled token defaults to the safe verdict (continue = NO, goal-met = NO) so a broken agent never burns budget or false-claims success.
+
+### Stop Conditions (fail-closed toward STOPPING)
+
+- **SUCCESS** — goal-met (JS-derived from best vs target).
+- **BUDGET** — `iter > budget.max_iters` OR cumulative wall > `budget.wall_hours`.
+- **STALL** — `TIGER_RESEARCH == NOVELTY_EXHAUSTED` OR `noImprove ≥ budget.patience_K` OR rolling novelty mean < `budget.novelty_floor`.
+- **BLOCKED** — BLOCKED on two consecutive iterations.
+
+The LOOP is **SERIAL** (never parallel across iterations — each experiment must see the full frontier to be judged novel). A null researcher spawn returns the dev-spine-style backend-mismatch abort payload.
+
+### Repository Layout (research additions)
+
+- `skills/research-goal/`: inline goal grill → `goal.md` + approval (the only human-interactive research stage; **not** `tiger-*` namespaced — it is a human entry point).
+- `skills/tiger-researcher/`, `skills/tiger-novelty-critic/`, `skills/tiger-experiment-log/`: the internal, workflow-spawned research skills (`tiger-*` namespaced).
+- `workflows/research-workflow.js`: the git-free research spine — CLONES the `tiger-workflow-dev.js` idioms (`phase()`/`agent()`/`log()`, `pick()`/`argStr()` model helpers, `lastToken()`/`lastTokenLine()` fail-closed parsing, a bootstrap StructuredOutput spawn, `proModel`/`fastModel`/`"inherit"` passthrough, the null-spawn abort payload). Install copies it to `.claude/workflows/` as `/research-workflow`. **Args-optional**: `goalId`, `goalFile`, `projectDir`, `today`, `proModel`, `fastModel`, `maxIter`. NEVER names a JS current-time or randomness API (the validator string-scans workflow files) — `today` comes from a `date +%F` shell call in bootstrap.
+- `agents/`: registry files for `tiger-researcher` (opus) + `tiger-novelty-critic` (opus). `research-goal` runs inline (no owned agent); `tiger-experiment-log` is a loadable writer (no owned agent).
+- `scripts/research.py`: the append-only ledger helper install copies to the project as `research.py`.
+- `templates/`: research starting-point files install copies into `research/templates/` (`goal.md`, `taxonomy.md`, `experiment.md`, `deliberation.md`, the empty schema-1 `research_ledger.json`).
+
+### Research Entry Points
+
+- `/research-goal` — the goal grill. Inline human interview writing `research/<goalId>/goal.md`, gated by a `tiger-status: approved` line. Pins the ONE deterministic metric+harness, the frozen controlled vars, the budget, and seeds the taxonomy. The ONLY interactive research stage.
+- `/research-workflow` — the autonomous loop. **No args required**; auto-discovers the approved goal. Runs bootstrap → the serial researcher loop → synthesis. Returns `{goalId, iterationsRun, best:{experiment,value}, target, outcome, passed, inspect}`; `inspect` = "open `research/<goalId>/REPORT.md`; resume = re-run `/research-workflow`". Never touches git.
