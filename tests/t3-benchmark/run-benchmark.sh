@@ -4,6 +4,33 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 KIT_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
 
+# ── Cross-platform native paths (Linux/macOS + Windows Git Bash) ───────────────
+# On Git Bash / MSYS / Cygwin, `pwd` and `$0` are MSYS paths (/c/Code/…) that native
+# Windows Python and the native `claude` binary cannot open. `winpath` rewrites any path
+# handed to a native program into a Windows path (C:/Code/…) via cygpath; on Linux/macOS it
+# is the identity, so ONE script runs on both. Bash-native tools (cp, git, grep, find, cd)
+# keep the MSYS path — only Python/claude arguments are converted.
+case "$(uname -s)" in
+MINGW* | MSYS* | CYGWIN*) IS_WINDOWS=1 ;;
+*) IS_WINDOWS=0 ;;
+esac
+if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
+	winpath() { cygpath -m "$1"; }
+	echo "platform: Windows (Git Bash) — converting native paths via cygpath"
+else
+	winpath() { printf '%s' "$1"; }
+	echo "platform: $(uname -s) — native paths used as-is"
+fi
+KIT_ROOT_N="$(winpath "$KIT_ROOT")"
+SCRIPT_DIR_N="$(winpath "$SCRIPT_DIR")"
+
+# Plugin install ref is <plugin-name>@<marketplace-name>. BOTH are read from the manifests
+# (plugin.json / marketplace.json) rather than hardcoded, so renaming the marketplace (it is
+# "arkadaz", not "tiger-skills") never desyncs the install / fidelity-gate / uninstall calls.
+PLUGIN_NAME="$(python3 -c "import json;print(json.load(open('$KIT_ROOT_N/.claude-plugin/plugin.json'))['name'])")"
+MARKETPLACE_NAME="$(python3 -c "import json;print(json.load(open('$KIT_ROOT_N/.claude-plugin/marketplace.json'))['name'])")"
+PLUGIN_REF="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
+
 # Golden project under test. golden-project/ is a CONTAINER of projects; pass a bare NAME
 # (resolved under golden-project/<name>), a relative path, or an ABSOLUTE path — as $1 or via
 # TIGER_GOLDEN. Defaults to the calculator. The feature id is then DISCOVERED from that
@@ -18,13 +45,14 @@ case "$GOLDEN_ARG" in
 *) GOLDEN_PROJECT="$SCRIPT_DIR/golden-project/$GOLDEN_ARG" ;; # bare name → golden-project/<name>
 esac
 GOLDEN_NAME="$(basename "$GOLDEN_PROJECT")"
+GOLDEN_PROJECT_N="$(winpath "$GOLDEN_PROJECT")"
 if [ ! -f "$GOLDEN_PROJECT/feature_list.json" ]; then
 	echo "ERROR: golden project '$GOLDEN_PROJECT' has no feature_list.json" >&2
 	exit 2
 fi
 FEATURE_ID=$(python3 -c "
 import json
-d = json.load(open('$GOLDEN_PROJECT/feature_list.json'))
+d = json.load(open('$GOLDEN_PROJECT_N/feature_list.json'))
 f = d.get('current_feature')
 if not f:
     ip = [k for k, v in d.get('features', {}).items() if v.get('status') == 'in_progress']
@@ -48,7 +76,7 @@ PRO_MODEL="${TIGER_PRO_MODEL:-opus}"     # architect, security, reviewer, e2e, u
 FAST_MODEL="${TIGER_FAST_MODEL:-sonnet}" # code-generator, integrator
 
 # Read version from plugin.json
-VERSION=$(python3 -c "import json; print(json.load(open('$KIT_ROOT/.claude-plugin/plugin.json'))['version'])")
+VERSION=$(python3 -c "import json; print(json.load(open('$KIT_ROOT_N/.claude-plugin/plugin.json'))['version'])")
 # Scorecard run dir leads with the project name so runs of the same golden project group
 # together (alphabetical sort), then date, then version: <project>-<date>-<version>.
 RUN_DIR="$SCORECARD_DIR/${GOLDEN_NAME}-${TIMESTAMP}-${VERSION}"
@@ -68,6 +96,7 @@ echo "Scorecard: $SCORECARD_OUT"
 
 # 1. Copy golden project to a fresh temp dir
 cp -r "$GOLDEN_PROJECT" "$BENCH_DIR"
+BENCH_DIR_N="$(winpath "$BENCH_DIR")"
 
 # 2. Set up git: init, born main, born dev (the integration trunk), feature branch off dev.
 # v6 integration trunk is `dev` — NOT main (the protected release branch the workflow never
@@ -97,14 +126,14 @@ chmod +x "$BENCH_DIR/tiger-block-rm.sh"
 # workflow silently falls back to the generic agent. Must run BEFORE claude starts (plugin
 # agents load only at session startup). The marketplace is a directory source = this repo's
 # live working tree, so the benchmark exercises the exact local version under test.
-(cd "$BENCH_DIR" && claude plugin marketplace add "$KIT_ROOT" --scope project >/dev/null 2>&1) &&
+(cd "$BENCH_DIR" && claude plugin marketplace add "$KIT_ROOT_N" --scope project >/dev/null 2>&1) &&
 	echo "Local plugin marketplace added to bench project"
-(cd "$BENCH_DIR" && claude plugin install "tiger-skills@tiger-skills" --scope project >/dev/null 2>&1) &&
+(cd "$BENCH_DIR" && claude plugin install "$PLUGIN_REF" --scope project >/dev/null 2>&1) &&
 	echo "Plugin installed into bench project (scope: project)"
 # FIDELITY GATE: if the local plugin is not enabled for this project, the run would silently
 # use the generic agent and overstate fidelity (the exact failure mode this harness must avoid).
 # Fail LOUD instead. enabledPlugins lives in the bench project's own settings.json.
-if grep -q '"tiger-skills@tiger-skills": *true' "$BENCH_DIR/.claude/settings.json" 2>/dev/null; then
+if grep -q "\"$PLUGIN_REF\": *true" "$BENCH_DIR/.claude/settings.json" 2>/dev/null; then
 	echo "Local plugin enabled in bench project ✓ (stages will run the real tiger-* agents)"
 else
 	echo "ERROR: local plugin not enabled in bench project — aborting before the run." >&2
@@ -142,8 +171,8 @@ progress_poller() {
 		sleep 10
 		ticks=$((ticks + 1))
 		elapsed=$(($(date +%s) - start_ts))
-		phase=$(python3 -c "import json;print(json.load(open('$BENCH_DIR/feature_list.json'))['features']['$FEATURE_ID'].get('phase','?'))" 2>/dev/null || echo '?')
-		tasks=$(python3 -c "import json;t=json.load(open('$BENCH_DIR/feature_list.json'))['features']['$FEATURE_ID'].get('tasks') or [];print(f\"{sum(1 for x in t if x.get('status')=='done')}/{len(t)}\")" 2>/dev/null || echo '?')
+		phase=$(python3 -c "import json;print(json.load(open('$BENCH_DIR_N/feature_list.json'))['features']['$FEATURE_ID'].get('phase','?'))" 2>/dev/null || echo '?')
+		tasks=$(python3 -c "import json;t=json.load(open('$BENCH_DIR_N/feature_list.json'))['features']['$FEATURE_ID'].get('tasks') or [];print(f\"{sum(1 for x in t if x.get('status')=='done')}/{len(t)}\")" 2>/dev/null || echo '?')
 		wt=$(git -C "$BENCH_DIR" worktree list 2>/dev/null | wc -l | tr -d ' ')
 		head=$(git -C "$BENCH_DIR" log -1 --format='%h %s' 2>/dev/null || echo '<no commit>')
 		snap="$phase|$tasks|$wt|$head"
@@ -159,7 +188,7 @@ progress_poller &
 POLLER_PID=$!
 # On ANY exit: stop the poller AND uninstall the bench plugin, so the global
 # installed_plugins.json doesn't accumulate one project-scope entry per benchmark run.
-trap 'kill "$POLLER_PID" 2>/dev/null || true; (cd "$BENCH_DIR" && claude plugin uninstall "tiger-skills@tiger-skills" --scope project >/dev/null 2>&1 || true)' EXIT
+trap 'kill "$POLLER_PID" 2>/dev/null || true; (cd "$BENCH_DIR" && claude plugin uninstall "$PLUGIN_REF" --scope project >/dev/null 2>&1 || true)' EXIT
 
 set +e
 # CLAUDE_CODE_SUBAGENT_MODEL: unset so proModel/fastModel args take effect.
@@ -201,7 +230,7 @@ EOF
 echo "Config   written to: $CONFIG_OUT"
 
 # 6. Collect scorecard (pass the discovered feature id so it works for any golden project)
-python3 "$SCRIPT_DIR/scorecard.py" "$BENCH_DIR" "$VERSION" "$FEATURE_ID" >"$SCORECARD_OUT"
+python3 "$SCRIPT_DIR_N/scorecard.py" "$BENCH_DIR_N" "$VERSION" "$FEATURE_ID" >"$SCORECARD_OUT"
 echo ""
 echo "Scorecard written to: $SCORECARD_OUT"
 cat "$SCORECARD_OUT"
