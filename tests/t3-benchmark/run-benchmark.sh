@@ -235,8 +235,11 @@ echo ""
 echo "Scorecard written to: $SCORECARD_OUT"
 cat "$SCORECARD_OUT"
 
-# 7. Copy Robot evidence (screenshots + report/log HTML) out of the temp bench dir
-EVIDENCE_SRC="$BENCH_DIR/tiger/features/$FEATURE_ID/evidence"
+# 7. Copy Robot evidence (screenshots + report/log HTML) out of the temp bench dir.
+# The lead runs the whole folder (robot --outputdir tiger/evidence tiger/features/), so evidence is
+# the project-level tiger/evidence; fall back to the legacy per-feature dir for older runs.
+EVIDENCE_SRC="$BENCH_DIR/tiger/evidence"
+[ -d "$EVIDENCE_SRC" ] || EVIDENCE_SRC="$BENCH_DIR/tiger/features/$FEATURE_ID/evidence"
 if [ -d "$EVIDENCE_SRC" ]; then
 	mkdir -p "$EVIDENCE_DST"
 	# Copy all Robot output files and screenshots

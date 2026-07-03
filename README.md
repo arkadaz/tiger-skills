@@ -8,7 +8,7 @@ Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
 ## What It Is
 
-The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus standalone security and reviewer. The **lead** merges planning and end-to-end verification into one agent: it recons + plans, spawns the coders, then authors + runs the e2e suite in a single context. A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated. Use one skill alone (e.g. a security review of a branch), or run the whole pipeline.
+The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus standalone security and reviewer. The **lead** merges planning and end-to-end verification into one agent: it recons + plans, then (after the coders build) authors + runs the e2e suite — all in a single context. A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated, acting as the **conductor** that spawns the code-generator coders between the lead's plan and verify modes (a subagent can't nest-spawn, so the workflow does it — parallel isolated worktrees per dependency wave + an integrator). Use one skill alone (e.g. a security review of a branch), or run the whole pipeline.
 
 **Inspectable artifacts.** Outputs live under `tiger/` as compact **markdown** plus one Robot Framework suite:
 
@@ -89,7 +89,7 @@ Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
 |---|---|---|---|
 | 1 | **Grill** | `tiger-grill`, one question at a time | Answer each (a recommendation is offered) until rules, edge cases, and acceptance criteria are closed |
 | 2 | **Approve** | you | Review `feature.md` + `e2e_testcases.robot` in `tiger/features/<id>/`, then approve or send changes |
-| 3 | Plan · build · verify | lead (spawns code generator(s)) | nothing; the lead recons + plans (scope + tasks, refreshes `CODEBASE_MAP.md`), spawns code-generator coders per wave in parallel isolated worktrees (TDD + simplify + **no comments**; reuse before build) and integrates onto `feature/<id>`, then — same context — authors + runs the Robot e2e suite for real (Playwright for UI), **appends new cases**, triages by priority: HIGH/MEDIUM block (bounded in-context delta re-plan), LOW logged; pass = zero HIGH + zero MEDIUM, all tasks done |
+| 3 | Plan · build · verify | lead PLAN/VERIFY; the workflow-conductor spawns the coders | nothing; the lead recons + plans (scope + tasks, refreshes `CODEBASE_MAP.md`) and returns dependency **waves**; the conductor builds each wave with code-generator coders (file-disjoint tasks in parallel isolated worktrees + an integrator; solo for a 1-task wave; TDD + simplify + **no comments**; reuse before build), then the lead — same context — authors + runs the Robot e2e suite for real over the whole `tiger/features/` folder (Playwright for UI), **appends new cases**, triages by priority: HIGH/MEDIUM block (bounded delta re-plan), LOW logged; pass = zero HIGH + zero MEDIUM, all tasks done |
 | 4 | Document | update-docs | nothing; refreshes the markdown docs + README, fast-forward merges to `dev` |
 | ✓ | Pass | system | `phase: passing`; `dev` updated (`dev` → `main` is your manual release step) |
 | ✕ | Block | system | after no-progress rounds, `phase: blocked` + a fix list |
@@ -151,17 +151,17 @@ The plugin ships **templates and logic**, not runtime state. The board, logs, an
 ## The Pipeline
 
 ```
-human ⇄ grill → lead ( recon+plan → ‖ spawn code-generator coders in isolated worktrees per wave → integrate → author + run the Robot e2e suite for real (Playwright for UI) → priority triage (HIGH/MEDIUM block, LOW logged) → bounded in-context delta re-plan ) → update docs → ff-merge to dev
+human ⇄ grill → lead PLAN (recon+plan → dependency waves) → conductor builds each wave ( ‖ code-generator coders in isolated worktrees + integrate ) → lead VERIFY ( author + run the Robot e2e suite for real over all of tiger/features/ (Playwright for UI) → priority triage (HIGH/MEDIUM block, LOW logged) → bounded delta re-plan ) → conductor spawns update-docs → ff-merge to dev
 ```
 
-The **lead** owns the whole build loop in a single context: it plans the tasks and builds them in **dependency waves** — spawning parallel code-generator coders in isolated worktrees, then integrating their disjoint branches onto `feature/<id>` — and, in the SAME context, authors + runs the Robot e2e suite for real as **the single quality gate** after every wave. Because the planner IS the verifier, every acceptance check and UI path it planned is one it knows how to test, so the loop is short and UI coverage is complete (the old split architect→e2e lost context at the handoff and re-derived coverage twice). On a clean pass the lead spawns update-docs. (In-loop security ∥ reviewer were removed for speed; both remain standalone.)
+The **lead** owns planning and verification in a single context; the **workflow-conductor** spawns the coders between those two modes (a subagent can't nest-spawn). The lead plans the tasks as **dependency waves**; the conductor builds each wave — parallel code-generator coders in isolated worktrees, then an integrator cherry-picking their disjoint branches onto `feature/<id>` (a 1-task wave builds solo) — and hands back to the lead, which in the SAME context authors + runs the Robot e2e suite for real as **the single quality gate** after every wave. Because the planner IS the verifier, every acceptance check and UI path it planned is one it knows how to test, so the loop is short and UI coverage is complete (the old split architect→e2e lost context at the handoff and re-derived coverage twice). On a clean pass the conductor spawns update-docs. (In-loop security ∥ reviewer were removed for speed; both remain standalone.)
 
 | Stage | Model | Role |
 |---|---|---|
 | **grill** (inline) | Opus | Interviews one question at a time; writes `feature.md` + a broad priority-tagged robot suite (loads `tiger-docs-feature` + `tiger-docs-e2e`); the only human gate |
 | **lead** | Opus | The merged plan+verify+orchestrator: validates scope, writes the board plan (scope + tasks + RED-first checks) + phase pointer + acceptance status, sole author of `CODEBASE_MAP.md`; **spawns** the code-generator coders; authors `e2e_keywords.resource` + runs the Robot suite + acceptance checks for real (Playwright for UI), **appends new cases**, triages by priority (HIGH/MEDIUM block, LOW logged), owns `refs/notes/e2e`; bounded in-context delta re-plan; never writes product code |
-| **code generator** | Sonnet | Spawned by the lead; reuses before it builds (YAGNI → repo util → stdlib → platform → dep → new code); TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
-| **update-docs** | Opus | Spawned by the lead on PASS; refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
+| **code generator** | Sonnet | Spawned by the workflow-conductor (solo for a 1-task wave; in an isolated worktree + an integrator for a multi-task wave); reuses before it builds (YAGNI → repo util → stdlib → platform → dep → new code); TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
+| **update-docs** | Opus | Spawned by the workflow-conductor on PASS; refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
 
 Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress rounds → `phase: blocked` + a priority-ordered fix list.
 

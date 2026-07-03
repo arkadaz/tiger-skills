@@ -321,15 +321,16 @@ if grep -qi 'simplif' "$GEN_MD" 2>/dev/null && grep -qiE 'no comment|comment-fre
   pass "tiger-code-generator.md requires the simplify pass + no-comments rule"; else
   fail "tiger-code-generator.md must require a simplify pass and forbid comments in generated code"; fi
 
-# Merged lead: it must carry BOTH the planning half (architect) and the verify half (e2e gate),
-# spawn the coders itself (Agent tool), and drive UI for real.
+# Plan+verify lead: it must carry BOTH the planning half (architect) and the verify half (e2e gate)
+# and drive UI for real. It does NOT spawn the coders (the workflow-conductor does — subagents can't
+# nest-spawn); it keeps the Agent tool only for the standalone top-level fallback.
 LEAD_MD="$ROOT_DIR/agents/tiger-lead.md"
-# frontmatter: opus + the Agent tool (so it can spawn the code-generator subagents) + Write (so it
-# can author the e2e keyword layer — the old e2e agent lacked Write, a root cause of missed UI cases).
+# frontmatter: opus + Write (so it can author the e2e keyword layer — the old e2e agent lacked Write,
+# a root cause of missed UI cases). Agent stays for the standalone top-level path.
 LEAD_TOOLS=$(grep -E '^tools:' "$LEAD_MD" | head -1)
-if printf '%s' "$LEAD_TOOLS" | grep -q 'Agent' && printf '%s' "$LEAD_TOOLS" | grep -q 'Write'; then
-  pass "tiger-lead.md has the Agent tool (spawns coders) and Write (authors the e2e keyword layer)"; else
-  fail "tiger-lead.md must list Agent (to spawn tiger-code-generator) and Write (to author e2e_keywords.resource)"; fi
+if printf '%s' "$LEAD_TOOLS" | grep -q 'Write'; then
+  pass "tiger-lead.md has Write (authors the e2e keyword layer)"; else
+  fail "tiger-lead.md must list Write (to author e2e_keywords.resource)"; fi
 # planning half + verify half + the priority triage / token the workflow reads.
 if grep -qiE 'blueprint|acceptance check|scope_map|CODEBASE_MAP' "$LEAD_MD" 2>/dev/null; then
   pass "tiger-lead.md carries the planning half (blueprint + acceptance checks + codemap)"; else
@@ -340,9 +341,11 @@ if grep -qi 'priority' "$LEAD_MD" 2>/dev/null && grep -q 'E2E_BLOCKERS' "$LEAD_M
 if grep -qiE 'append|source:e2e|expand coverage' "$LEAD_MD" 2>/dev/null; then
   pass "tiger-lead.md appends more e2e cases (bounded coverage expansion)"; else
   fail "tiger-lead.md must expand coverage with appended source:e2e cases"; fi
-if grep -qF 'tiger-skills:tiger-code-generator' "$LEAD_MD" 2>/dev/null; then
-  pass "tiger-lead.md spawns tiger-code-generator subagents itself"; else
-  fail "tiger-lead.md must spawn the tiger-code-generator coders (that is the merge's point)"; fi
+# The lead runs in two conductor-driven modes; it must document them (PLAN returns the task order,
+# VERIFY runs the suite) and must NOT claim to spawn the coders itself (the conductor does).
+if grep -qiE 'MODE:?[[:space:]]*PLAN' "$LEAD_MD" 2>/dev/null && grep -qiE 'MODE:?[[:space:]]*VERIFY' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md documents its PLAN and VERIFY conductor modes"; else
+  fail "tiger-lead.md must document the PLAN and VERIFY modes the conductor drives"; fi
 # UI is not optional — the merged lead must mandate a real browser drive (Playwright), the fix for
 # the missed-UI-testcase pain.
 if grep -qiE 'browser|playwright|rfbrowser' "$LEAD_MD" 2>/dev/null; then
@@ -371,10 +374,14 @@ if [ -f "$WF" ]; then
   # v6: dev is the integration trunk; main is never the workflow's build base.
   if grep -qE '"dev"|\bdev\b' "$WF"; then pass "workflow integrates on dev"; else
     fail "workflow must use dev as the integration trunk"; fi
-  # The lead finalizes by spawning update-docs (ff-merge to dev); the slim workflow hands that off.
+  # The workflow-conductor spawns update-docs on PASS (ff-merge to dev) — a subagent can't nest-spawn it.
   if grep -qiE 'tiger-update-docs|fast-forward merge' "$WF"; then
-    pass "workflow delegates finalize (ff-merge to dev via update-docs) to the lead"; else
-    fail "workflow must hand finalize (update-docs / ff-merge to dev) to the lead"; fi
+    pass "workflow spawns update-docs to finalize (ff-merge to dev)"; else
+    fail "workflow must spawn update-docs (ff-merge to dev) on PASS"; fi
+  # The conductor spawns the coders itself (subagents can't nest-spawn), so the workflow must name them.
+  if grep -qi 'tiger-code-generator' "$WF"; then
+    pass "workflow-conductor spawns tiger-code-generator per task"; else
+    fail "workflow must spawn tiger-code-generator (the conductor builds; the lead can't nest-spawn)"; fi
   if command -v node >/dev/null 2>&1; then
     if node -e '
       const fs=require("fs");const src=fs.readFileSync(process.argv[1],"utf8");

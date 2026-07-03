@@ -130,8 +130,10 @@ def collect_scorecard(project_dir, version, feature_id=None):
             e2e_blockers = {"high": int(m.group(1)), "medium": int(m.group(2)), "low": int(m.group(3))}
             break
 
-    evidence_dir = project / "tiger" / "features" / feature_id / "evidence"
-    e2e_screenshots = len(list(evidence_dir.glob("*.png"))) if evidence_dir.exists() else 0
+    evidence_dir = project / "tiger" / "evidence"
+    if not evidence_dir.exists():
+        evidence_dir = project / "tiger" / "features" / feature_id / "evidence"
+    e2e_screenshots = len(list(evidence_dir.rglob("*.png"))) if evidence_dir.exists() else 0
 
     return {
         "version": version,

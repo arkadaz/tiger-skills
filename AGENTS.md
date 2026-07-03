@@ -4,7 +4,7 @@ Quick orientation for agents. The binding manual is `CLAUDE.md`; this is a short
 
 ## Project Overview
 
-tiger-skills — a Claude Code plugin: grill-first harness engineering (outer loop) + code quality (inner loop). **19 skills, 5 agents.** Two workflows: the **dev pipeline** (**grill → lead → update-docs → ff-merge to dev**) and a git-free **research loop** (**/research-goal → /research-workflow**). where `tiger-lead` owns the whole build loop in one context — it plans, spawns the coders in parallel isolated worktrees, runs the Robot e2e suite for real, triages by priority, and re-plans in-context — then spawns update-docs to finalize on a clean pass. `tiger-security` / `tiger-reviewer` are standalone-only.
+tiger-skills — a Claude Code plugin: grill-first harness engineering (outer loop) + code quality (inner loop). **19 skills, 5 agents.** Two workflows: the **dev pipeline** (**grill → lead → update-docs → ff-merge to dev**) and a git-free **research loop** (**/research-goal → /research-workflow**). where `tiger-lead` owns planning + verification in one context — it plans (returning dependency waves), the workflow-conductor builds each wave with coders in parallel isolated worktrees + an integrator, then the lead runs the Robot e2e suite for real, triages by priority, and re-plans in-context — and the conductor spawns update-docs to finalize on a clean pass. `tiger-security` / `tiger-reviewer` are standalone-only.
 
 ## Quick Start
 
@@ -32,9 +32,9 @@ The old planner (`tiger-architect`) and verifier (`tiger-e2e`) were separate age
 
 | Agent | Model | Role |
 |---|---|---|
-| `tiger-lead` | opus | Merged plan+verify+orchestrator, one context: validates scope, writes the board PLAN (scope + tasks) + phase pointer + acceptance-criteria status, sole author of `tiger/CODEBASE_MAP.md`, **spawns the `tiger-code-generator` coders** (parallel isolated worktrees per wave), authors `e2e_keywords.resource` + runs the robot suite for real (Playwright for UI) + triages by priority + owns `refs/notes/e2e`, bounded in-context delta re-plan on HIGH/MEDIUM. Never writes product code, never edits grill's cases, never closes the board |
-| `tiger-code-generator` | sonnet | TDD build per task; reuse + simplify + comment-free; one commit per task. **Spawned by the lead** |
-| `tiger-update-docs` | opus | Refreshes markdown docs + README, closes the board, rebases + ff-merges to `dev`. **Spawned by the lead on PASS** |
+| `tiger-lead` | opus | Merged plan+verify, one context: validates scope, writes the board PLAN (scope + tasks) + phase pointer + acceptance-criteria status, sole author of `tiger/CODEBASE_MAP.md`, **returns dependency WAVES** for the conductor to build, authors `e2e_keywords.resource` + runs the robot suite for real over the WHOLE `tiger/features/` folder (Playwright for UI) + triages by priority + owns `refs/notes/e2e`, bounded delta re-plan (deltaWaves) on HIGH/MEDIUM. Never writes product code, never edits grill's cases, never closes the board |
+| `tiger-code-generator` | sonnet | TDD build of one task; reuse + simplify + comment-free; one commit. **Spawned by the workflow-conductor** (solo for a 1-task wave; in an isolated worktree + an integrator for a multi-task wave) |
+| `tiger-update-docs` | opus | Refreshes markdown docs + README, closes the board, rebases + ff-merges to `dev`. **Spawned by the workflow-conductor on PASS** |
 
 `tiger-security` / `tiger-reviewer` remain standalone on-demand **skills** (secrets/vuln audit → `refs/notes/security`; code/test quality audit → `refs/notes/review`) with **no owned agent** — NOT in the loop, never spawned by the workflow.
 

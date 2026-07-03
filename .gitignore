@@ -1,5 +1,6 @@
 code-quality-workspace/
 evals/
+tests/scorecards/
 __pycache__/
 *.pyc
 .DS_Store
