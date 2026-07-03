@@ -4,7 +4,7 @@
 // Runs ONE already-approved research goal (the /research-goal grill happened first). No git anywhere —
 // state is the folder tree under research/<goalId>/; resume = read the ledger + experiment folders.
 //   bootstrap (fast model, once) — approval-gate research/<goalId>/goal.md, freeze the controlled vars,
-//       read the metric/harness/budget/taxonomy, seed the experiment0 baseline if missing, `research.py
+//       read the metric/harness/budget/taxonomy, seed the experiment0 baseline if missing, `tiger/research.py
 //       init`, resolve today via the shell. (This is why no args are needed.)
 //     → LOOP (opus, SERIAL, self-paced) — each round spawns a FRESH tiger-researcher (no prior agent
 //       memory; it reconstructs from files) that deliberates, mines sources, implements a genuinely NEW
@@ -15,7 +15,7 @@
 //       frontier to be judged novel, so never parallel across iterations.
 //     → synthesis (opus, once) — writes research/<goalId>/REPORT.md and closes the ledger.
 //
-// The novelty engine (research.py) is the anti-tuning crux — the frozen controlled vars are EXCLUDED
+// The novelty engine (tiger/research.py) is the anti-tuning crux — the frozen controlled vars are EXCLUDED
 // from the structural set so a parameter tweak can never masquerade as a new way. Models mirror the
 // agent frontmatter; pass proModel/fastModel (or "inherit") for non-Anthropic backends. NO merge,
 // NO branch, NO commit — promoting a winner into real code is a MANUAL human step. Launch:
@@ -24,7 +24,7 @@
 export const meta = {
   name: "research-workflow",
   description:
-    "Run ONE human-approved research goal through the autonomous, GIT-FREE novelty loop. bootstrap (sonnet) approval-gates research/<goalId>/goal.md, freezes the controlled vars, reads the deterministic seeded metric harness + budget + taxonomy, seeds the experiment0 baseline if missing, and inits research.py — so a bare /research-workflow needs no args. Then a SERIAL, self-paced loop spawns a FRESH tiger-researcher (opus) each round that deliberates via a parallel ideation panel, mines fetched sources, implements a genuinely NEW method under the FROZEN vars (no comments), runs the harness for REAL, and passes the G0-G4 novelty gate; the JS reads six machine tokens fail-closed, tracks best + stall, computes goal-met itself (never trusting the agent), and paces the next round (exploit→explore→big-swing). Stops on goal-met (SUCCESS), iter/wall budget (BUDGET), novelty-exhausted/patience/floor (STALL), or two blocked rounds (BLOCKED); then synthesis (opus) writes REPORT.md and closes the ledger. No git, no merge — promoting a winner is a manual human step. Overrides: goalId, goalFile, projectDir, today, proModel, fastModel, maxIter.",
+    "Run ONE human-approved research goal through the autonomous, GIT-FREE novelty loop. bootstrap (sonnet) approval-gates research/<goalId>/goal.md, freezes the controlled vars, reads the deterministic seeded metric harness + budget + taxonomy, seeds the experiment0 baseline if missing, and inits tiger/research.py — so a bare /research-workflow needs no args. Then a SERIAL, self-paced loop spawns a FRESH tiger-researcher (opus) each round that deliberates via a parallel ideation panel, mines fetched sources, implements a genuinely NEW method under the FROZEN vars (no comments), runs the harness for REAL, and passes the G0-G4 novelty gate; the JS reads six machine tokens fail-closed, tracks best + stall, computes goal-met itself (never trusting the agent), and paces the next round (exploit→explore→big-swing). Stops on goal-met (SUCCESS), iter/wall budget (BUDGET), novelty-exhausted/patience/floor (STALL), or two blocked rounds (BLOCKED); then synthesis (opus) writes REPORT.md and closes the ledger. No git, no merge — promoting a winner is a manual human step. Overrides: goalId, goalFile, projectDir, today, proModel, fastModel, maxIter.",
   phases: [
     { title: "bootstrap", detail: "approval-gate the goal, freeze vars, seed the baseline, init the ledger", model: "sonnet" },
     { title: "loop", detail: "serial novelty-gated experiments — deliberate, fetch, implement, run, record", model: "opus" },
@@ -91,12 +91,12 @@ const goalMetClaim = (report) => lastToken(report, "GOAL_MET") === "YES";
 const better = (dir, a, b) => (dir === "min" ? a < b : a > b); // a strictly better than b
 const meets = (dir, v, target) => (dir === "min" ? v <= target : v >= target); // v satisfies target
 
-// Stages read + patch the ledger through research.py (installed as research.py, SEPARATE from board.py);
+// Stages read + patch the ledger through tiger/research.py (installed as tiger/research.py, SEPARATE from board.py);
 // it loads → validates → mutates one spot → re-checks invariants → saves preserving everything else, and
 // fails closed (exit 1 = REFUSED, ledger untouched).
 const RESEARCH_TOOL =
-  "Read the ledger with `python3 research.py summary` (plus `vectors` and `frontier`) and patch it ONLY " +
-  "through `python3 research.py` (init / novelty-check / register / record-result / alias / stall-check / " +
+  "Read the ledger with `python3 tiger/research.py summary` (plus `vectors` and `frontier`) and patch it ONLY " +
+  "through `python3 tiger/research.py` (init / novelty-check / register / record-result / alias / stall-check / " +
   "set-status / close) — never hand-edit research_ledger.json. Every write re-checks the invariants and " +
   "fails closed (exit 1 = REFUSED, ledger untouched).";
 
@@ -170,8 +170,8 @@ const boot = await spawn(
       numbers to experiment0/metrics.json + logs to experiment0/evidence/, and write a minimal experiment0/
       experiment.md baseline card. baselineValue = the real measured metric (NEVER asserted — the Iron Law).
       If experiment0 already exists, read its metrics.json for baselineValue.
-   6. \`python3 research.py init --goal <goalId>\` (seeds the ledger from goal.md; idempotent on resume).
-      nextIter = \`python3 research.py next-n\` (ledger last index + 1; 1 on a fresh goal).
+   6. \`python3 tiger/research.py init --goal <goalId>\` (seeds the ledger from goal.md; idempotent on resume).
+      nextIter = \`python3 tiger/research.py next-n\` (ledger last index + 1; 1 on a fresh goal).
    ${RESEARCH_TOOL}
 
    Return the structured object. abort=null ONLY when an APPROVED goal is ready with a seeded experiment0 and an
@@ -266,7 +266,7 @@ while (!outcome && iter <= maxIters) {
 
      NO GIT anywhere — state is the folder tree under research/${G.id}/experiments/experiment${iter}/; that
      folder is IMMUTABLE once done. Run your full procedure (agents/tiger-researcher.md):
-       1. RECONSTRUCT — \`python3 research.py summary\` + \`vectors\` + \`frontier\`; read in full ONLY the last
+       1. RECONSTRUCT — \`python3 tiger/research.py summary\` + \`vectors\` + \`frontier\`; read in full ONLY the last
           2-3 experiment.md bodies (+ any earlier one whose next-idea seeds motivate a direction).
        2. DELIBERATE — spawn a small PARALLEL ideation panel (Agent tool, agentType "Explore") of DISTINCT
           candidate next-moves (learn-from-the-worst-failure / attack-the-current-best-weakness / import-a-
@@ -277,7 +277,7 @@ while (!outcome && iter <= maxIters) {
           SAVE each fetched {id-or-url, title, quoted_claim} to experiment${iter}/sources.md. Distil ONE
           falsifiable hypothesis (if we change X to <technique from source> then <metric> moves because <mechanism>).
        4. VECTOR + PRE-GATE — build approach_vector {family (from taxonomy.md), components[], controlled_vars
-          (== the goal FROZEN set), sources[], hypothesis, nearest_prior}; \`python3 research.py novelty-check
+          (== the goal FROZEN set), sources[], hypothesis, nearest_prior}; \`python3 tiger/research.py novelty-check
           <vector.json>\` MUST exit 0 (G0 frozen-vars, G1 near-dup, G2 pure-tuning, G3 new-component, G4 new-source)
           or re-deliberate (≤3 tries; exhausted → TIGER_RESEARCH: NOVELTY_EXHAUSTED).
        5. IMPLEMENT — spawn tiger-code-generator (agentType "tiger-skills:tiger-code-generator", coder model
@@ -286,17 +286,17 @@ while (!outcome && iter <= maxIters) {
        6. RUN — execute the pinned harness for REAL as a bounded background process with the pinned hard timeout;
           the METRIC is the number from THIS run (NEVER asserted — the Iron Law). Raw numbers → metrics.json,
           logs/outputs → evidence/.
-       7. POST-GATE — \`python3 research.py novelty-check <vector.json> --built experiment${iter}\` (reads the
+       7. POST-GATE — \`python3 tiger/research.py novelty-check <vector.json> --built experiment${iter}\` (reads the
           ACTUAL built method files and re-derives the real component set); if REFUSED, mark the experiment
           rejected + UNCREDITED and report it honestly (a promised-new method that shipped a constant tweak fails).
        8. CRITIC — spawn tiger-novelty-critic (agentType "tiger-skills:tiger-novelty-critic") on the REAL method
           for the semantic NOVEL-and-smart veto (it ends TIGER_NOVELTY: <NOVEL|DUPLICATE>).
        9. RECORD — WRITE experiment${iter}/experiment.md via the tiger-experiment-log skill (approach-vector
-          frontmatter + method + result + notes); \`python3 research.py register experiment${iter}\` then
+          frontmatter + method + result + notes); \`python3 tiger/research.py register experiment${iter}\` then
           \`record-result experiment${iter} --metric <v> --status <improved|neutral|regressed>\`.
       10. PACING — ${pacingHint}: exploit = refine near the current best; explore = a distinct untried
           component; big-swing = FORCE an untried family from taxonomy.md (you are stalled). If cumulative wall
-          (research.py summary, or \`date +%s\` minus ${G.startedEpoch || "the origin"}) exceeds ${wallHours}h
+          (tiger/research.py summary, or \`date +%s\` minus ${G.startedEpoch || "the origin"}) exceeds ${wallHours}h
           when >0, wrap up and stop.
      ${RESEARCH_TOOL}
      You NEVER change the frozen controlled vars (that is tuning, not a new way — a G3-gated new component MAY
@@ -395,7 +395,7 @@ phase("synthesis");
 const synth = await spawn(
   "synthesis",
   `Write the closing synthesis for research goal ${G.id} as the Tiger Researcher in SYNTHESIS mode — do NOT
-   run a new experiment. Reconstruct from files only (\`python3 research.py summary\` + \`vectors\` + \`frontier\`
+   run a new experiment. Reconstruct from files only (\`python3 tiger/research.py summary\` + \`vectors\` + \`frontier\`
    and the experiment.md bodies). NO GIT, NO merge. Write research/${G.id}/REPORT.md with:
      • an idea → hypothesis → result table across EVERY experiment (family, novelty, metric, verdict),
      • the WINNING method (${best.experiment}, metric ${best.value}) with its full provenance chain
@@ -404,7 +404,7 @@ const synth = await spawn(
    Outcome: ${outcome} (best ${best.value} vs target ${target}, direction ${dir}, after ${iterationsRun}
    experiment(s)). REPORT.md simply POINTS at research/${G.id}/experiments/${best.experiment}/ — promoting a
    winner into real code is a MANUAL human step, never done here. ${RESEARCH_TOOL}
-   Then \`python3 research.py set-status ${ledgerStatus}\` and \`python3 research.py close\`.
+   Then \`python3 tiger/research.py set-status ${ledgerStatus}\` and \`python3 tiger/research.py close\`.
    END with: REPORT_WRITTEN: <YES|NO>.`,
   "synthesis"
 );

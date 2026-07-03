@@ -9,23 +9,24 @@ slice asked for; every write loads the full ledger, mutates ONE spot, re-checks 
 append-only rows), and only then writes back — preserving every other field. A write that would
 break an invariant is REFUSED (exit 1, ledger UNTOUCHED): fail closed.
 
-install copies this next to the ledger as `research.py`. Resolve the ledger with `--goal <id>`
+install copies this to `tiger/research.py` (alongside `tiger/board.py`); run it from the project
+root, where it resolves the ledger relative to the cwd. Resolve the ledger with `--goal <id>`
 (→ research/<id>/research_ledger.json) or `--file PATH`; with neither it auto-discovers the one
 research/*/research_ledger.json. Subcommands:
 
-  research.py init --goal <goalId>                 seed the ledger from research/<goalId>/goal.md
-  research.py summary                              goal, metric+target+direction, frozen vars,
+  tiger/research.py init --goal <goalId>                 seed the ledger from research/<goalId>/goal.md
+  tiger/research.py summary                              goal, metric+target+direction, frozen vars,
                                                    baseline, best, budget remaining, stall, table
-  research.py vectors                              every prior approach_vector (anti-repeat memory)
-  research.py frontier                             tried vs untried families + pairs + idea seeds
-  research.py next-n                               the next experiment id
-  research.py novelty-check <vector.json> [--built <dir>]   the G0-G4 gate (PRE, or --built POST)
-  research.py register <experimentN>               re-run the gate, then append the experiment row
-  research.py record-result <experimentN> --metric <v> --status <improved|neutral|regressed>
-  research.py alias <tagA> <tagB>                  fold synonym component tags (anti synonym-gaming)
-  research.py stall-check                          noImprove + rolling novelty mean vs budget
-  research.py set-status <running|success|stalled|blocked>
-  research.py close
+  tiger/research.py vectors                              every prior approach_vector (anti-repeat memory)
+  tiger/research.py frontier                             tried vs untried families + pairs + idea seeds
+  tiger/research.py next-n                               the next experiment id
+  tiger/research.py novelty-check <vector.json> [--built <dir>]   the G0-G4 gate (PRE, or --built POST)
+  tiger/research.py register <experimentN>               re-run the gate, then append the experiment row
+  tiger/research.py record-result <experimentN> --metric <v> --status <improved|neutral|regressed>
+  tiger/research.py alias <tagA> <tagB>                  fold synonym component tags (anti synonym-gaming)
+  tiger/research.py stall-check                          noImprove + rolling novelty mean vs budget
+  tiger/research.py set-status <running|success|stalled|blocked>
+  tiger/research.py close
 
 THE NOVELTY GATE (the anti-tuning crux). approach_vector = { family, components[], controlled_vars{},
 sources[], hypothesis, nearest_prior }. STRUCTURAL SET S = {family} UNION components, POINTEDLY
@@ -227,13 +228,13 @@ def load(path):
     try:
         led = json.load(open(path, encoding="utf-8"))
     except FileNotFoundError:
-        sys.exit(f"ledger not found: {path} (run: research.py init --goal <goalId>)")
+        sys.exit(f"ledger not found: {path} (run: tiger/research.py init --goal <goalId>)")
     except json.JSONDecodeError as exc:
         sys.exit(f"ledger is not valid JSON: {exc}")
     if not isinstance(led, dict) or isinstance(led.get("experiments"), list) or led.get("schema_version") != 1:
         sys.exit(
             f"legacy/foreign ledger shape in {path} (experiments must be a schema-v1 dict keyed by id; "
-            "schema_version must be 1) — re-run research.py init to seed it."
+            "schema_version must be 1) — re-run tiger/research.py init to seed it."
         )
     return led
 
@@ -577,7 +578,7 @@ def resolve_path(a):
     if len(hits) == 1:
         return hits[0]
     if not hits:
-        sys.exit("no research ledger found (run: research.py init --goal <goalId>)")
+        sys.exit("no research ledger found (run: tiger/research.py init --goal <goalId>)")
     sys.exit("multiple ledgers found; pass --goal <goalId>: " + ", ".join(hits))
 
 
@@ -632,7 +633,7 @@ def cmd_init(a):
 
 # ── main ──────────────────────────────────────────────────────────────────────
 def main():
-    p = argparse.ArgumentParser(prog="research.py", description="Novelty engine + append-only research ledger (schema v1), git-free.")
+    p = argparse.ArgumentParser(prog="tiger/research.py", description="Novelty engine + append-only research ledger (schema v1), git-free.")
     p.add_argument("--file", default="")
     p.add_argument("--goal", default="")
     # Accept --file/--goal on either side of the subcommand; SUPPRESS keeps a value given BEFORE it

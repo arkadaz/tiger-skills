@@ -4,7 +4,7 @@
 The research loop keeps ALL state in local files (git-free): the append-only
 research_ledger.json index plus one immutable experiments/experimentN/ folder per
 iteration (experiment0 is the baseline run). This script parses the ledger and the
-folder tree and enforces the invariants research.py promises at write time but does
+folder tree and enforces the invariants tiger/research.py promises at write time but does
 not re-check after the fact:
 
   - schema_version == 1, valid metric direction, valid ledger + experiment status vocab

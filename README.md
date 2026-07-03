@@ -172,9 +172,9 @@ A **second, standalone loop** alongside the dev pipeline — **discovery, not de
 Two entry points (everything else is internal):
 
 - **`/research-goal`** — the goal grill (mirrors `tiger-grill`): inline, one question at a time, writes `research/<goalId>/goal.md` (metric + direction + target, frozen controlled vars, the one deterministic harness command, budget, taxonomy). Gated by a `tiger-status: approved` line — the one human gate.
-- **`/research-workflow`** — the autonomous loop. **No args**; reads the approved goal and self-paces. Each iteration a fresh `tiger-researcher` (opus) reconstructs from files, **deliberates** a next-move (recorded in `deliberation.md`), mines fresh sources, clears the **novelty gate** (`research.py`: no pure tuning; every experiment must add a never-seen method component + a freshly-fetched source), then builds + runs the harness **for real** and logs one immutable `experiments/experimentN/` card.
+- **`/research-workflow`** — the autonomous loop. **No args**; reads the approved goal and self-paces. Each iteration a fresh `tiger-researcher` (opus) reconstructs from files, **deliberates** a next-move (recorded in `deliberation.md`), mines fresh sources, clears the **novelty gate** (`tiger/research.py`: no pure tuning; every experiment must add a never-seen method component + a freshly-fetched source), then builds + runs the harness **for real** and logs one immutable `experiments/experimentN/` card.
 
-Internal, workflow-spawned, `tiger-*` namespaced: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `research.py`.
+Internal, workflow-spawned, `tiger-*` namespaced: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `tiger/research.py`.
 
 **State is the folder tree — resume = re-run `/research-workflow`** (it reads `research/<goalId>/research_ledger.json` + the experiment folders and continues from the last iteration). On stop it writes `research/<goalId>/REPORT.md` (idea → hypothesis → result table, the winning method + its provenance chain, the dead-ends) that **points at** the best experiment folder — promoting a winner into real code is a **manual human step**.
 

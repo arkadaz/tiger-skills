@@ -1,6 +1,6 @@
 ---
 name: research-goal
-description: The ONLY human gate of the git-free research loop — an inline goal grill that turns a vague "find a better WAY to do X" into an approved, inspectable research/<goalId>/goal.md. Runs INLINE in the main session, interviewing one question at a time (AskUserQuestion with a recommended answer), exploring existing code/harness/data first, then writing goal.md (the single metric{name,direction,target,baseline}, the FROZEN controlled vars, the fast seeded DETERMINISTIC harness command, the budget) + a seeded taxonomy.md of approach-families, seeding research_ledger.json via `research.py init` — and flipping the `tiger-status: approved` frontmatter token only on an explicit human yes. Use whenever the user wants to search for a NEW WAY — optimize a metric, beat a baseline, explore approaches, run a research loop — even if they never say "grill" or "goal". Git-free: state is the folder tree, no branches/commits ever. A long description is input, not approval.
+description: The ONLY human gate of the git-free research loop — an inline goal grill that turns a vague "find a better WAY to do X" into an approved, inspectable research/<goalId>/goal.md. Runs INLINE in the main session, interviewing one question at a time (AskUserQuestion with a recommended answer), exploring existing code/harness/data first, then writing goal.md (the single metric{name,direction,target,baseline}, the FROZEN controlled vars, the fast seeded DETERMINISTIC harness command, the budget) + a seeded taxonomy.md of approach-families, seeding research_ledger.json via `tiger/research.py init` — and flipping the `tiger-status: approved` frontmatter token only on an explicit human yes. Use whenever the user wants to search for a NEW WAY — optimize a metric, beat a baseline, explore approaches, run a research loop — even if they never say "grill" or "goal". Git-free: state is the folder tree, no branches/commits ever. A long description is input, not approval.
 ---
 
 # Research Goal — the Only Human Gate of the Research Loop
@@ -14,7 +14,7 @@ I convert a vague "find a better way to <X>" into one approved, inspectable arti
 
 ## Contract
 
-**Preflight (hard gate).** `ls research.py` — the CLI I seed the ledger with (installed alongside `board.py`). If missing, tell the user to run `/tiger-skills:install` and STOP. Never improvise the ledger. Runs in ANY directory: no git repo, no board required. Then derive `<goalId>`: kebab-case from the goal, unique under `research/`.
+**Preflight (hard gate).** `ls tiger/research.py` — the CLI I seed the ledger with (installed alongside `board.py`). If missing, tell the user to run `/tiger-skills:install` and STOP. Never improvise the ledger. Runs in ANY directory: no git repo, no board required. Then derive `<goalId>`: kebab-case from the goal, unique under `research/`.
 
 **Interview rules.**
 - ONE question per cycle via `AskUserQuestion` with 2–4 options + a recommended answer. Never batch.
@@ -50,7 +50,7 @@ Silence is not acknowledgment.
 **9 discovery dimensions (exit conditions).**
 1. **Goal/JTBD** — can state `<researcher> needs a better way to <do X> so that <outcome>`; what is optimized, why now.
 2. **Metric** — ONE numeric metric, `direction: maximize|minimize`, target, baseline; tied to value. Ask "if it moves 10%, will anyone notice?"
-3. **Deterministic harness** — the ONE fast command; seeded + fixture-pinned (same number every run); hard-timeout bounded; emits the single metric to stdout / `metrics.json` so `research.py` can read it. This is the Iron Law made concrete.
+3. **Deterministic harness** — the ONE fast command; seeded + fixture-pinned (same number every run); hard-timeout bounded; emits the single metric to stdout / `metrics.json` so `tiger/research.py` can read it. This is the Iron Law made concrete.
 4. **Frozen controlled vars** — the CORE set held constant EVERY experiment (dataset, split, seed, eval protocol, compute budget…). This is the anti-tuning lever (G0). The **G3 carve-out**: a genuinely new component MAY introduce its OWN intrinsic var — allowed only when it attaches to a never-seen component.
 5. **Baseline (experiment0)** — the current/naive method + its measured number. Prove the harness (§ below) to fill it honestly, else leave `pending` for the workflow bootstrap to seed.
 6. **Taxonomy families** — the approach-family vocabulary the novelty engine ranges over; seed sensible domain defaults (ML: architecture / optimization / regularization / data-augmentation / representation / ensembling / loss-design / search-decoding / distillation), then the human edits. ≥3 distinct families.
@@ -66,9 +66,9 @@ Silence is not acknowledgment.
 |---|---|
 | `research/<goalId>/goal.md` | frontmatter machine gate + the grilled spec |
 | `research/<goalId>/taxonomy.md` | the approach-family vocabulary (defaults + human edits) |
-| `research/<goalId>/research_ledger.json` | seeded by `python3 research.py init --goal <goalId>` |
+| `research/<goalId>/research_ledger.json` | seeded by `python3 tiger/research.py init --goal <goalId>` |
 
-**goal.md** — compact bullets, never walls of text. Every section present; inapplicable → `N/A — <reason>`. Frontmatter is the machine gate the workflow bootstrap greps (`tiger-status:.*approved`) and `research.py init` parses:
+**goal.md** — compact bullets, never walls of text. Every section present; inapplicable → `N/A — <reason>`. Frontmatter is the machine gate the workflow bootstrap greps (`tiger-status:.*approved`) and `tiger/research.py init` parses:
 
 ```
 ---
@@ -101,21 +101,21 @@ taxonomy_families: [ <family>, <family>, <family>, ... ]
 
 **taxonomy.md** — a markdown list/table of the approach families with a one-line description each, seeded from the goal classification, then human-edited. This is the goal-authored vocabulary the novelty engine's family axis draws from; the researcher may extend it, never silently redefine it.
 
-**Ledger seeding via `research.py` — never hand-write the JSON.** After both markdown files exist, run `python3 research.py init --goal <goalId>` (it reads `goal.md` + `taxonomy.md`, seeds `research_ledger.json` at `schema_version 1`, load → validate → write, fail-closed on exit 1). Reads stay token-cheap: `python3 research.py summary`. If `init` refuses, the goal.md is malformed — fix and re-init; never leave a half-seeded ledger.
+**Ledger seeding via `tiger/research.py` — never hand-write the JSON.** After both markdown files exist, run `python3 tiger/research.py init --goal <goalId>` (it reads `goal.md` + `taxonomy.md`, seeds `research_ledger.json` at `schema_version 1`, load → validate → write, fail-closed on exit 1). Reads stay token-cheap: `python3 tiger/research.py summary`. If `init` refuses, the goal.md is malformed — fix and re-init; never leave a half-seeded ledger.
 
 **Approval Protocol (hard gate). The model can NEVER approve on the human's behalf.**
 1. Summarize BOTH artifacts the human is approving (goal.md + taxonomy.md) and the pinned metric / harness / frozen vars / budget, linked to open ledger items; call out anything pushed back on.
 2. Ask ONE explicit question via `AskUserQuestion` and wait: **"Approve this goal.md + taxonomy + harness/metric/budget as-is, or revise?"** Never infer from enthusiasm / "looks good" / a thumbs-up.
 3. On revise: reopen the relevant ledger dimension, update the artifacts, re-ask. Everything stays `awaiting_review`; nothing seeded past a re-runnable `init`.
 4. On explicit yes, flip in `goal.md` frontmatter: `tiger-status: awaiting_review` → `tiger-status: approved` — this line is the ONLY gate the workflow bootstrap greps. Update any visible approved-by line/date to `<user> on <YYYY-MM-DD>`.
-5. Seed/refresh the ledger: `python3 research.py init --goal <goalId>` — confirm it exits 0. Ensure `taxonomy.md` is written and (if proven) `experiment0/` seeded from the real harness run.
+5. Seed/refresh the ledger: `python3 tiger/research.py init --goal <goalId>` — confirm it exits 0. Ensure `taxonomy.md` is written and (if proven) `experiment0/` seeded from the real harness run.
 6. STOP. Tell the user what next: run `/research-workflow` (no args — it auto-discovers the approved goal and runs the autonomous loop).
 
 ## Works with
-Upstream: human (the only gate). Me → **tiger-researcher** (the fresh-each-iteration loop `/research-workflow` spawns: deliberate → mine sources → novelty-check → build method → run harness for real → log) → **REPORT.md** on stop. Internal, Tiger-namespaced, spawned by the workflow only: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `research.py`. No merge — the loop is git-free, and promoting a winning method into real code is a MANUAL human step.
+Upstream: human (the only gate). Me → **tiger-researcher** (the fresh-each-iteration loop `/research-workflow` spawns: deliberate → mine sources → novelty-check → build method → run harness for real → log) → **REPORT.md** on stop. Internal, Tiger-namespaced, spawned by the workflow only: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `tiger/research.py`. No merge — the loop is git-free, and promoting a winning method into real code is a MANUAL human step.
 
 ## Git interactions
-- **None — ever.** This loop is git-free. State is the folder tree under `research/<goalId>/`; resume = read `research_ledger.json` + the `experiment*/` folders. I write files only: `goal.md`, `taxonomy.md`, the `research.py`-seeded `research_ledger.json`, and (if proven) `experiment0/`. No branch, no commit, no note. Post-approval edits void the approval — reopen, get a fresh yes.
+- **None — ever.** This loop is git-free. State is the folder tree under `research/<goalId>/`; resume = read `research_ledger.json` + the `experiment*/` folders. I write files only: `goal.md`, `taxonomy.md`, the `tiger/research.py`-seeded `research_ledger.json`, and (if proven) `experiment0/`. No branch, no commit, no note. Post-approval edits void the approval — reopen, get a fresh yes.
 
 ## Standalone use
-Goal-only with no loop to follow runs identically: inline, one question at a time, preflight `research.py`, two markdown artifacts + the seeded ledger, the Iron-Law hard-blocks, the approval protocol on the explicit yes — then stop (whether `/research-workflow` runs later is the human's call). I must never get `context: fork`/`agent:` — that would sever the human channel. If the user wants discovery without artifacts ("just help me think"), keep the ledger conversational and write nothing.
+Goal-only with no loop to follow runs identically: inline, one question at a time, preflight `tiger/research.py`, two markdown artifacts + the seeded ledger, the Iron-Law hard-blocks, the approval protocol on the explicit yes — then stop (whether `/research-workflow` runs later is the human's call). I must never get `context: fork`/`agent:` — that would sever the human channel. If the user wants discovery without artifacts ("just help me think"), keep the ledger conversational and write nothing.

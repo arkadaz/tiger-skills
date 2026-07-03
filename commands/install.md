@@ -145,7 +145,7 @@ elif cmp -s "$BSRC" "$BDST"; then echo "board helper: skipped (already correct)"
 else cp "$BSRC" "$BDST"; echo "board helper: migrated (refreshed to plugin version)"; fi
 ```
 
-**Research loop (git-free).** Copy the second workflow, its novelty-engine CLI, and the research templates so `/research-goal` + `/research-workflow` work. `research.py` lands at the **project root** (the loop is deliberately standalone — it drives a local `research/<goalId>/` tree, no git, no board):
+**Research loop (git-free).** Copy the second workflow, its novelty-engine CLI, and the research templates so `/research-goal` + `/research-workflow` work. `research.py` lands at `tiger/research.py` — **alongside `tiger/board.py`** (the loop is still standalone and git-free: it drives a local `research/<goalId>/` tree with no git and no board; `research.py` resolves that tree relative to the cwd, so its own location does not matter — keeping both helpers under `tiger/` is purely for tidiness):
 
 ```bash
 # second workflow → /research-workflow
@@ -156,12 +156,19 @@ if [ ! -f "$RDST" ]; then cp "$RSRC" "$RDST"; echo "research workflow: created"
 elif cmp -s "$RSRC" "$RDST"; then echo "research workflow: skipped (already correct)"
 else cp "$RDST" "$RDST.bak"; cp "$RSRC" "$RDST"; echo "research workflow: migrated (previous saved as $RDST.bak)"; fi
 
-# novelty engine + ledger CLI → project-root research.py
-PSRC="$PLUGIN_ROOT/scripts/research.py"; PDST="research.py"
+# novelty engine + ledger CLI → tiger/research.py (alongside tiger/board.py)
+PSRC="$PLUGIN_ROOT/scripts/research.py"; PDST="tiger/research.py"
 [ -f "$PSRC" ] || { echo "FATAL: research.py source missing at $PSRC — stopping."; exit 1; }
-if [ ! -f "$PDST" ]; then cp "$PSRC" "$PDST"; echo "research helper: created (research.py)"
+mkdir -p tiger
+if [ ! -f "$PDST" ]; then cp "$PSRC" "$PDST"; echo "research helper: created (tiger/research.py)"
 elif cmp -s "$PSRC" "$PDST"; then echo "research helper: skipped (already correct)"
 else cp "$PSRC" "$PDST"; echo "research helper: migrated (refreshed to plugin version)"; fi
+# Migration: older installs put research.py at the project root; it's plugin-owned, so retire it now that
+# it lives under tiger/. Remove only an unmodified plugin copy; flag a human-edited one for review.
+if [ -f research.py ]; then
+  if cmp -s "$PSRC" research.py; then rm -f research.py; echo "research helper: migrated (removed stale project-root research.py; now at tiger/research.py)"
+  else echo "research helper: NEEDS HUMAN — project-root research.py differs from the plugin copy; remove it once you've salvaged any edits (invocations now use tiger/research.py)."; fi
+fi
 
 # research templates → tiger/templates/research/
 mkdir -p tiger/templates/research
