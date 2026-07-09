@@ -1,6 +1,6 @@
 ---
 name: tiger-researcher
-description: Drive ONE iteration of the git-free research loop end to end in a single FRESH opus context — the merged deliberate + mine + build + verify researcher. It reconstructs the frontier from tiger/research.py + the experiment cards (no agent memory), spawns a parallel ideation panel and debates it into a recorded deliberation.md, mines fresh arxiv/web sources into sources.md, distils ONE falsifiable hypothesis, builds an approach_vector that must clear the tiger/research.py G0–G4 novelty gate PRE (declared) and POST (from the built method files), SPAWNS tiger-code-generator to implement the comment-free method under the goal's FROZEN controlled vars, RUNS the pinned deterministic harness for REAL as a bounded background process (the metric is measured, never asserted — the Iron Law), spawns tiger-novelty-critic for the semantic veto, then writes the immutable experimentN/ folder (experiment.md via tiger-experiment-log, metrics.json, evidence/) and records it via tiger/research.py register + record-result. In a synthesis spawn it writes REPORT.md. Use whenever the user wants to run a research iteration, explore a new approach, advance the research loop, or resume a goal — even if they never say "researcher". Requires an approved research/<goalId>/goal.md (run /research-goal first when missing). GIT-FREE — state is the folder tree; never writes the method code itself (its coder does).
+description: Drive ONE iteration of the git-free research loop end to end in a single FRESH opus context — the merged deliberate + mine + build + verify researcher. It reconstructs the frontier from tiger/research.py + the experiment cards (no agent memory), spawns a parallel ideation panel and debates it into a recorded deliberation.md, mines fresh arxiv/web sources into sources.md, distils ONE falsifiable hypothesis, builds an approach_vector that must clear the tiger/research.py G0–G4 novelty gate PRE (declared) and POST (from the built method files), SPAWNS tiger-code-generator to implement the comment-free method under the goal's FROZEN controlled vars, RUNS the pinned deterministic harness for REAL as a bounded background process (the metric is measured, never asserted — the Iron Law), spawns tiger-novelty-critic for the semantic veto, then writes the immutable experimentN/ folder (experiment.md in the built-in card format, metrics.json, evidence/) and records it via tiger/research.py register + record-result. In a synthesis spawn it writes REPORT.md. Use whenever the user wants to run a research iteration, explore a new approach, advance the research loop, or resume a goal — even if they never say "researcher". Requires an approved research/<goalId>/goal.md (run /research-goal first when missing). GIT-FREE — state is the folder tree; never writes the method code itself (its coder does).
 context: fork
 agent: tiger-skills:tiger-researcher
 ---
@@ -40,7 +40,7 @@ Full procedure: `agents/tiger-researcher.md`. This skill is the contract + how t
 6. **Run for REAL** — the goal's pinned deterministic harness as a bounded background process; metric read from `metrics.json`/`evidence/` (Iron Law).
 7. **POST novelty-check** — `tiger/research.py novelty-check <vector.json> --built <dir>` reads the ACTUAL method files; REFUSED → experiment rejected + uncredited, reported honestly.
 8. **Semantic critic** — spawn `tiger-novelty-critic` (`agentType: "tiger-skills:tiger-novelty-critic"`); `DUPLICATE` = treat like a POST refusal.
-9. **Record** — write `experimentN/` (card `experiment.md` via `tiger-experiment-log`, `metrics.json`, `evidence/`); `tiger/research.py register` + `record-result`.
+9. **Record** — write `experimentN/` (card `experiment.md` in the built-in format, `metrics.json`, `evidence/`); `tiger/research.py register` + `record-result`.
 10. **Tokens** — end with the six machine lines.
 
 ### The novelty gate (tiger/research.py G0–G4) — the anti-tuning crux
@@ -72,12 +72,12 @@ GOAL_MET: <YES|NO>
 
 ## Works with
 
-/research-goal (grills goal.md + approval token + metric + frozen vars + harness + budget + taxonomy) → research-workflow (bootstrap → serial loop → synthesis) → **researcher** (deliberate → build → verify, one iteration) → tiger-code-generator (the coder it spawns for the method) → tiger-novelty-critic (the in-loop semantic veto). `tiger-experiment-log` is loaded to author the card.
+/research-goal (grills goal.md + approval token + metric + frozen vars + harness + budget + taxonomy) → research-workflow (bootstrap → serial loop → synthesis) → **researcher** (deliberate → build → verify, one iteration) → tiger-code-generator (the coder it spawns for the method) → tiger-novelty-critic (the in-loop semantic veto). The experiment-card + deliberation formats are built into the researcher (agents/tiger-researcher.md).
 
 ## File interactions (GIT-FREE — folders are the state)
 
 - **Reads:** `research/<goalId>/goal.md`, `taxonomy.md`, `research_ledger.json` (via `tiger/research.py`), the last few `experiments/*/experiment.md`, the pinned harness + its fixture.
-- **Writes:** `experiments/experimentN/` (`deliberation.md`, `sources.md`, `vector.json`, `metrics.json`, `evidence/*`, the card `experiment.md` via `tiger-experiment-log`), the ledger via `tiger/research.py register`/`record-result`/`alias`/`set-status`/`close`, and `REPORT.md` in synthesis mode.
+- **Writes:** `experiments/experimentN/` (`deliberation.md`, `sources.md`, `vector.json`, `metrics.json`, `evidence/*`, the card `experiment.md` in the built-in format), the ledger via `tiger/research.py register`/`record-result`/`alias`/`set-status`/`close`, and `REPORT.md` in synthesis mode.
 - **Never:** the method code (its coder writes it), a frozen controlled var, a metric it did not measure this iteration, a prior (immutable) experiment folder, `goal.md`/`taxonomy.md`, hand-edits to `research_ledger.json`, or git in any form.
 
 ## Standalone use

@@ -1,14 +1,15 @@
 *** Settings ***
 Documentation     E2E cases for {{FEATURE_TITLE}} ({{FEATURE_ID}}).
-...               grill writes the agreed cases (a BROAD suite: several boundary, several typical,
-...               several adversarial — one per acceptance criterion and business rule, not one each).
-...               tiger-lead writes the keyword bodies in e2e_keywords.resource, runs the
-...               suite verbatim, and may APPEND new cases (tagged source:e2e) — it never edits the
-...               agreed cases here. Every case carries exactly one priority tag:
-...               priority:high and priority:medium BLOCK the gate; priority:low is logged.
-Metadata          tiger-status        awaiting_review
+...               The LEAD authors this suite from spec.md at plan time — a BROAD suite covering
+...               everything that might happen (several boundary, several typical, several
+...               adversarial, error paths — at least one case per acceptance criterion and per
+...               business rule), and extends it on every verify round as new risks surface.
+...               The lead also writes the keyword bodies in e2e_keywords.resource and runs the
+...               WHOLE tiger/features/ folder as a regression. Every case carries exactly one
+...               priority tag: priority:high and priority:medium BLOCK the gate; priority:low
+...               is logged. A case of an already-shipped feature that regresses is HIGH.
 Metadata          tiger-feature-id    {{FEATURE_ID}}
-Metadata          tiger-stage         grill
+Metadata          tiger-stage         lead
 Resource          e2e_keywords.resource
 Force Tags        {{FEATURE_ID}}
 
@@ -39,3 +40,9 @@ E4 Adversarial - {{title}}
     {{unicode / very long}}       {{handled outcome}}
     {{negative / duplicate}}      {{rejected outcome}}
     {{traversal / injection}}     {{rejected outcome}}
+
+E5 Error Path - {{title}}
+    [Tags]    priority:medium
+    Given {{a dependency is down / input is missing}}
+    When {{the action happens}}
+    Then {{the exact error behavior from spec.md holds}}

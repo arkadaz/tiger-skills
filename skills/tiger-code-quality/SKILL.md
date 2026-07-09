@@ -1,19 +1,15 @@
 ---
 name: tiger-code-quality
-description: The design principles for well-built code — Single Responsibility, Open-Closed, Liskov Substitution, DRY, Encapsulate What Varies, Code to the Interface, Favor Composition over Inheritance, Factory, Delegation, Least Knowledge / Law of Demeter, Least Astonishment, Precondition, Postcondition, Class Invariant, Lazy Evaluation, No Comments — plus the SIMPLIFY pass (smallest readable code that passes). Use whenever designing components, writing or refactoring code, or reviewing a diff for design quality — or when asked "is this well designed", "review the design", "does this follow SOLID", "code smell", or any principle by name. A self-contained reference; invoke directly or load as a skill.
+description: The build discipline for the Tiger loop in ONE reference — the design principles for well-built code (Single Responsibility, Open-Closed, Liskov, DRY, Encapsulate What Varies, Code to the Interface, Composition over Inheritance, Factory, Delegation, Least Knowledge, Least Astonishment, Pre/Postcondition, Class Invariant, Lazy Evaluation, No Comments) plus the SIMPLIFY pass, the WRITE-LESS lazy-senior ladder (YAGNI → repo util → stdlib → native platform → installed dep → one line → minimal) with the delete-list audit, and the SAY-LESS terse-handoff style for agent-to-agent messages (fragments, no filler; code/paths/commands kept EXACT). Absorbs the former tiger-caveman and tiger-ponytail skills. Loaded by tiger-lead, tiger-code-generator, tiger-researcher, and tiger-review. Use whenever designing, writing, refactoring, or reviewing code, writing an in-loop handoff/packet/report, or when asked about SOLID, code smells, "make it lazy", or "make it terse".
 ---
 
-# Code Quality — design principles + SIMPLIFY
+# Code Quality — design well · write less · say less
 
-Read-only reference loaded by lead, code-generator, and reviewer. Apply as a review checklist: cite principle + file:line for each confirmed smell.
+Read-only reference loaded by the loop agents (lead, code-generator, researcher, review). Three disciplines, one economy: well-designed code, the least of it, described in the fewest tokens. **None of the three ever cuts safety or rigor** — the Iron Law (no claim without fresh evidence), acceptance checks, trust-boundary validation, error handling, security/authz, accessibility, and spec-required behavior always bind.
 
-## When to use
+## A. Design principles (apply as a checklist; cite principle + file:line)
 
-Load when designing, writing/refactoring, or reviewing. Standalone: "review this for code quality", "does this follow Liskov?". No pipeline stage of its own.
-
-## Contract
-
-A principle is binding only when it applies — cite it when it bites, mark N/A when it doesn't. Over-applying is itself a smell (Least Astonishment / needless complexity). Severity guide: Class Invariant / Liskov violations → *major*; leaked internals / duplicated rules → *major* or *minor* by blast radius; DRY nit → *minor*. When two principles conflict, pick the one that serves the reader and note the trade-off. Report only when you can point to file:line — not on stylistic hunch.
+A principle is binding only when it applies — cite it when it bites, mark N/A when it doesn't. Over-applying is itself a smell. Severity: Class Invariant / Liskov violations → *major*; leaked internals / duplicated rules → *major* or *minor* by blast radius; DRY nit → *minor*. When two principles conflict, pick the one that serves the reader and note the trade-off. Report only at file:line — never on stylistic hunch.
 
 ### Structure & responsibility
 
@@ -49,18 +45,39 @@ A principle is binding only when it applies — cite it when it bites, mark N/A 
 
 | Principle | Smell → Fix |
 |---|---|
-| **No comments — names and structure carry meaning** | Any comment in generated code (`#`, `//`, block, narration docstring) → delete it; rename the symbol or extract a well-named function so the code reads without prose. Only a shebang or a required lint/type pragma may remain. |
+| **No comments — names and structure carry meaning** | Any comment in generated code (`#`, `//`, block, narration docstring) → delete it; rename the symbol or extract a well-named function. Only a shebang or a required lint/type pragma may remain. |
 
-**The SIMPLIFY pass** — the code generator runs it after GREEN, before commit (`RED → GREEN → SIMPLIFY → re-verify GREEN → commit`): rewrite to the **smallest readable version that still passes** — apply these principles, delete dead code, inline needless indirection, and strip ALL comments. Re-run the tests; they must stay GREEN. The simplify goal is least code that passes and reads clearly — not cleverness.
+**The SIMPLIFY pass** — the code generator runs it after GREEN, before commit (`RED → GREEN → SIMPLIFY → re-verify GREEN → commit`): rewrite to the **smallest readable version that still passes** — apply these principles, delete dead code, inline needless indirection, strip ALL comments. Re-run the tests; they must stay GREEN.
+
+## B. Write less — the lazy-senior ladder (run AFTER understanding the problem)
+
+The best code is the code you never wrote. Stop at the FIRST rung that holds:
+
+1. **YAGNI** — does this need to exist? Delete the requirement before building it. No speculative abstraction, no scaffolding "for later", no config nobody asked for.
+2. **A repo util** — grep the codebase (or read the work packet); reuse an existing helper/type/constant/service.
+3. **Stdlib** — a built-in over a hand-rolled loop.
+4. **Native platform** — CSS over JS, a DB constraint over app validation, a framework primitive over a bespoke one.
+5. **Installed dependency** — reuse the lockfile before adding a dep.
+6. **One line** — if a one-liner is correct and clear, ship it.
+7. **Minimal** — only now, the least code that satisfies the task + its test. Boring over clever; deletion over addition.
+
+**Delete-list (the lead's verify audit).** While tests are green, scan the diff (`git diff <base>..HEAD`) for: needless abstraction, speculative generality, config nobody asked for, a hand-rolled loop the stdlib/a repo util already does, dead code, a whole task an existing utility made unnecessary. Each becomes a finding (usually MEDIUM/LOW) the fix round trims. Green tests are necessary, not sufficient — the shortest correct diff is the target.
+
+**NEVER on the chopping block (lazy ≠ negligent):** trust-boundary/input validation, error handling that prevents data loss, security/authz, accessibility, and any spec-required behavior. Cut plumbing, never safety.
+
+## C. Say less — terse agent-to-agent handoffs
+
+Applies to every in-loop handoff: work packets, coder/update-docs/panel spawn prompts, `git notes`, `progress.md` appends, and final reports. Compress the *style*, never the substance.
+
+- **Fragments, not sentences.** Drop "I will now…", "Let me…", hedges, restating the ask, summaries of what you just did.
+- **Signal only.** One fact per line. Tables/bullets over prose. Cut adjectives and throat-clearing.
+- **Keep EXACT** (never compress): code, file paths, commands, identifiers, test names, error strings, `file:line`, machine token lines.
+- **Structure survives.** Required token lines, board fields, and note formats stay verbatim — terseness trims narration around the contract, not the contract.
 
 ## Works with
 
-Loaded by lead (planning), code-generator (build), and reviewer (audit). No pipeline position of its own — a reference, not a stage.
-
-## Git interactions
-
-None. Read-only reference — no commits, no git notes, no file writes.
+Loaded by `tiger-lead` (plan design + verify delete-list + terse packets), `tiger-code-generator` (ladder before writing, SIMPLIFY before commit, terse reports), `tiger-researcher` (minimal methods, terse cards), and `tiger-review` (audit checklist). No pipeline stage of its own; no git writes.
 
 ## Standalone use
 
-Invoke directly to review a diff or design against the design principles. Reports only — writes nothing, commits nothing, owns no subagent.
+Invoke directly to review a diff/design against the principles, to "make it lazy" (delete-list a diff), or to "make it terse" (compress a handoff). Reports only — writes nothing, commits nothing, owns no subagent.

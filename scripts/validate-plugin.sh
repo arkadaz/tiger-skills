@@ -282,9 +282,9 @@ rm -rf "$SS_IN" "$SS_OUT"
 for agent in tiger-lead tiger-code-generator tiger-update-docs; do
   if [ -f "$ROOT_DIR/agents/$agent.md" ]; then pass "agent $agent present"; else fail "agent $agent.md missing"; fi
 done
-# architect + e2e merged into tiger-lead; security/reviewer are standalone SKILLS with no owned
-# agent — none of these agent files may exist.
-for retired in tiger-planner tiger-generator tiger-evaluator tiger-grill-interviewer tiger-conductor tiger-dev tiger-architect tiger-e2e tiger-security tiger-reviewer; do
+# architect + e2e merged into tiger-lead; review (formerly security/reviewer) is a standalone SKILL
+# with no owned agent — none of these agent files may exist.
+for retired in tiger-planner tiger-generator tiger-evaluator tiger-grill-interviewer tiger-conductor tiger-dev tiger-architect tiger-e2e tiger-security tiger-reviewer tiger-review; do
   if [ -f "$ROOT_DIR/agents/$retired.md" ]; then fail "agents/$retired.md must not exist (retired/merged/standalone-skill)"; fi
 done
 WF_FILES="$(cd "$ROOT_DIR/workflows" 2>/dev/null && ls *.js 2>/dev/null | sort | tr '\n' ' ')"
@@ -338,9 +338,12 @@ if grep -qiE 'blueprint|acceptance check|scope_map|CODEBASE_MAP' "$LEAD_MD" 2>/d
 if grep -qi 'priority' "$LEAD_MD" 2>/dev/null && grep -q 'E2E_BLOCKERS' "$LEAD_MD" 2>/dev/null; then
   pass "tiger-lead.md triages by priority and emits E2E_BLOCKERS"; else
   fail "tiger-lead.md must triage by priority and emit E2E_BLOCKERS"; fi
-if grep -qiE 'append|source:e2e|expand coverage' "$LEAD_MD" 2>/dev/null; then
-  pass "tiger-lead.md appends more e2e cases (bounded coverage expansion)"; else
-  fail "tiger-lead.md must expand coverage with appended source:e2e cases"; fi
+if grep -q 'e2e_testcases.robot' "$LEAD_MD" 2>/dev/null && grep -qiE 'author' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md authors the e2e suite itself (v8: lead-owned cases)"; else
+  fail "tiger-lead.md must author e2e_testcases.robot itself (the lead owns the e2e cases in v8)"; fi
+if grep -qiE 'extend|append' "$LEAD_MD" 2>/dev/null; then
+  pass "tiger-lead.md extends coverage across verify rounds"; else
+  fail "tiger-lead.md must extend e2e coverage as new risks surface"; fi
 # The lead runs in two conductor-driven modes; it must document them (PLAN returns the task order,
 # VERIFY runs the suite) and must NOT claim to spawn the coders itself (the conductor does).
 if grep -qiE 'MODE:?[[:space:]]*PLAN' "$LEAD_MD" 2>/dev/null && grep -qiE 'MODE:?[[:space:]]*VERIFY' "$LEAD_MD" 2>/dev/null; then
@@ -364,10 +367,10 @@ if [ -f "$WF" ]; then
   if grep -qF 'tiger-skills:tiger-lead' "$WF"; then
     pass "workflow launches the merged lead (owns build + verify + bounded loop)"; else
     fail "workflow must launch tiger-skills:tiger-lead"; fi
-  if grep -qi 'bootstrap' "$WF"; then pass "workflow has a bootstrap discovery step"; else
-    fail "workflow must auto-discover the feature via a bootstrap step"; fi
-  if grep -qE 'tiger-skills:tiger-(security|reviewer|architect|e2e)' "$WF"; then
-    fail "workflow must NOT spawn security/reviewer (standalone) or architect/e2e (merged into lead)"; else
+  if grep -q 'newest-approved' "$WF"; then pass "workflow auto-discovers the newest approved feature (lead-led, no bootstrap spawn)"; else
+    fail "workflow must auto-discover the feature (newest-approved) inside the lead PLAN spawn"; fi
+  if grep -qE 'tiger-skills:tiger-(security|review|architect|e2e)' "$WF"; then
+    fail "workflow must NOT spawn review/security (standalone) or architect/e2e (merged into lead)"; else
     pass "workflow does not spawn standalone/merged-away agents directly"; fi
   if grep -q 'E2E_BLOCKERS' "$WF"; then pass "workflow reads the e2e priority blocker counts"; else
     fail "workflow must read E2E_BLOCKERS"; fi
@@ -418,8 +421,8 @@ else
   fail "workflows/tiger-workflow-dev.js missing"
 fi
 
-# ── Markdown artifact templates (v6) ─────────────────────────────────────────────
-for tpl in feature CODEBASE_MAP business release_docs; do
+# ── Markdown artifact templates (v8) ─────────────────────────────────────────────
+for tpl in spec feature CODEBASE_MAP business release_docs; do
   TPL="$ROOT_DIR/templates/$tpl.md"
   if [ -f "$TPL" ] && head -n 3 "$TPL" | grep -qE '^(#|---)'; then
     pass "templates/$tpl.md exists and is markdown"; else
@@ -450,15 +453,24 @@ E2E_RES="$ROOT_DIR/templates/e2e_keywords.resource"
 if [ -f "$E2E_RES" ] && grep -q '\*\*\* Keywords \*\*\*' "$E2E_RES"; then
   pass "templates/e2e_keywords.resource is a Robot resource"; else
   fail "templates/e2e_keywords.resource missing or not a Robot resource"; fi
-# Approval marker lives in Metadata now, not a # comment, and ships unapproved.
-if grep -qE '^Metadata[[:space:]]+tiger-status[[:space:]]+awaiting_review' "$E2E_ROBOT" 2>/dev/null \
-   && ! grep -qE '^Metadata[[:space:]]+tiger-status[[:space:]]+approved' "$E2E_ROBOT" 2>/dev/null; then
-  pass "e2e_testcases.robot ships Metadata tiger-status awaiting_review (off comments)"; else
-  fail "templates/e2e_testcases.robot must carry 'Metadata tiger-status awaiting_review' (not a # comment)"; fi
+# v8: the suite is LEAD-authored (no grill approval token); machine metadata identifies feature + stage.
+if grep -qE '^Metadata[[:space:]]+tiger-feature-id' "$E2E_ROBOT" 2>/dev/null \
+   && grep -qE '^Metadata[[:space:]]+tiger-stage[[:space:]]+lead' "$E2E_ROBOT" 2>/dev/null; then
+  pass "e2e_testcases.robot carries Metadata tiger-feature-id + tiger-stage lead (lead-authored)"; else
+  fail "templates/e2e_testcases.robot must carry Metadata tiger-feature-id and tiger-stage lead"; fi
+if grep -qE '^Metadata[[:space:]]+tiger-status[[:space:]]+approved' "$E2E_ROBOT" 2>/dev/null; then
+  fail "templates/e2e_testcases.robot must not ship an approved token"; else
+  pass "e2e_testcases.robot ships no approval token (approval lives in feature.md)"; fi
 # The templates must not reuse the old # comment status token.
 if grep -qE '^# tiger-status' "$E2E_ROBOT" "$E2E_RES" 2>/dev/null; then
   fail "robot templates must not carry the old '# tiger-status' comment token (moved to Metadata)"; else
   pass "robot templates carry no old # status comment token"; fi
+# spec.md is the detailed agent-facing requirements doc — no approval token of its own.
+SPEC_TPL="$ROOT_DIR/templates/spec.md"
+if grep -qiE 'acceptance criteria' "$SPEC_TPL" 2>/dev/null && grep -qiE 'errors' "$SPEC_TPL" 2>/dev/null \
+   && ! grep -qE '^tiger-status:' "$SPEC_TPL" 2>/dev/null; then
+  pass "templates/spec.md is the detailed requirements doc (ACs + error table, no gate token)"; else
+  fail "templates/spec.md must carry acceptance criteria + error sections and no tiger-status token (feature.md is the gate)"; fi
 
 # ── Reference board ──────────────────────────────────────────────────────────────
 BOARD_TPL="$ROOT_DIR/templates/feature_list.json"

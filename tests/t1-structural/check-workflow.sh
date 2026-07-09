@@ -28,10 +28,10 @@ for field in name description phases; do
     fi
 done
 
-# v7 invariants the slim spine must keep: bootstrap discovery, and it launches the merged lead
-# (which owns the parallel worktree build, the priority triage / E2E_BLOCKERS, and the bounded
-# re-plan loop internally — those markers live in agents/tiger-lead.md now, not the spine).
-for marker in "bootstrap" "E2E_BLOCKERS" "tiger-skills:tiger-lead"; do
+# v8 invariants the slim spine must keep: the lead's own discovery (newest-approved — no separate
+# bootstrap spawn), and it launches the merged lead (which owns the e2e suite, the priority triage /
+# E2E_BLOCKERS, and the bounded re-plan loop — those markers live in agents/tiger-lead.md).
+for marker in "newest-approved" "E2E_BLOCKERS" "tiger-skills:tiger-lead"; do
     if grep -qF "$marker" "$WORKFLOW"; then
         pass "workflow keeps '$marker'"
     else
@@ -46,9 +46,8 @@ else
     fail "workflow must set the integration trunk to dev (base = dev)"
 fi
 
-# The workflow must NOT spawn the standalone gates, and it no longer spawns architect/e2e directly
-# (merged into the lead; the lead spawns the coders + update-docs itself).
-for gate in tiger-skills:tiger-security tiger-skills:tiger-reviewer tiger-skills:tiger-architect tiger-skills:tiger-e2e; do
+# The workflow must NOT spawn the standalone review gate (or the retired agents merged into the lead).
+for gate in tiger-skills:tiger-security tiger-skills:tiger-review tiger-skills:tiger-architect tiger-skills:tiger-e2e; do
     if grep -qF "$gate" "$WORKFLOW"; then
         fail "workflow must NOT spawn '$gate' (standalone or merged-away)"
     else

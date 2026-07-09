@@ -9,7 +9,7 @@ agent: tiger-skills:tiger-code-generator
 
 Implements the lead's `tasks[]`, one task per cycle, with strict TDD. The only stage that writes code.
 
-Pipeline position: grill → **tiger-lead** ( plan → **[ code-gen waves → integrate ]** → verify ) → update-docs → **merge to `dev`**. No in-loop security/reviewer gates — those are standalone-only.
+Pipeline position: grill → **tiger-lead** ( plan + e2e suite → **[ waves mode: code-gen waves → integrate ]** → verify ) → update-docs → **merge to `dev`**. Spawned by the workflow-conductor only when the lead chose `buildMode: waves` (a small feature is built inline by the lead). No in-loop review gate — `tiger-review` is standalone-only.
 
 ## When to use
 
@@ -76,7 +76,7 @@ lead (provides `tasks[]` + `scope_map`, spawns me) → **code-generator** → le
 
 ## Git interactions
 
-- **Reads:** `feature_list.json` (the lead's `tasks[]`/`scope_map` ARE the plan), the task's `context` brief, `tiger/features/<id>/feature.md` when the task touches its territory, the specific source + tests the task names. Does NOT read `tiger/CODEBASE_MAP.md` — the lead distils its structure into each task's `context`.
+- **Reads:** `feature_list.json` (the lead's `tasks[]`/`scope_map` ARE the plan), the task's `context` brief, `tiger/features/<id>/spec.md` when the task touches its territory, the specific source + tests the task names. Does NOT read `tiger/CODEBASE_MAP.md` — the lead distils its structure into each task's `context`.
 - **Writes:** code/tests, `feature_list.json` (`tasks[].status`/evidence), `progress.md` — one semantic commit per cycle on `feature/<id>` (base = `dev`).
 - **Never:** commits on `dev` or `main`, writes git notes, pushes, rebases, or merges.
 

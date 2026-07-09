@@ -113,11 +113,21 @@ git -C "$BENCH_DIR" branch -M main
 git -C "$BENCH_DIR" branch dev main
 git -C "$BENCH_DIR" checkout -q -b "feature/$FEATURE_ID" dev
 
-# 3. Install harness files into the bench project
-mkdir -p "$BENCH_DIR/.claude/workflows"
+# 3. Install harness files into the bench project — everything /tiger-skills:install would copy
+# that the workflow depends on: the workflow itself, the rm guard, the board helper (bootstrap
+# runs `python3 tiger/board.py summary` and aborts loud without it), and the templates the lead
+# instantiates (CODEBASE_MAP.md, e2e_keywords.resource, …).
+mkdir -p "$BENCH_DIR/.claude/workflows" "$BENCH_DIR/tiger/templates"
 cp "$KIT_ROOT/workflows/tiger-workflow-dev.js" "$BENCH_DIR/.claude/workflows/"
 cp "$KIT_ROOT/project-hooks/tiger-block-rm.sh" "$BENCH_DIR/"
 chmod +x "$BENCH_DIR/tiger-block-rm.sh"
+cp "$KIT_ROOT/scripts/board.py" "$BENCH_DIR/tiger/board.py"
+for tpl in spec.md feature.md CODEBASE_MAP.md business.md release_docs.md e2e_testcases.robot e2e_keywords.resource; do
+	cp "$KIT_ROOT/templates/$tpl" "$BENCH_DIR/tiger/templates/"
+done
+git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark add tiger/board.py tiger/templates
+git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark \
+	commit -q -m "chore: install tiger harness (board.py + templates)"
 
 # 3b. Install THIS repo's plugin into the bench project (REAL install, project scope) so the
 # workflow's `agentType: tiger-skills:tiger-*` subagents resolve. A settings-only

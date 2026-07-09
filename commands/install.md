@@ -113,19 +113,21 @@ If verification fails, mark `NEEDS HUMAN` and state no build may proceed.
 
 ## Step 4 — Copy the templates (markdown + Robot; refresh plugin-owned, keep customized)
 
-Copy the seven current templates into `tiger/templates/`: four markdown artifacts (`feature.md`,
-`CODEBASE_MAP.md`, `business.md`, `release_docs.md`) plus the two Robot e2e templates
-(`e2e_testcases.robot`, `e2e_keywords.resource`). A customized (human-edited) copy is kept and reported;
-an unchanged copy is refreshed silently.
+Copy the seven current templates into `tiger/templates/`: five markdown artifacts (`spec.md`,
+`feature.md`, `CODEBASE_MAP.md`, `business.md`, `release_docs.md`) plus the two Robot e2e templates
+(`e2e_testcases.robot`, `e2e_keywords.resource`). Templates are **plugin-owned** — a differing copy
+(older plugin version OR human-edited) is refreshed to the current version with the previous copy
+saved as `<name>.bak`, so a plugin upgrade never leaves stale templates behind and a human edit is
+never silently lost:
 
 ```bash
 mkdir -p tiger/templates
-for f in feature.md CODEBASE_MAP.md business.md release_docs.md e2e_testcases.robot e2e_keywords.resource; do
+for f in spec.md feature.md CODEBASE_MAP.md business.md release_docs.md e2e_testcases.robot e2e_keywords.resource; do
   TS="$PLUGIN_ROOT/templates/$f"; TD="tiger/templates/$f"
   [ -f "$TS" ] || { echo "FATAL: template source missing at $TS — stopping."; exit 1; }
   if [ ! -f "$TD" ]; then cp "$TS" "$TD"; echo "template $f: created"
   elif cmp -s "$TS" "$TD"; then echo "template $f: skipped (already correct)"
-  else echo "template $f: NEEDS HUMAN — customized copy DIFFERS; kept theirs."; fi
+  else cp "$TD" "$TD.bak"; cp "$TS" "$TD"; echo "template $f: migrated (refreshed to plugin version; previous saved as $TD.bak — re-apply any custom edits)"; fi
 done
 # Remove retired HTML templates (plugin-owned; superseded by the markdown set).
 for old in spec.html adr.html business.html codemap.html release_docs.html e2e_testcases.html; do
@@ -145,45 +147,51 @@ elif cmp -s "$BSRC" "$BDST"; then echo "board helper: skipped (already correct)"
 else cp "$BSRC" "$BDST"; echo "board helper: migrated (refreshed to plugin version)"; fi
 ```
 
-**Research loop (git-free).** Copy the second workflow, its novelty-engine CLI, and the research templates so `/research-goal` + `/research-workflow` work. `research.py` lands at `tiger/research.py` — **alongside `tiger/board.py`** (the loop is still standalone and git-free: it drives a local `research/<goalId>/` tree with no git and no board; `research.py` resolves that tree relative to the cwd, so its own location does not matter — keeping both helpers under `tiger/` is purely for tidiness):
+**Research loop (git-free).** Copy the second workflow, its novelty-engine CLI, and the research templates so `/research-goal` + `/research-workflow` work. `research.py` lands at `tiger/research.py` — **alongside `tiger/board.py`** (the loop is standalone and git-free: it drives a local `research/<goalId>/` tree with no git and no board; `research.py` resolves that tree relative to the cwd).
+
+**The research loop is OPTIONAL — a missing research source is `NEEDS HUMAN`, never a FATAL stop.** The dev pipeline must install completely even when the plugin copy predates the research loop or a research file is absent; only the CORE dev files (Steps 2–4 above) may abort the install.
 
 ```bash
 # second workflow → /research-workflow
 RSRC="$PLUGIN_ROOT/workflows/research-workflow.js"; RDST=".claude/workflows/research-workflow.js"
-[ -f "$RSRC" ] || { echo "FATAL: research workflow source missing at $RSRC — stopping."; exit 1; }
-mkdir -p .claude/workflows
-if [ ! -f "$RDST" ]; then cp "$RSRC" "$RDST"; echo "research workflow: created"
-elif cmp -s "$RSRC" "$RDST"; then echo "research workflow: skipped (already correct)"
-else cp "$RDST" "$RDST.bak"; cp "$RSRC" "$RDST"; echo "research workflow: migrated (previous saved as $RDST.bak)"; fi
+if [ ! -f "$RSRC" ]; then echo "research workflow: NEEDS HUMAN — source missing at $RSRC (plugin too old? reinstall the plugin); dev pipeline unaffected."
+else
+  mkdir -p .claude/workflows
+  if [ ! -f "$RDST" ]; then cp "$RSRC" "$RDST"; echo "research workflow: created"
+  elif cmp -s "$RSRC" "$RDST"; then echo "research workflow: skipped (already correct)"
+  else cp "$RDST" "$RDST.bak"; cp "$RSRC" "$RDST"; echo "research workflow: migrated (previous saved as $RDST.bak)"; fi
+fi
 
 # novelty engine + ledger CLI → tiger/research.py (alongside tiger/board.py)
 PSRC="$PLUGIN_ROOT/scripts/research.py"; PDST="tiger/research.py"
-[ -f "$PSRC" ] || { echo "FATAL: research.py source missing at $PSRC — stopping."; exit 1; }
-mkdir -p tiger
-if [ ! -f "$PDST" ]; then cp "$PSRC" "$PDST"; echo "research helper: created (tiger/research.py)"
-elif cmp -s "$PSRC" "$PDST"; then echo "research helper: skipped (already correct)"
-else cp "$PSRC" "$PDST"; echo "research helper: migrated (refreshed to plugin version)"; fi
-# Migration: older installs put research.py at the project root; it's plugin-owned, so retire it now that
-# it lives under tiger/. Remove only an unmodified plugin copy; flag a human-edited one for review.
-if [ -f research.py ]; then
-  if cmp -s "$PSRC" research.py; then rm -f research.py; echo "research helper: migrated (removed stale project-root research.py; now at tiger/research.py)"
-  else echo "research helper: NEEDS HUMAN — project-root research.py differs from the plugin copy; remove it once you've salvaged any edits (invocations now use tiger/research.py)."; fi
+if [ ! -f "$PSRC" ]; then echo "research helper: NEEDS HUMAN — source missing at $PSRC; /research-goal and /research-workflow will not run until the plugin is reinstalled."
+else
+  mkdir -p tiger
+  if [ ! -f "$PDST" ]; then cp "$PSRC" "$PDST"; echo "research helper: created (tiger/research.py)"
+  elif cmp -s "$PSRC" "$PDST"; then echo "research helper: skipped (already correct)"
+  else cp "$PSRC" "$PDST"; echo "research helper: migrated (refreshed to plugin version)"; fi
+  # Migration: older installs put research.py at the project root; it's plugin-owned, so retire it now
+  # that it lives under tiger/. Remove only an unmodified plugin copy; flag a human-edited one.
+  if [ -f research.py ]; then
+    if cmp -s "$PSRC" research.py; then rm -f research.py; echo "research helper: migrated (removed stale project-root research.py; now at tiger/research.py)"
+    else echo "research helper: NEEDS HUMAN — project-root research.py differs from the plugin copy; remove it once you've salvaged any edits (invocations now use tiger/research.py)."; fi
+  fi
 fi
 
-# research templates → tiger/templates/research/
+# research templates → tiger/templates/research/ (plugin-owned; refresh with .bak like Step 4)
 mkdir -p tiger/templates/research
 for f in goal.md taxonomy.md experiment.md research_ledger.json; do
   TS="$PLUGIN_ROOT/templates/research/$f"; TD="tiger/templates/research/$f"
-  [ -f "$TS" ] || { echo "FATAL: research template $f missing at $TS — stopping."; exit 1; }
+  if [ ! -f "$TS" ]; then echo "research template $f: NEEDS HUMAN — source missing (plugin too old?); dev pipeline unaffected."; continue; fi
   if [ ! -f "$TD" ]; then cp "$TS" "$TD"; echo "research template $f: created"
   elif cmp -s "$TS" "$TD"; then echo "research template $f: skipped (already correct)"
-  else echo "research template $f: NEEDS HUMAN — customized copy DIFFERS; kept theirs."; fi
+  else cp "$TD" "$TD.bak"; cp "$TS" "$TD"; echo "research template $f: migrated (refreshed; previous saved as $TD.bak)"; fi
 done
 ```
 
 ## Step 5 — Migrate old-version artifacts (every run; no-op on a current project)
 
-Convert any v5/earlier artifacts to the v6 markdown format, **preserving human content**. Do each only
+Convert any earlier-version artifacts to the current (v8) format, **preserving human content**. Do each only
 if the old form exists; report `migrated` per item, or note "nothing to migrate" if none found. Use an
 agentic read→convert→write for the HTML→markdown conversions (read the old HTML, extract its sections,
 write the markdown shape from `tiger/templates/`), then remove the old file.
@@ -247,7 +255,12 @@ if ch:
 PY
      echo "board spec_file paths: migrated (.../spec.html -> .../feature.md)"; }
    ```
-6. Report "migration: nothing to convert" when none of the above old forms were present.
+6. **v7 → v8 feature docs** — a pre-v8 feature has `feature.md` but no `spec.md` sibling, and its
+   `e2e_testcases.robot` was grill-authored (`Metadata    tiger-stage    grill`). Both remain valid —
+   the lead falls back to `feature.md` as the behavior contract and now owns every e2e suite going
+   forward. Do NOT generate a `spec.md` retroactively (that would fabricate un-grilled detail); report
+   `feature docs <id>: verified (pre-v8 shape; lead falls back to feature.md)` per such feature.
+7. Report "migration: nothing to convert" when none of the above old forms were present.
 
 ## Step 6 — Verify / seed harness state
 
@@ -334,17 +347,21 @@ Collect every line from steps 2–6 into one table; each item is `created` | `mi
 Tiger install report
 --------------------------------------------------
 workflow (.claude/workflows/tiger-workflow-dev.js)  ...  <status>
+research workflow (.claude/workflows/research-workflow.js) ... <status>
 rm guard file (.claude/hooks/tiger-block-rm.sh)     ...  <status>
 rm guard PreToolUse hook (.claude/settings.json)    ...  <status>
 rm guard verification (rm→2, safe→0)                ...  <status>
+template spec.md                                     ...  <status>
 template feature.md                                  ...  <status>
 template CODEBASE_MAP.md                             ...  <status>
 template business.md                                 ...  <status>
 template release_docs.md                             ...  <status>
 template e2e_testcases.robot                          ...  <status>
 template e2e_keywords.resource                        ...  <status>
+research templates (tiger/templates/research/*)      ...  <status>
 board helper (tiger/board.py)                        ...  <status>
-migration (old HTML artifacts → markdown)            ...  <status>
+research helper (tiger/research.py)                  ...  <status>
+migration (old artifacts → current version)          ...  <status>
 feature_list.json                                    ...  <status>
 progress.md                                          ...  <status>
 CLAUDE.md                                            ...  <status>

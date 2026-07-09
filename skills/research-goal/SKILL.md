@@ -112,7 +112,7 @@ taxonomy_families: [ <family>, <family>, <family>, ... ]
 6. STOP. Tell the user what next: run `/research-workflow` (no args — it auto-discovers the approved goal and runs the autonomous loop).
 
 ## Works with
-Upstream: human (the only gate). Me → **tiger-researcher** (the fresh-each-iteration loop `/research-workflow` spawns: deliberate → mine sources → novelty-check → build method → run harness for real → log) → **REPORT.md** on stop. Internal, Tiger-namespaced, spawned by the workflow only: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `tiger/research.py`. No merge — the loop is git-free, and promoting a winning method into real code is a MANUAL human step.
+Upstream: human (the only gate). Me → **tiger-researcher** (the fresh-each-iteration loop `/research-workflow` spawns: deliberate → mine sources → novelty-check → build method → run harness for real → log) → **REPORT.md** on stop. Internal, Tiger-namespaced, spawned by the workflow only: `tiger-researcher`, `tiger-novelty-critic`, `tiger/research.py`. No merge — the loop is git-free, and promoting a winning method into real code is a MANUAL human step.
 
 ## Git interactions
 - **None — ever.** This loop is git-free. State is the folder tree under `research/<goalId>/`; resume = read `research_ledger.json` + the `experiment*/` folders. I write files only: `goal.md`, `taxonomy.md`, the `tiger/research.py`-seeded `research_ledger.json`, and (if proven) `experiment0/`. No branch, no commit, no note. Post-approval edits void the approval — reopen, get a fresh yes.

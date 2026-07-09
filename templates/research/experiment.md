@@ -24,7 +24,7 @@ critic: {{NOVEL|DUPLICATE}}
 
 # experiment{{N}} — {{one-line what-we-tried}}
 
-> The iteration card, written by `tiger-experiment-log`. IMMUTABLE once done — later
+> The iteration card, written by `tiger-researcher` (built-in format). IMMUTABLE once done — later
 > iterations reconstruct the frontier from these files, never from agent memory.
 > Siblings in this folder: `deliberation.md` (why this move won), `run.sh` (+ comment-free
 > method files), `sources.md` (provenance), `metrics.json` (raw numbers), `evidence/` (real logs).

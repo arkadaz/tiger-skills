@@ -1,6 +1,6 @@
 ---
 name: tiger-update-docs
-description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs-* writer skills (codemap → tiger/CODEBASE_MAP.md, business → the cumulative tiger/business.md catalog keyed by feature id, release → tiger/release_docs.md, readme → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto dev and FAST-FORWARD MERGES it to dev (never touches main). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "land on dev", or when the loop finishes green and the feature needs finalizing — even standalone.
+description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs writer skill (codemap section → tiger/CODEBASE_MAP.md, business → the cumulative tiger/business.md catalog keyed by feature id, release → tiger/release_docs.md, README → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto dev and FAST-FORWARD MERGES it to dev (never touches main). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "land on dev", or when the loop finishes green and the feature needs finalizing — even standalone.
 context: fork
 agent: tiger-skills:tiger-update-docs
 ---
@@ -17,7 +17,7 @@ Last stage. Make the AI's work human-readable (refresh global markdown docs + RE
 
 Full procedure: agents/tiger-update-docs.md — this skill is the contract + how to run it.
 
-**One agent that LOADS docs-* writers** (no sub-agents): codemap / business / release / readme. Loaded here they do NOT commit — you make the one close-out commit.
+**One agent that LOADS the `tiger-docs` writer skill** (no sub-agents): its codemap / business / release / README sections. Loaded there it does NOT commit — you make the one close-out commit.
 
 **Gate before touching the board** (read `feature_list.json` FIRST). Close ONLY when all true from fresh e2e evidence:
 - `phase: validate` (e2e full-pass: zero HIGH, zero MEDIUM),
@@ -67,7 +67,7 @@ lead (PASS handoff, `phase: validate`) → **update-docs** (refresh + close + ff
 - **Never:** touch `main`, open an MR, run a release, add/move a git note, edit code/tests, rewrite another stage's fields.
 
 ## Standalone use
-Forks into the `tiger-skills:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, loading the matching docs-* skills) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not merge — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
+Forks into the `tiger-skills:tiger-update-docs` subagent. Refresh the docs you own (codemap / business / release / README, per the `tiger-docs` sections) from current repo state; may commit `docs(tiger): refresh codemap/business/release/README`. Do NOT close the board (no `passing`, no `current_feature: null`), do not rebase, do not merge — close-out is pipeline-only because it needs fresh e2e full-pass evidence. State which artifacts you refreshed and that the board was untouched.
 
 ## References
 - `docs/tiger-git-best-practice.md` — rebase/ff-merge rules, never-auto-resolve, one-writer-per-file commit scopes.

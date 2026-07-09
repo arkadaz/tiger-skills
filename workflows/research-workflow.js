@@ -291,7 +291,7 @@ while (!outcome && iter <= maxIters) {
           rejected + UNCREDITED and report it honestly (a promised-new method that shipped a constant tweak fails).
        8. CRITIC — spawn tiger-novelty-critic (agentType "tiger-skills:tiger-novelty-critic") on the REAL method
           for the semantic NOVEL-and-smart veto (it ends TIGER_NOVELTY: <NOVEL|DUPLICATE>).
-       9. RECORD — WRITE experiment${iter}/experiment.md via the tiger-experiment-log skill (approach-vector
+       9. RECORD — WRITE experiment${iter}/experiment.md in the built-in card format (approach-vector
           frontmatter + method + result + notes); \`python3 tiger/research.py register experiment${iter}\` then
           \`record-result experiment${iter} --metric <v> --status <improved|neutral|regressed>\`.
       10. PACING — ${pacingHint}: exploit = refine near the current best; explore = a distinct untried

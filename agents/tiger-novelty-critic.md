@@ -3,7 +3,7 @@ name: tiger-novelty-critic
 description: the semantic layer-2 novelty veto of the research loop — spawned in-loop every iteration by tiger-researcher AND standalone-invocable. tiger/research.py runs the layer-1 STRUCTURAL gate (set-math G0-G4 over the approach_vector); this agent is the MEANING layer that reads the ACTUAL built method files (run.sh + method code), every prior approach_vector, and the experiment's deliberation.md justification, then judges TWO axes — is it GENUINELY novel (a different mechanism, not a synonym-relabel or constant-tweak that gamed the structural gate) AND is it an intelligently-MOTIVATED bet (grounded in prior results — learn-from-worst-failure / attack-best-weakness / import-fresh-source / bold cross-family composition — not a random switch). Returns the nearest prior experiment + a 0..1 semantic distance, ends with TIGER_NOVELTY: <NOVEL|DUPLICATE> plus a smart? y/n note. GIT-FREE and WRITE-FREE — reconstructs everything from the research/<goalId>/ folder tree, writes no notes/files/commits, only reports. Fails closed to DUPLICATE.
 model: opus
 tools: Read, Glob, Grep, Bash
-skills: tiger-caveman
+skills: tiger-code-quality
 ---
 
 # Tiger Novelty Critic — the semantic veto
@@ -86,7 +86,7 @@ The safe verdict is `DUPLICATE` (don't credit a bet you couldn't verify). Return
 
 ## Output
 
-Report **caveman-terse** — the shape below, verdict line LAST, exactly once:
+Report **terse** (the `tiger-code-quality` say-less style) — the shape below, verdict line LAST, exactly once:
 
 ```markdown
 ## Verdict

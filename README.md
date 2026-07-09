@@ -1,6 +1,6 @@
 # Tiger Development Kit
 
-Grill-first harness engineering plugin for Claude Code. You drive it with **two entry points — `tiger-grill` and the `tiger-workflow-dev` workflow**; **19 skills** power the build the workflow runs. One approved spec, git as the only bridge, every handoff a human-inspectable file.
+Grill-first harness engineering plugin for Claude Code. You drive it with **two entry points — `tiger-grill` and the `tiger-workflow-dev` workflow**; **10 skills** power the build the workflow runs. One approved spec, git as the only bridge, every handoff a human-inspectable file.
 
 Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
@@ -8,15 +8,16 @@ Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
 ## What It Is
 
-The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus standalone security and reviewer. The **lead** merges planning and end-to-end verification into one agent: it recons + plans, then (after the coders build) authors + runs the e2e suite — all in a single context. A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated, acting as the **conductor** that spawns the code-generator coders between the lead's plan and verify modes (a subagent can't nest-spawn, so the workflow does it — parallel isolated worktrees per dependency wave + an integrator). Use one skill alone (e.g. a security review of a branch), or run the whole pipeline.
+The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus the standalone `tiger-review` gate. Grill interviews you deeply and writes **two docs per feature**: a detailed, agent-facing `spec.md` (exact requirements, rules, error tables, worked examples, testable acceptance criteria) and a one-page human `feature.md` carrying the approval token. The **lead** merges planning and end-to-end verification into one agent: it plans from `spec.md`, **authors the broad e2e suite itself** (covering everything it judges can happen — not a fixed set), and for a typical feature **builds + verifies inline in one warm context** (the fast path). A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated, acting as the **conductor** that spawns coders for genuinely large features (parallel isolated worktrees per dependency wave + an integrator — a subagent can't nest-spawn, so the workflow does it). Use one skill alone, or run the whole pipeline.
 
-**Inspectable artifacts.** Outputs live under `tiger/` as compact **markdown** plus one Robot Framework suite:
+**Inspectable artifacts.** Outputs live under `tiger/` as compact **markdown** plus one Robot Framework suite per feature:
 
-- `tiger/features/<id>/feature.md` — ONE merged doc per feature (problem + spec + decisions + business context). YAML frontmatter is the machine gate; the body is short bullets.
-- `tiger/features/<id>/e2e_testcases.robot` — a broad Given/When/Then suite (Playwright behind the scenes; Robot's `report.html` is the run evidence).
+- `tiger/features/<id>/spec.md` — the DETAILED requirements (agent-facing; the behavior contract).
+- `tiger/features/<id>/feature.md` — the one-page human summary; its YAML frontmatter is the approval gate.
+- `tiger/features/<id>/e2e_testcases.robot` — the lead-authored broad Given/When/Then suite (Playwright behind the scenes; Robot's `report.html` is the run evidence).
 - `tiger/CODEBASE_MAP.md`, `tiger/business.md`, `tiger/release_docs.md` — the global markdown docs.
 
-Document authoring is factored into focused **`tiger-docs-*` writer skills** (feature, business, e2e, codemap, release, readme) — loadable references (no extra agents) that grill and update-docs load.
+All document-authoring rules live in ONE loadable reference — the **`tiger-docs`** skill; the build discipline (design principles + write-less + say-less) lives in **`tiger-code-quality`**.
 
 ## Branch Model
 
@@ -53,13 +54,13 @@ claude plugin install --scope project tiger-skills@tiger-skills
 /tiger-skills:install
 ```
 
-Idempotent; never builds. It copies the workflow into `.claude/workflows/tiger-workflow-dev.js` (registering `/tiger-workflow-dev`), installs the rm guard, copies the markdown + robot templates, seeds an empty board, `progress.md`, and **both a born `main` and a born `dev` (branched from main)**, and scaffolds `init.sh` (detects `npm`/`cargo`/`go`/`pytest`/`make`; writes a fail-closed stub if none). **It also MIGRATES an old project to the current version every run** — old `*.html` artifacts → markdown, board `spec_file` → `feature.md`, and refreshes the installed workflow (backing the old up as `*.bak`) — preserving your authored content. Prints a status table and stops.
+Idempotent; never builds. It copies both workflows into `.claude/workflows/` (registering `/tiger-workflow-dev` and `/research-workflow`), installs the rm guard, copies the markdown + robot templates, seeds an empty board, `progress.md`, and **both a born `main` and a born `dev`**, and scaffolds `init.sh` (detects `npm`/`cargo`/`go`/`pytest`/`make`; writes a fail-closed stub if none). **It also MIGRATES an old project to the current version every run** — old `*.html` artifacts → markdown, board `spec_file` → `feature.md`, plugin-owned workflows/templates refreshed (old kept as `*.bak`) — preserving your authored content. Research-loop files are optional: a missing source degrades to `NEEDS HUMAN`, never a failed install. Prints a status table and stops.
 
 > After install, type `/` — `tiger-workflow-dev` should appear. If not: Claude Code too old, dynamic workflows disabled (step 0), or start a fresh session.
 
 ### 3. Grill and approve
 
-"grill: add CSV export to the orders page". `tiger-grill` interviews you one question at a time, writes `feature.md` + the broad e2e suite under `tiger/features/<id>/`, and on your explicit **yes** flips the frontmatter token `tiger-status: approved`. This is the one human gate.
+"grill: add CSV export to the orders page". `tiger-grill` interviews you one question at a time — and it asks a LOT, until every requirement is concrete — then writes `spec.md` (detailed, for the agents) + `feature.md` (the summary you approve) under `tiger/features/<id>/`. On your explicit **yes** it flips the frontmatter token `tiger-status: approved`. This is the one human gate.
 
 ### 4. Build
 
@@ -81,15 +82,15 @@ Idempotent; never builds. It copies the workflow into `.claude/workflows/tiger-w
 
 Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
 
-**1. Pick one skill** — invoke by intent ("grill this feature", "security-review this branch", "refresh the codemap"). `tiger-security` and `tiger-reviewer` are **standalone, human-invoked** — not part of the automatic loop. Each skill writes only what it owns.
+**1. Pick one skill** — invoke by intent ("grill this feature", "review this branch", "refresh the codemap"). `tiger-review` (quality + security in one pass) is **standalone, human-invoked** — not part of the automatic loop. Each skill writes only what it owns.
 
 **2. Run the pipeline** — once grilled and approved, run with **no args**; it auto-discovers the feature and resolves today + the `dev` trunk, then drives every stage. Re-run to resume. (Optional overrides: `featureId`, `specFile`, `projectDir`, `today`, `proModel`, `fastModel`.)
 
 | # | Step | Who | You do |
 |---|---|---|---|
-| 1 | **Grill** | `tiger-grill`, one question at a time | Answer each (a recommendation is offered) until rules, edge cases, and acceptance criteria are closed |
-| 2 | **Approve** | you | Review `feature.md` + `e2e_testcases.robot` in `tiger/features/<id>/`, then approve or send changes |
-| 3 | Plan · build · verify | lead PLAN/VERIFY; the workflow-conductor spawns the coders | nothing; the lead recons + plans (scope + tasks, refreshes `CODEBASE_MAP.md`) and returns dependency **waves**; the conductor builds each wave with code-generator coders (file-disjoint tasks in parallel isolated worktrees + an integrator; solo for a 1-task wave; TDD + simplify + **no comments**; reuse before build), then the lead — same context — authors + runs the Robot e2e suite for real over the whole `tiger/features/` folder (Playwright for UI), **appends new cases**, triages by priority: HIGH/MEDIUM block (bounded delta re-plan), LOW logged; pass = zero HIGH + zero MEDIUM, all tasks done |
+| 1 | **Grill** | `tiger-grill`, one question at a time | Answer each (a recommendation is offered) until every rule, edge case, and acceptance criterion is spec-grade concrete |
+| 2 | **Approve** | you | Review `feature.md` (+ the `spec.md` detail) in `tiger/features/<id>/`, then approve or send changes |
+| 3 | Plan · e2e · build · verify | lead (the workflow-conductor spawns coders only for large features) | nothing; the lead recons + plans from `spec.md`, **authors the broad e2e suite** (boundary/typical/adversarial/error, priority-tagged), then DEFAULT builds + verifies the feature inline in one warm context — or, for a genuinely large feature, returns dependency **waves** the conductor builds with parallel worktree coders + an integrator, followed by a separate verify. Verify always runs the whole `tiger/features/` folder for real (Playwright for UI) and triages by priority: HIGH/MEDIUM block (bounded delta re-plan), LOW logged |
 | 4 | Document | update-docs | nothing; refreshes the markdown docs + README, fast-forward merges to `dev` |
 | ✓ | Pass | system | `phase: passing`; `dev` updated (`dev` → `main` is your manual release step) |
 | ✕ | Block | system | after no-progress rounds, `phase: blocked` + a fix list |
@@ -109,27 +110,25 @@ Re-run `/tiger-workflow-dev` (no args); it reads the phase pointer and continues
 ## File Layout
 
 ```
-.claude-plugin/plugin.json      Manifest (19 skills, 1 command, hooks)
+.claude-plugin/plugin.json      Manifest (10 skills, 1 command, hooks)
 .claude-plugin/marketplace.json Marketplace manifest
 agents/                         5 subagents: dev (lead, code-generator, update-docs) + research (tiger-researcher, tiger-novelty-critic)
 workflows/tiger-workflow-dev.js The deterministic dev spine (becomes /tiger-workflow-dev when installed)
 workflows/research-workflow.js  The git-free research spine (becomes /research-workflow when installed)
-skills/                         19 skills, FLAT:
-├── tiger-grill/                Inline interview → feature.md + broad robot e2e + approval (NOT a subagent)
+skills/                         10 skills, FLAT:
+├── tiger-grill/                Inline interview → spec.md + feature.md + approval (NOT a subagent)
 ├── tiger-{lead,code-generator,update-docs}/   in-loop stages
-├── tiger-{security,reviewer}/                          standalone gates (skills only, no owned agent)
-├── tiger-docs-{feature,business,e2e,codemap,release,readme}/  6 doc-writer references (no owned agents)
-├── tiger-code-quality/         The design principles (loaded by lead/code-gen/reviewer)
-├── tiger-{caveman,ponytail}/   say-less (terse handoffs) + write-less (lazy ladder + delete-list), loaded by lead/code-gen
-└── research-goal/ + tiger-{researcher,novelty-critic,experiment-log}/  the research loop: /research-goal gate + iteration agent + novelty veto + experiment writer
-templates/                      feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json, research/*
+├── tiger-review/               the standalone quality + security gate (skill only, no owned agent)
+├── tiger-docs/                 ONE doc-writer reference: spec/feature/e2e/codemap/business/release/README
+├── tiger-code-quality/         design principles + SIMPLIFY + write-less ladder + say-less handoffs
+└── research-goal/ + tiger-{researcher,novelty-critic}/  the research loop: /research-goal gate + iteration agent + novelty veto
+templates/                      spec.md, feature.md, CODEBASE_MAP.md, business.md, release_docs.md, e2e_testcases.robot, e2e_keywords.resource, feature_list.json, research/*
 scripts/                        board.py + research.py (project helpers), validate-plugin.sh, validate-board.py, validate-research.py
-commands/install.md             Copies workflow/guard/templates; migrates old→new; verifies harness state
+commands/install.md             Copies workflows/guard/templates; migrates old→new; verifies harness state
 hooks/                          Real hook wiring (JSON+script, never markdown)
 ├── hooks.json                  SessionStart wiring
 └── tiger-session-start.sh      Injects the grill-first contract, only inside Tiger projects
 project-hooks/tiger-block-rm.sh rm guard (copied into target projects)
-scripts/{validate-plugin.sh,validate-board.py}
 docs/                           Design diagram, cheatsheet, git/test best-practice, ADRs
 init.sh / CLAUDE.md / README.md Entry-point files
 ```
@@ -142,26 +141,31 @@ The plugin ships **templates and logic**, not runtime state. The board, logs, an
 |---|---|---|
 | `/install` | `feature_list.json` (root) | An **empty** schema-v2 board. `templates/feature_list.json` is the full-shape **reference** only. |
 | `/install` | `progress.md` | Append-only human log |
-| `/install` | `.claude/workflows/…js`, `.claude/hooks/tiger-block-rm.sh`, `tiger/templates/*` | Copies of the workflow, rm guard, templates |
-| `grill` | `tiger/features/<id>/feature.md` + `e2e_testcases.robot` **+ the board entry** | Merged per-feature doc + broad e2e + WHY/SPECIFY fields |
-| `lead` | `feature_list.json` (PLAN) + `tiger/CODEBASE_MAP.md` | Adds `scope_map` + `tasks[]`; bootstraps/refreshes the map |
-| `lead` | `tiger/features/<id>/e2e_keywords.resource` + `evidence/` | Executable keyword layer + Robot run evidence |
+| `/install` | `.claude/workflows/…js`, `.claude/hooks/tiger-block-rm.sh`, `tiger/templates/*` | Copies of the workflows, rm guard, templates |
+| `grill` | `tiger/features/<id>/spec.md` + `feature.md` **+ the board entry** | Detailed requirements + human summary + WHY/SPECIFY fields |
+| `lead` | `feature_list.json` (PLAN) + `tiger/CODEBASE_MAP.md` + `tiger/features/<id>/e2e_testcases.robot` | Adds `scope_map` + `tasks[]`; bootstraps/refreshes the map; authors the broad e2e suite |
+| `lead` | `tiger/features/<id>/e2e_keywords.resource` + `tiger/evidence/` | Executable keyword layer + Robot run evidence |
 | `update-docs` | `tiger/{CODEBASE_MAP,business,release_docs}.md` + `README.md` | Cumulative project docs + refreshed README |
 
 ## The Pipeline
 
 ```
-human ⇄ grill → lead PLAN (recon+plan → dependency waves) → conductor builds each wave ( ‖ code-generator coders in isolated worktrees + integrate ) → lead VERIFY ( author + run the Robot e2e suite for real over all of tiger/features/ (Playwright for UI) → priority triage (HIGH/MEDIUM block, LOW logged) → bounded delta re-plan ) → conductor spawns update-docs → ff-merge to dev
+human ⇄ grill (spec.md + feature.md) → lead PLAN (recon + plan + AUTHOR e2e suite)
+   → DEFAULT inline: lead builds + verifies in one warm context ────────────────────────┐
+   → waves (large): conductor builds each wave ( ‖ coders in worktrees + integrate )    │
+       → lead VERIFY ( robot over all of tiger/features/ → priority triage → bounded    │
+         delta re-plan ) ────────────────────────────────────────────────────────────────┤
+   → conductor spawns update-docs → ff-merge to dev ◄────────────────────────────────────┘
 ```
 
-The **lead** owns planning and verification in a single context; the **workflow-conductor** spawns the coders between those two modes (a subagent can't nest-spawn). The lead plans the tasks as **dependency waves**; the conductor builds each wave — parallel code-generator coders in isolated worktrees, then an integrator cherry-picking their disjoint branches onto `feature/<id>` (a 1-task wave builds solo) — and hands back to the lead, which in the SAME context authors + runs the Robot e2e suite for real as **the single quality gate** after every wave. Because the planner IS the verifier, every acceptance check and UI path it planned is one it knows how to test, so the loop is short and UI coverage is complete (the old split architect→e2e lost context at the handoff and re-derived coverage twice). On a clean pass the conductor spawns update-docs. (In-loop security ∥ reviewer were removed for speed; both remain standalone.)
+The **lead** owns planning, the e2e suite, and verification; the **workflow-conductor** spawns coders only when the lead chose waves (a subagent can't nest-spawn). Because the planner IS the verifier AND the suite's author, every acceptance check and UI path it planned is one it knows how to test — and because the suite is authored from `spec.md` **before any code exists**, the inline fast path stays honest: the lead is graded by cases it pre-committed. On a clean pass the conductor spawns update-docs. (In-loop security/review was removed for speed; `tiger-review` remains standalone.)
 
 | Stage | Model | Role |
 |---|---|---|
-| **grill** (inline) | Opus | Interviews one question at a time; writes `feature.md` + a broad priority-tagged robot suite (loads `tiger-docs-feature` + `tiger-docs-e2e`); the only human gate |
-| **lead** | Opus | The merged plan+verify+orchestrator: validates scope, writes the board plan (scope + tasks + RED-first checks) + phase pointer + acceptance status, sole author of `CODEBASE_MAP.md`; **spawns** the code-generator coders; authors `e2e_keywords.resource` + runs the Robot suite + acceptance checks for real (Playwright for UI), **appends new cases**, triages by priority (HIGH/MEDIUM block, LOW logged), owns `refs/notes/e2e`; bounded in-context delta re-plan; never writes product code |
-| **code generator** | Sonnet | Spawned by the workflow-conductor (solo for a 1-task wave; in an isolated worktree + an integrator for a multi-task wave); reuses before it builds (YAGNI → repo util → stdlib → platform → dep → new code); TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
-| **update-docs** | Opus | Spawned by the workflow-conductor on PASS; refreshes the markdown docs + README (loads the `tiger-docs-*` writers), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
+| **grill** (inline) | Opus | Interviews one question at a time, deeply; writes `spec.md` (detailed, agent-facing) + `feature.md` (human summary + gate token) via the `tiger-docs` writer; the only human gate |
+| **lead** | Opus | The merged plan+e2e+verify: validates scope against the real code, writes the board plan (scope + tasks + RED-first checks), sole in-loop author of `CODEBASE_MAP.md`, **authors the broad priority-tagged e2e suite from spec.md**; DEFAULT builds + verifies inline (one warm context); for large features returns waves + verifies separately; runs the whole folder for real (Playwright for UI), triages by priority, owns `refs/notes/e2e`; bounded delta re-plan |
+| **code generator** | Sonnet | Spawned by the workflow-conductor in waves mode (solo for a 1-task wave; isolated worktrees + an integrator for a multi-task wave); reuses before it builds; TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
+| **update-docs** | Opus | Spawned by the workflow-conductor on PASS; refreshes the markdown docs + README (per the `tiger-docs` sections), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
 
 Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress rounds → `phase: blocked` + a priority-ordered fix list.
 
@@ -174,17 +178,17 @@ Two entry points (everything else is internal):
 - **`/research-goal`** — the goal grill (mirrors `tiger-grill`): inline, one question at a time, writes `research/<goalId>/goal.md` (metric + direction + target, frozen controlled vars, the one deterministic harness command, budget, taxonomy). Gated by a `tiger-status: approved` line — the one human gate.
 - **`/research-workflow`** — the autonomous loop. **No args**; reads the approved goal and self-paces. Each iteration a fresh `tiger-researcher` (opus) reconstructs from files, **deliberates** a next-move (recorded in `deliberation.md`), mines fresh sources, clears the **novelty gate** (`tiger/research.py`: no pure tuning; every experiment must add a never-seen method component + a freshly-fetched source), then builds + runs the harness **for real** and logs one immutable `experiments/experimentN/` card.
 
-Internal, workflow-spawned, `tiger-*` namespaced: `tiger-researcher`, `tiger-novelty-critic`, `tiger-experiment-log`, `tiger/research.py`.
+Internal, workflow-spawned, `tiger-*` namespaced: `tiger-researcher`, `tiger-novelty-critic`, `tiger/research.py`.
 
-**State is the folder tree — resume = re-run `/research-workflow`** (it reads `research/<goalId>/research_ledger.json` + the experiment folders and continues from the last iteration). On stop it writes `research/<goalId>/REPORT.md` (idea → hypothesis → result table, the winning method + its provenance chain, the dead-ends) that **points at** the best experiment folder — promoting a winner into real code is a **manual human step**.
+**State is the folder tree — resume = re-run `/research-workflow`** (it reads `research/<goalId>/research_ledger.json` + the experiment folders and continues). On stop it writes `research/<goalId>/REPORT.md` (idea → hypothesis → result table, the winning method + its provenance chain, the dead-ends) that **points at** the best experiment folder — promoting a winner into real code is a **manual human step**.
 
 ## Slash Commands & Skills
 
-- `/tiger-skills:install` — copy workflow/guard/templates, migrate old→new, verify harness. The one command.
-- `/tiger-workflow-dev` — the installed workflow (created by `/install`).
-- Stages are **skills**, invoked by intent: `tiger-grill`, `tiger-lead`, `tiger-code-generator`, `tiger-update-docs`, plus standalone `tiger-security`, `tiger-reviewer`.
-- `tiger-code-quality` — the design principles; invoke alone or loaded by lead/code-gen/reviewer.
-- The six `tiger-docs-*` **writer skills** (feature, business, e2e, codemap, release, readme) — focused references (no owned agents). Grill loads feature + e2e; update-docs loads codemap/business/release/readme. Invoke directly too ("refresh the README").
+- `/tiger-skills:install` — copy workflows/guard/templates, migrate old→new, verify harness. The one command.
+- `/tiger-workflow-dev` — the installed dev workflow (created by `/install`). `/research-workflow` — the installed research loop.
+- Stages are **skills**, invoked by intent: `tiger-grill`, `tiger-lead`, `tiger-code-generator`, `tiger-update-docs`, plus standalone `tiger-review`.
+- `tiger-code-quality` — design principles + write-less + say-less; invoke alone or loaded by the loop agents.
+- `tiger-docs` — every artifact's writing rules in one reference (spec, feature, e2e, codemap, business, release, README). Grill/lead/update-docs load the sections they own; invoke directly too ("refresh the README").
 - No create-skill command. File new capabilities through the grill gate.
 
 ## Reference Docs
