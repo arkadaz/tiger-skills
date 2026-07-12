@@ -8,7 +8,7 @@ Repository: https://gitlab.github.com/arkadaz/tiger-skills
 
 ## What It Is
 
-The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus the standalone `tiger-review` gate. Grill interviews you deeply and writes **two docs per feature**: a detailed, agent-facing `spec.md` (exact requirements, rules, error tables, worked examples, testable acceptance criteria) and a one-page human `feature.md` carrying the approval token. The **lead** merges planning and end-to-end verification into one agent: it plans from `spec.md`, **authors the broad e2e suite itself** (covering everything it judges can happen — not a fixed set), and for a typical feature **builds + verifies inline in one warm context** (the fast path). A **workflow** (`tiger-workflow-dev`) chains the build when you want it automated as a **thin launcher** — it makes one spawn, the lead in CONDUCT mode, and the **lead itself** spawns coders for genuinely large features (parallel isolated worktrees per dependency wave + an integrator; nested subagents work in Claude Code v2.1.172+, depth ≤ 5). Use one skill alone, or run the whole pipeline.
+The stages are **pure skills** you invoke by intent — grill, lead, code generator, update-docs (in-loop), plus the standalone `tiger-review` gate. Grill interviews you deeply and writes **two docs per feature**: a detailed, agent-facing `spec.md` (exact requirements, rules, error tables, worked examples, testable acceptance criteria) and a one-page human `feature.md` carrying the approval token. The **lead** merges planning and end-to-end verification into one agent: it plans from `spec.md`, **authors the broad e2e suite itself** (covering everything it judges can happen — not a fixed set), and for a typical feature **builds + verifies inline in one warm context** (the fast path). A deterministic **workflow** (`tiger-workflow-dev`) chains the build when you want it automated, acting as the **conductor** that spawns coders for genuinely large features (parallel isolated worktrees per dependency wave + an integrator — deterministic, so the spawn is guaranteed and a large-feature lead never forgets it; nested subagents work, we just keep orchestration in the workflow). Use one skill alone, or run the whole pipeline.
 
 **Inspectable artifacts.** Outputs live under `tiger/` as compact **markdown** plus one Robot Framework suite per feature:
 
@@ -90,7 +90,7 @@ Full one-pager: [`docs/tiger-cheatsheet.md`](docs/tiger-cheatsheet.md).
 |---|---|---|---|
 | 1 | **Grill** | `tiger-grill`, one question at a time | Answer each (a recommendation is offered) until every rule, edge case, and acceptance criterion is spec-grade concrete |
 | 2 | **Approve** | you | Review `feature.md` (+ the `spec.md` detail) in `tiger/features/<id>/`, then approve or send changes |
-| 3 | Plan · e2e · build · verify | lead (spawns coders itself only for large features) | nothing; the lead recons + plans from `spec.md`, **authors the broad e2e suite** (boundary/typical/adversarial/error, priority-tagged), then DEFAULT builds + verifies the feature inline in one warm context — or, for a genuinely large feature, spawns parallel worktree coders + an integrator itself, then verifies. Verify always runs the whole `tiger/features/` folder for real (Playwright for UI) and triages by priority: HIGH/MEDIUM block (bounded delta re-plan), LOW logged |
+| 3 | Plan · e2e · build · verify | lead (the workflow-conductor spawns coders only for large features) | nothing; the lead recons + plans from `spec.md`, **authors the broad e2e suite** (boundary/typical/adversarial/error, priority-tagged), then DEFAULT builds + verifies the feature inline in one warm context — or, for a genuinely large feature, returns dependency **waves** the conductor builds with parallel worktree coders + an integrator, followed by a separate verify. Verify always runs the whole `tiger/features/` folder for real (Playwright for UI) and triages by priority: HIGH/MEDIUM block (bounded delta re-plan), LOW logged |
 | 4 | Document | update-docs | nothing; refreshes the markdown docs + README, fast-forward merges to `dev` |
 | ✓ | Pass | system | `phase: passing`; `dev` updated (`dev` → `main` is your manual release step) |
 | ✕ | Block | system | after no-progress rounds, `phase: blocked` + a fix list |
@@ -150,22 +150,22 @@ The plugin ships **templates and logic**, not runtime state. The board, logs, an
 ## The Pipeline
 
 ```
-human ⇄ grill (spec.md + feature.md) → lead CONDUCT (recon + plan + AUTHOR e2e suite)
-   → DEFAULT inline: lead builds + verifies in one warm context ──────────────────────────┐
-   → waves (large): the LEAD spawns coders itself ( ‖ worktrees + integrate )             │
-       → VERIFY ( robot over all of tiger/features/ → priority triage → bounded           │
-         delta re-plan; lead rebuilds itself ) ──────────────────────────────────────────┤
-   → on PASS the LEAD finalizes (inline: itself · waves: spawns update-docs) → ff-merge to dev ◄─┘
+human ⇄ grill (spec.md + feature.md) → lead PLAN (recon + plan + AUTHOR e2e suite)
+   → DEFAULT inline: lead builds + verifies in one warm context ────────────────────────┐
+   → waves (large): conductor builds each wave ( ‖ coders in worktrees + integrate )    │
+       → lead VERIFY ( robot over all of tiger/features/ → priority triage → bounded    │
+         delta re-plan ) ────────────────────────────────────────────────────────────────┤
+   → conductor spawns update-docs → ff-merge to dev ◄────────────────────────────────────┘
 ```
 
-The **lead** owns planning, the e2e suite, verification, AND the conducting: it spawns coders itself only when it chose waves (nested subagents work in Claude Code v2.1.172+). Because the planner IS the verifier AND the suite's author, every acceptance check and UI path it planned is one it knows how to test — and because the suite is authored from `spec.md` **before any code exists**, the inline fast path stays honest: the lead is graded by cases it pre-committed. On a clean pass the lead finalizes — in inline mode it closes out itself; in waves mode it spawns update-docs. (In-loop security/review was removed for speed; `tiger-review` remains standalone.)
+The **lead** owns planning, the e2e suite, and verification; the **workflow-conductor** spawns coders only when the lead chose waves (deterministic — steps guaranteed, contexts bounded; nested subagents work, orchestration just stays in the workflow). Because the planner IS the verifier AND the suite's author, every acceptance check and UI path it planned is one it knows how to test — and because the suite is authored from `spec.md` **before any code exists**, the inline fast path stays honest: the lead is graded by cases it pre-committed. On a clean pass the conductor spawns update-docs. (In-loop security/review was removed for speed; `tiger-review` remains standalone.)
 
 | Stage | Model | Role |
 |---|---|---|
 | **grill** (inline) | Opus | Interviews one question at a time, deeply; writes `spec.md` (detailed, agent-facing) + `feature.md` (human summary + gate token) via the `tiger-docs` writer; the only human gate |
-| **lead** | Opus | The merged plan+e2e+verify: validates scope against the real code, writes the board plan (scope + tasks + RED-first checks), sole in-loop author of `CODEBASE_MAP.md`, **authors the broad priority-tagged e2e suite from spec.md**; DEFAULT builds + verifies inline (one warm context); for large features spawns coders itself (parallel worktrees + integrator) then verifies; runs the whole folder for real (Playwright for UI), triages by priority, owns `refs/notes/e2e`; bounded delta re-plan; on PASS finalizes (inline: closes out itself; waves: spawns update-docs) |
-| **code generator** | Sonnet | Spawned by the lead in waves mode (solo for a 1-task wave; isolated worktrees + an integrator for a multi-task wave); reuses before it builds; TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
-| **update-docs** | Opus | Spawned by the lead on PASS **in waves mode** (in inline mode the warm lead does this close-out itself); refreshes the markdown docs + README (per the `tiger-docs` sections), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
+| **lead** | Opus | The merged plan+e2e+verify: validates scope against the real code, writes the board plan (scope + tasks + RED-first checks), sole in-loop author of `CODEBASE_MAP.md`, **authors the broad priority-tagged e2e suite from spec.md**; DEFAULT builds + verifies inline (one warm context); for large features returns waves + verifies separately; runs the whole folder for real (Playwright for UI), triages by priority, owns `refs/notes/e2e`; bounded delta re-plan |
+| **code generator** | Sonnet | Spawned by the workflow-conductor in waves mode (solo for a 1-task wave; isolated worktrees + an integrator for a multi-task wave); reuses before it builds; TDD RED→GREEN→**SIMPLIFY**→commit; **no comments** |
+| **update-docs** | Opus | Spawned by the workflow-conductor on PASS; refreshes the markdown docs + README (per the `tiger-docs` sections), closes the board, rebases + fast-forward merges to `dev` (never touches `main`) |
 
 Pass = zero HIGH + zero MEDIUM, all tasks done. Bounded retry: no-progress rounds → `phase: blocked` + a priority-ordered fix list.
 

@@ -322,11 +322,11 @@ if grep -qi 'simplif' "$GEN_MD" 2>/dev/null && grep -qiE 'no comment|comment-fre
   fail "tiger-code-generator.md must require a simplify pass and forbid comments in generated code"; fi
 
 # Plan+verify lead: it must carry BOTH the planning half (architect) and the verify half (e2e gate)
-# and drive UI for real. It IS the conductor — it spawns the coders + update-docs itself via the Agent
-# tool (nested subagents work in Claude Code v2.1.172+, depth <= 5).
+# and drive UI for real. Under the workflow it does NOT spawn the coders (the deterministic conductor
+# does — so steps are guaranteed + context bounded); it keeps the Agent tool for the standalone path.
 LEAD_MD="$ROOT_DIR/agents/tiger-lead.md"
 # frontmatter: opus + Write (so it can author the e2e keyword layer — the old e2e agent lacked Write,
-# a root cause of missed UI cases). Agent is REQUIRED — the lead spawns coders + update-docs itself.
+# a root cause of missed UI cases). Agent stays for the standalone top-level path.
 LEAD_TOOLS=$(grep -E '^tools:' "$LEAD_MD" | head -1)
 if printf '%s' "$LEAD_TOOLS" | grep -q 'Write'; then
   pass "tiger-lead.md has Write (authors the e2e keyword layer)"; else
@@ -344,14 +344,11 @@ if grep -q 'e2e_testcases.robot' "$LEAD_MD" 2>/dev/null && grep -qiE 'author' "$
 if grep -qiE 'extend|append' "$LEAD_MD" 2>/dev/null; then
   pass "tiger-lead.md extends coverage across verify rounds"; else
   fail "tiger-lead.md must extend e2e coverage as new risks surface"; fi
-# The lead conducts the whole feature in one spawn; it must document its PLAN and VERIFY phases AND
-# instruct spawning the coders + update-docs itself (v9: the lead is the conductor, not the workflow).
+# The lead runs in two conductor-driven modes; it must document them (PLAN returns the task order,
+# VERIFY runs the suite) and must NOT claim to spawn the coders itself (the conductor does).
 if grep -qiE 'MODE:?[[:space:]]*PLAN' "$LEAD_MD" 2>/dev/null && grep -qiE 'MODE:?[[:space:]]*VERIFY' "$LEAD_MD" 2>/dev/null; then
-  pass "tiger-lead.md documents its PLAN and VERIFY phases"; else
-  fail "tiger-lead.md must document the PLAN and VERIFY phases"; fi
-if grep -qi 'tiger-code-generator' "$LEAD_MD" 2>/dev/null && grep -qi 'tiger-update-docs' "$LEAD_MD" 2>/dev/null; then
-  pass "tiger-lead.md instructs the lead to spawn coders + update-docs itself (v9 conductor)"; else
-  fail "tiger-lead.md must instruct the lead to spawn tiger-code-generator + tiger-update-docs itself"; fi
+  pass "tiger-lead.md documents its PLAN and VERIFY conductor modes"; else
+  fail "tiger-lead.md must document the PLAN and VERIFY modes the conductor drives"; fi
 # UI is not optional — the merged lead must mandate a real browser drive (Playwright), the fix for
 # the missed-UI-testcase pain.
 if grep -qiE 'browser|playwright|rfbrowser' "$LEAD_MD" 2>/dev/null; then
@@ -380,14 +377,14 @@ if [ -f "$WF" ]; then
   # v6: dev is the integration trunk; main is never the workflow's build base.
   if grep -qE '"dev"|\bdev\b' "$WF"; then pass "workflow integrates on dev"; else
     fail "workflow must use dev as the integration trunk"; fi
-  # The thin launcher's CONDUCT prompt names tiger-update-docs — the LEAD spawns it on PASS to ff-merge to dev.
+  # The workflow-conductor spawns update-docs on PASS (ff-merge to dev) — deterministic, guaranteed finalize.
   if grep -qiE 'tiger-update-docs|fast-forward merge' "$WF"; then
-    pass "workflow CONDUCT prompt names update-docs (the lead spawns it to ff-merge to dev)"; else
-    fail "workflow CONDUCT prompt must name tiger-update-docs (the lead spawns it on PASS)"; fi
-  # The launcher's CONDUCT prompt names tiger-code-generator — the LEAD spawns coders itself in waves mode.
+    pass "workflow spawns update-docs to finalize (ff-merge to dev)"; else
+    fail "workflow must spawn update-docs (ff-merge to dev) on PASS"; fi
+  # The conductor spawns the coders itself (deterministic orchestration), so the workflow must name them.
   if grep -qi 'tiger-code-generator' "$WF"; then
-    pass "workflow CONDUCT prompt names tiger-code-generator (the lead spawns coders itself)"; else
-    fail "workflow CONDUCT prompt must name tiger-code-generator (the lead spawns coders itself in waves)"; fi
+    pass "workflow-conductor spawns tiger-code-generator per task"; else
+    fail "workflow must spawn tiger-code-generator (the conductor builds each wave)"; fi
   if command -v node >/dev/null 2>&1; then
     if node -e '
       const fs=require("fs");const src=fs.readFileSync(process.argv[1],"utf8");

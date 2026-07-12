@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Harness engineering (outer loop) + code quality (inner loop): a lean, linear single-feature pipeline. grill interviews deeply and writes TWO markdown artifacts per feature — a detailed agent-facing spec.md (exact requirements, rules, error tables, worked examples, testable ACs) and a one-page human feature.md carrying the approval token — then cuts feature/<id> from dev; the lead (the merged architect + e2e gate) plans from spec.md, AUTHORS the broad Robot e2e suite itself (boundary/typical/adversarial/error, priority-tagged — covering everything it judges can happen, not a fixed set), builds small features inline in one warm context or returns dependency waves the workflow-conductor builds with tiger-code-generator coders (parallel git worktrees, strict TDD, simplify pass, NO comments), then runs the whole tiger/features/ folder for real (Playwright for UI) as the single quality gate — triaging by priority and re-planning the delta on HIGH/MEDIUM — and on a clean pass hands off to update-docs to refresh the markdown docs and fast-forward merge to dev (main stays protected; dev→main is manual). tiger-review is the standalone on-demand quality+security gate. A SECOND, git-free workflow — the research loop (/research-goal to grill + approve a goal, then /research-workflow) — drives an autonomous, self-deliberating series of genuinely-different experiments (novelty engine forbids parameter tuning; web/arxiv-grounded; results logged to local research/<goalId>/experimentN/ folders). 5 agents, 10 skills, two deterministic Workflows. Based on the walkinglabs learn-tiger-grill course.",
-  "version": "9.0.0",
+  "version": "9.1.0",
   "author": {
     "name": "arkadaz"
   },
