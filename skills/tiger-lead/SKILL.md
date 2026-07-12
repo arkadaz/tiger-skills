@@ -1,15 +1,15 @@
 ---
 name: tiger-lead
-description: The plan + e2e + verify lead of the Tiger pipeline, driven by the /tiger-workflow-dev conductor in two modes (a subagent can't nest-spawn, so the WORKFLOW spawns the coders + update-docs, not the lead). MODE PLAN (adaptive): recon + phased blueprint + board PLAN + RED-proven acceptance checks + tiger/CODEBASE_MAP.md, planning from spec.md (the detailed grilled requirements), and AUTHORING the feature's broad e2e_testcases.robot itself — covering every case it judges can happen (boundary/typical/adversarial/error, ≥1 per AC and business rule, one priority tag each), not a fixed grill set. Then it decides buildMode — DEFAULT inline: build + verify the feature itself in one warm context (fast, no cold coder spawns; doer=checker held to the pre-committed suite + RED acceptance checks) and return a grade; waves only for a genuinely large/parallelizable feature — dependency WAVES of file-disjoint tasks the conductor builds with tiger-code-generator coders (parallel worktrees per wave + an integrator; a 1-task wave builds solo) plus a separate VERIFY. MODE VERIFY: authors the Robot keyword layer and runs the WHOLE tiger/features/ folder for real (regression; Playwright for UI), extends the suite as risks surface, triages by priority; on HIGH/MEDIUM writes delta tasks returned as deltaWaves (bounded round cap); on a clean pass the conductor spawns tiger-update-docs to close out and ff-merge to dev. Use whenever the user wants to build, implement, or ship an already-approved feature, plan-and-build it, run the full loop, or resume a feature after grill — even if they never say "lead". Requires an approved feature.md (run tiger-grill first when missing).
+description: The plan + e2e + verify lead of the Tiger pipeline, AND the self-contained conductor of the build — spawned once by the thin /tiger-workflow-dev launcher (or directly via /tiger-lead), it spawns the coders + tiger-update-docs ITSELF via the Agent tool (nested subagents work in Claude Code v2.1.172+, depth ≤ 5). MODE PLAN (adaptive): recon + phased blueprint + board PLAN + RED-proven acceptance checks + tiger/CODEBASE_MAP.md, planning from spec.md (the detailed grilled requirements), and AUTHORING the feature's broad e2e_testcases.robot itself — covering every case it judges can happen (boundary/typical/adversarial/error, ≥1 per AC and business rule, one priority tag each), not a fixed grill set. Then it decides buildMode — DEFAULT inline: build + verify the feature itself in one warm context (fast, no cold coder spawns; doer=checker held to the pre-committed suite + RED acceptance checks) and return a grade; waves only for a genuinely large/parallelizable feature — the lead spawns file-disjoint tiger-code-generator coders ITSELF (parallel worktrees per wave + an integrator; a 1-task wave builds solo), then verifies. MODE VERIFY: authors the Robot keyword layer and runs the WHOLE tiger/features/ folder for real (regression; Playwright for UI), extends the suite as risks surface, triages by priority; on HIGH/MEDIUM writes delta tasks and rebuilds them itself (bounded round cap); on a clean pass the lead finalizes and ff-merges to dev (inline: it closes out itself; waves: it spawns tiger-update-docs). Use whenever the user wants to build, implement, or ship an already-approved feature, plan-and-build it, run the full loop, or resume a feature after grill — even if they never say "lead". Requires an approved feature.md (run tiger-grill first when missing).
 context: fork
 agent: tiger-skills:tiger-lead
 ---
 
 # Tiger Lead — plan → e2e → build → verify, one context
 
-Owns the plan, the e2e suite, and the verify of one approved feature: the old **architect** (plan) and the old **e2e gate** (verify) merged, now also the **author of the e2e cases** — derived from `spec.md` to cover everything it judges can happen, not a fixed set signed at grill. Under the workflow the **conductor** spawns the coders between the two modes (a subagent can't nest-spawn); standalone-at-top-level the lead builds inline or spawns them itself.
+Owns the plan, the e2e suite, and the verify of one approved feature: the old **architect** (plan) and the old **e2e gate** (verify) merged, now also the **author of the e2e cases** — derived from `spec.md` to cover everything it judges can happen, not a fixed set signed at grill — and the **conductor** that spawns the coders + update-docs itself (nested subagents work in Claude Code v2.1.172+, depth ≤ 5). Whether launched once by the thin `/tiger-workflow-dev` launcher or directly via `/tiger-lead`, it builds inline (the default) or spawns coders for waves.
 
-Pipeline: grill (spec.md + feature.md + approval) → **lead PLAN** (blueprint + board tasks + e2e suite; DEFAULT: builds + verifies inline in one warm context) → [waves only: workflow builds each wave with **tiger-code-generator** coders → **lead VERIFY**] → bounded re-plan loop → workflow spawns **update-docs** → ff-merge to `dev`. (`dev → main` is a manual human step.)
+Pipeline: grill (spec.md + feature.md + approval) → **lead CONDUCT** (blueprint + board tasks + e2e suite; DEFAULT: builds + verifies inline in one warm context; waves: the lead spawns **tiger-code-generator** coders itself → VERIFY) → bounded re-plan loop → the lead finalizes (inline: itself; waves: spawns **update-docs**) → ff-merge to `dev`. (`dev → main` is a manual human step.)
 
 Full procedure: `agents/tiger-lead.md`. This skill is the contract + how to run it.
 
@@ -39,7 +39,7 @@ Full procedure: `agents/tiger-lead.md`. This skill is the contract + how to run 
 
 ### Phase B — Build (adaptive: `inline` is the DEFAULT)
 - **`inline`** — build it YOURSELF in this warm context (fastest — no cold coder spawns): strict TDD per task, then do Phase C verify yourself and return `buildMode:"inline"` + `grade`. Pick this unless the feature genuinely earns waves.
-- **`waves`** — only for genuine scale (many file-disjoint parallelizable tasks) or real integration/security risk: RETURN dependency-ordered WAVES of FILE-DISJOINT task ids; the conductor builds each wave (worktree coders + integrator; 1-task wave = solo) preserving doer≠checker. Two tasks touching the same file never share a wave. Every `context` packet must let a coder build from the board alone.
+- **`waves`** — only for genuine scale (many file-disjoint parallelizable tasks) or real integration/security risk: group the tasks into dependency-ordered WAVES of FILE-DISJOINT task ids and **spawn the coders yourself** (Agent tool, `tiger-skills:tiger-code-generator`) — worktree coders + integrator; 1-task wave = solo — preserving doer≠checker. Two tasks touching the same file never share a wave. Every `context` packet must let a coder build from the board alone.
 
 ### Phase C — Verify (was the e2e gate)
 - Author `tiger/features/<id>/e2e_keywords.resource` (comment-free real bodies) for your cases.
@@ -48,12 +48,12 @@ Full procedure: `agents/tiger-lead.md`. This skill is the contract + how to run 
 - Triage by priority (HIGH/MEDIUM block, LOW logged). **A case of an already-passing OTHER feature that regresses is HIGH — fix until green regardless of its tag.** Keep the folder coherent (consolidate proven duplicates across features, recorded in `progress.md` + the note) — but a shipped feature's APPROVED behavior is never silently changed: that is a spec conflict → `blocked`. Set the board `phase` from the grade; attach `refs/notes/e2e` to the code commit.
 
 ### Phase D — Bounded fix loop
-- On CHANGES (VERIFY mode): write the delta tasks (`-r<round>` ids) to the board and **RETURN them as `deltaWaves`** (most deltas = one solo-coder wave). The conductor stops (blocked) after 3 rounds, a no-progress round, or a CHANGES with no delta.
+- On CHANGES: write the delta tasks (`-r<round>` ids) to the board, **rebuild them yourself** (most deltas = one solo-coder wave), and re-verify. YOU stop (blocked) after 3 rounds, a no-progress round, or an unfixable defect.
 
 ### Phase E — Finalize
-- On PASS: return grade `PASS` — the **conductor spawns `tiger-update-docs`** (close board + ff-merge to `dev`). On BLOCKED: record `phase: blocked` + the fix list; stop for the human.
+- On PASS: close out (global docs + README + board `passing`) + ff-merge to `dev` — **inline mode: do it YOURSELF** (you're warm, no cold spawn); **waves mode: spawn `tiger-update-docs` yourself** and read its `FINALIZE_STATUS` back. On BLOCKED: record `phase: blocked` + the fix list; stop for the human.
 
-**Return contract.** MODE PLAN → `{ buildMode }` + either `{ waves }` or `{ grade, high, medium, low, tasksDone, tasksTotal }` (inline: already built + verified); MODE VERIFY → `{ grade, high, medium, low, tasksDone, tasksTotal, deltaWaves }`. Also END with the machine token lines (for the human log + standalone runs):
+**Return contract.** RETURN the single final object: `{ outcome/grade, high, medium, low, tasksDone, tasksTotal, finalize }`. Also END with the machine token lines (for the human log + standalone runs):
 
 ```
 TIGER_LEAD: <PASS|CHANGES|BLOCKED>
@@ -63,18 +63,18 @@ TASKS_DONE: <doneCount>/<totalCount>
 FINALIZE_STATUS: <MERGED_TO_DEV|NO_REMOTE_MERGED|REBASE_CONFLICT|n/a>
 ```
 
-`grade`/`TIGER_LEAD: PASS` only when `high=0` and `medium=0` on fresh evidence with every task done. The conductor fails closed to CHANGES when the grade is absent or garbled.
+`grade`/`TIGER_LEAD: PASS` only when `high=0` and `medium=0` on fresh evidence with every task done. The launcher fails closed to CHANGES when the grade is absent or garbled.
 
 ## Works with
 
-grill (spec.md + feature.md + WHY/SPECIFY board entry) → **lead** (plan + e2e suite + inline build/verify, or waves for the conductor) → the workflow-conductor builds waves with **tiger-code-generator** coders → **lead VERIFY** (bounded re-plan) → the conductor spawns **tiger-update-docs** (passing close-out + ff-merge to `dev`). `tiger-review` stays standalone, human-invoked — never in the loop.
+grill (spec.md + feature.md + WHY/SPECIFY board entry) → **lead** (plan + e2e suite + inline build/verify, or waves) → the lead spawns **tiger-code-generator** coders itself → VERIFY (bounded re-plan, lead rebuilds itself) → the lead finalizes — inline: itself, waves: spawns **tiger-update-docs** (passing close-out + ff-merge to `dev`). `tiger-review` stays standalone, human-invoked — never in the loop.
 
 ## Git interactions
 
 - **Reads:** `feature_list.json`, `tiger/features/<id>/spec.md` + `feature.md`, the OTHER features' e2e suites (regression/dupe awareness), `tiger/CODEBASE_MAP.md`, `git log`, `git notes --ref=e2e`.
 - **Writes:** board PLAN + phase + acceptance status, `tiger/CODEBASE_MAP.md`, the whole e2e layer (`e2e_testcases.robot` + `e2e_keywords.resource`, plus scoped cross-feature reconciliations), inline-mode code/tests, the folder-run report `tiger/evidence/*`, `refs/notes/e2e`, `progress.md`, plan/verify commits on `feature/<id>`.
-- **Never:** product code in waves mode, edits to `spec.md`/`feature.md`, `status: passing`, null `current_feature`, notes in any other ref, commits onto `dev`/`main`, push/rebase/merge.
+- **Never:** product code in waves mode, edits to `spec.md`/`feature.md`, notes in any other ref, commits onto `main`. (In inline mode you DO set `status: passing` + null `current_feature` + ff-merge to `dev` at finalize; in waves mode update-docs does — never both.)
 
 ## Standalone use
 
-Invoke directly in the project: it discovers the single approved in-progress feature itself (or takes a `featureId`), resolves `today` + the `dev` trunk, and runs the whole loop (building inline, or spawning coders if nesting is available). The approval gate is enforced standalone too. State lives in `git log` + `git notes --ref=e2e` + the board phase — resume any time.
+Invoke directly in the project: it discovers the single approved in-progress feature itself (or takes a `featureId`), resolves `today` + the `dev` trunk, and runs the whole loop (building inline, or spawning coders itself for waves — nesting is available). This is also the reliable path on a backend whose workflow runtime can't spawn: `/tiger-lead` runs the lead as a normal main-session subagent, where nested spawning is confirmed. The approval gate is enforced standalone too. State lives in `git log` + `git notes --ref=e2e` + the board phase — resume any time.
