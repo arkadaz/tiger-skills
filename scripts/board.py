@@ -15,6 +15,10 @@ install copies this next to the board as `tiger/board.py`. Call it from any stag
   python3 tiger/board.py newest-approved              # id of the LAST (newest) approved, non-passing feature
   python3 tiger/board.py candidates                   # every buildable (approved, non-passing) feature, oldest->newest
   python3 tiger/board.py get <feature> [field]        # field may be dotted: scope_map.metric
+  python3 tiger/board.py task <feature> <task_id>     # ONE task's work packet + scope_map (a coder's only read)
+  python3 tiger/board.py switch <feature>              # ATOMIC clock-in: park any other in_progress, start this one
+  python3 tiger/board.py park <feature>                # ATOMIC: this feature -> blocked, release current_feature
+  python3 tiger/board.py close <feature>               # ATOMIC close-out: status+phase passing, current_feature null
   python3 tiger/board.py set-phase <feature> <plan|build|validate|blocked|passing>
   python3 tiger/board.py set-status <feature> <not_started|in_progress|passing|blocked>
   python3 tiger/board.py set-current <feature|null>
@@ -143,6 +147,10 @@ def main():
     sub.add_parser("newest-approved")
     sub.add_parser("candidates")
     g = sub.add_parser("get"); g.add_argument("feature", nargs="?"); g.add_argument("field", nargs="?")
+    tk = sub.add_parser("task"); tk.add_argument("feature"); tk.add_argument("task")
+    sw = sub.add_parser("switch"); sw.add_argument("feature")
+    pk = sub.add_parser("park"); pk.add_argument("feature")
+    cl = sub.add_parser("close"); cl.add_argument("feature")
     sp = sub.add_parser("set-phase"); sp.add_argument("feature"); sp.add_argument("phase")
     ss = sub.add_parser("set-status"); ss.add_argument("feature"); ss.add_argument("status")
     sc = sub.add_parser("set-current"); sc.add_argument("feature")
@@ -208,6 +216,49 @@ def main():
                 sys.exit(f"no such field: {a.field}")
             cur = cur[part]
         print(json.dumps(cur, indent=2) if isinstance(cur, (dict, list)) else cur); return 0
+
+    if a.cmd == "task":
+        # A worktree coder's ONLY board read: its own packet, not the whole feature. Keeping the
+        # builder's context to one task is what keeps parallel coders cheap and accurate.
+        f = feat(board, a.feature)
+        for t in f.get("tasks", []) or []:
+            if isinstance(t, dict) and t.get("id") == a.task:
+                print(json.dumps({
+                    "feature": a.feature,
+                    "spec_file": f.get("spec_file", ""),
+                    "scope_map": f.get("scope_map", {}),
+                    "task": t,
+                }, indent=2))
+                return 0
+        sys.exit(f"no such task {a.task} in {a.feature}")
+
+    # WIP=1 + "current_feature == the in_progress feature" are checked together on every save, so any
+    # clock-in, park, or close-out is a MULTI-FIELD move: doing it as two set-* calls is refused in both
+    # orders (each intermediate state breaks an invariant). These three subcommands make each transition
+    # one validated write.
+    if a.cmd == "switch":
+        f = feat(board, a.feature)
+        for fid, other in board.get("features", {}).items():
+            if fid != a.feature and isinstance(other, dict) and other.get("status") == "in_progress":
+                other["status"] = "blocked"
+        f["status"] = "in_progress"
+        board["current_feature"] = a.feature
+        return save(a.file, board)
+
+    if a.cmd == "park":
+        f = feat(board, a.feature)
+        f["status"] = "blocked"
+        if board.get("current_feature") == a.feature:
+            board["current_feature"] = None
+        return save(a.file, board)
+
+    if a.cmd == "close":
+        f = feat(board, a.feature)
+        f["status"] = "passing"
+        f["phase"] = "passing"
+        if board.get("current_feature") == a.feature:
+            board["current_feature"] = None
+        return save(a.file, board)
 
     if a.cmd == "set-phase":
         feat(board, a.feature)["phase"] = a.phase; return save(a.file, board)

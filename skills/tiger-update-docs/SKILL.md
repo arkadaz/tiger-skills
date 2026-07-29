@@ -1,6 +1,6 @@
 ---
 name: tiger-update-docs
-description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs writer skill (codemap section → tiger/CODEBASE_MAP.md, business → the cumulative tiger/business.md catalog keyed by feature id, release → tiger/release_docs.md, README → README.md), then closes the board (status/phase: passing, current_feature: null — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto dev and FAST-FORWARD MERGES it to dev (never touches main). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "land on dev", or when the loop finishes green and the feature needs finalizing — even standalone.
+description: Final stage — the ONE agent that refreshes every project-global doc by LOADING the tiger-docs writer skill (codemap section → tiger/CODEBASE_MAP.md, business → the cumulative tiger/business.md catalog keyed by feature id, release → tiger/release_docs.md, README → README.md), then closes the board with the atomic `board.py close <id>` (status/phase: passing, current_feature: null in one write — the ONLY stage allowed to), commits docs + README + board in ONE commit, rebases feature/<id> onto dev and FAST-FORWARD MERGES it to dev (never touches main). Use on "update the docs", "refresh the codemap", "write the changelog/release notes", "update the README", "close out the feature", "land on dev", or when the loop finishes green and the feature needs finalizing — even standalone.
 context: fork
 agent: tiger-skills:tiger-update-docs
 ---
@@ -37,7 +37,7 @@ Anything less → refresh docs you safely can, report what's missing, STOP. Do n
 | `feature_list.json` | Close-out (below). |
 | `progress.md` | Append close-out note. |
 
-**Board I/O via `tiger/board.py` only** — read current state first (`python3 tiger/board.py current` / `get <id>`), then close out with `set-status <id> passing`, `set-phase <id> passing`, `set-current null`, `add-learning <id> <bucket> "…"`; each patch preserves every other field and fails closed. Never dump or hand-rewrite the whole `feature_list.json`.
+**Board I/O via `tiger/board.py` only** — read current state first (`python3 tiger/board.py current` / `get <id>`), then close out with the ATOMIC `python3 tiger/board.py close <id>` (status + phase `passing` + `current_feature: null` in ONE validated write — a `set-status` + `set-current` pair is REFUSED in both orders, because WIP=1 and current_feature consistency are checked together), plus `add-learning <id> <bucket> "…"`; each patch preserves every other field and fails closed. Never dump or hand-rewrite the whole `feature_list.json`.
 
 **Board close-out (your EXCLUSIVE window):** set `status: passing`, `phase: passing`, `current_feature: null` (all three agree). Fill `validation.*` + `learning.{technical,product,process,harness_updates}` from real signal (e2e note, fix-up rounds). RECORD harness lessons — never edit `CLAUDE.md` yourself. Preserve WIP=1 + reciprocal acyclic links; run `scripts/validate-board.py` if present, stop on failure.
 

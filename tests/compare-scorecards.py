@@ -8,6 +8,16 @@ Exit 1 — candidate regresses on at least one reliability signal.
 import json
 import sys
 
+# A Windows console defaults to cp1252 and CRASHES on the verdict glyphs below, which would turn a
+# clean A/B comparison into a traceback. Force UTF-8 with replacement; fall back to ASCII markers.
+MARK = {"bad": "REGRESSION", "good": "improved", "same": "same", "info": "info", "dash": "-"}
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    MARK = {"bad": "✗ REGRESSION", "good": "✓ improved", "same": "— same",
+            "info": "— info", "dash": "—"}
+except Exception:
+    pass
+
 # Signals that determine regression/improvement (direction: which way is better)
 RELIABILITY_SIGNALS = [
     ("rounds_to_pass",       "lower"),
@@ -50,21 +60,21 @@ def compare(baseline, candidate):
             improved = regressed = False
 
         if regressed:
-            verdict = "✗ REGRESSION"
+            verdict = MARK["bad"]
             regressions += 1
         elif improved:
-            verdict = "✓ improved"
+            verdict = MARK["good"]
             improvements += 1
         else:
-            verdict = "— same"
+            verdict = MARK["same"]
 
         print(f"  {signal:<{col_w - 2}} {str(b):>{val_w}} {str(c):>{val_w}}  {verdict}")
 
     print()
     for signal in INFO_SIGNALS:
-        b = baseline.get(signal, "—")
-        c = candidate.get(signal, "—")
-        print(f"  {signal:<{col_w - 2}} {str(b):>{val_w}} {str(c):>{val_w}}  — info")
+        b = baseline.get(signal, MARK["dash"])
+        c = candidate.get(signal, MARK["dash"])
+        print(f"  {signal:<{col_w - 2}} {str(b):>{val_w}} {str(c):>{val_w}}  {MARK[chr(105)+chr(110)+chr(102)+chr(111)]}")
 
     print()
     if regressions:

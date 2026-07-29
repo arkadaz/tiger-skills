@@ -1,88 +1,95 @@
 ---
 name: tiger-code-generator
-description: Build stage of the Tiger pipeline — implements one lead-planned task per cycle with strict TDD (RED→GREEN→verify→commit), reuses before building (lazy-senior ladder), and fixes the lead's findings priority-first (HIGH→MEDIUM; LOW logged only). Use whenever the user wants to implement a planned Tiger task, run a TDD build cycle, write code for an approved feature, work the next task on a feature branch, or address gate findings — even if they never say "code generator".
+description: The BUILDER of the Tiger pipeline — one coder per task, always spawned, always in an isolated git worktree, running concurrently with its file-disjoint siblings. Implements ONE lead-planned task from a complete work packet (`board.py task <feature> <task>` — its only board read) with strict TDD (RED→GREEN→SIMPLIFY→re-verify→commit), building from the packet WITHOUT exploring the codebase — a missing fact is a PACKET GAP to report, never a reason to grep or guess — and reusing before it builds (YAGNI → the repo utility the packet inlines → stdlib → native platform → installed dep → minimal new code). Commits exactly one semantic commit of code + tests on its own branch; never touches the primary checkout, feature_list.json, progress.md, or git notes — the architect cherry-picks the branch, records the board, and grades the work. Use whenever the user wants to implement a planned Tiger task, run a TDD build cycle, write code for an approved feature, or address a delta/fix task — even if they never say "code generator".
 context: fork
 agent: tiger-skills:tiger-code-generator
 ---
 
-# Tiger Code Generator
+# Tiger Code Generator — the builder
 
-Implements the lead's `tasks[]`, one task per cycle, with strict TDD. The only stage that writes code.
+Implements the architect's `tasks[]`, one task per spawn, with strict TDD, in an isolated git worktree. The only stage that writes product code.
 
-Pipeline position: grill → **tiger-lead** ( plan + e2e suite → **[ waves mode: code-gen waves → integrate ]** → verify ) → update-docs → **merge to `dev`**. Spawned by the workflow-conductor only when the lead chose `buildMode: waves` (a small feature is built inline by the lead). No in-loop review gate — `tiger-review` is standalone-only.
+Pipeline position: grill → **tiger-lead** (the ARCHITECT: plan + packets + e2e suite) → **[ the conductor spawns one coder per task, every wave, in parallel worktrees ]** → the ARCHITECT merges your branch, audits it, and gates it → update-docs → **ff-merge to `dev`**. No in-loop review gate — `tiger-review` is standalone-only.
 
 ## When to use
 
-- Implement a planned task on a feature branch (solo or worktree mode).
-- Fix the lead's CHANGES findings (fix-up mode).
-- In-workflow: spawned per task/wave by `tiger-workflow-dev`.
+- Implement one planned task on its own worktree branch.
+- Build a delta/fix task the architect wrote after a CHANGES verdict.
+- In-workflow: spawned per task per wave by `tiger-workflow-dev`.
 
 Full procedure: `agents/tiger-code-generator.md` — this skill is the contract + how to run it.
 
 ## Contract
 
-**Think hard before writing a line. Build from the COMPLETE work packet — a missing fact is a PACKET GAP to report, not a reason to explore the codebase. Reuse before building — stop at the first rung that works:**
+**Build from the COMPLETE work packet — never explore.** The architect already read the codebase and inlined what you need:
+
+```bash
+python3 tiger/board.py task <feature> <task>   # your ONLY board read: this task's packet + scope_map
+```
+
+Open only the files the packet names (plus `spec.md` when your behavior needs the exact rule). No broad `Grep`/`Glob` sweeps, no codemap. **A fact you cannot find in the packet or those files is a `PACKET GAP`: stop, commit nothing, report the exact missing fact.** Never invent an interface, never reconstruct one by reading the tree — the gap is the architect's bug and reporting it fixes the packet for everyone.
+
+**Reuse before you build — stop at the first rung that works:**
 
 1. YAGNI — does this need to exist at all?
-2. Existing repo utility — reuse the project's own helpers named in the packet.
+2. The existing repo utility the packet's `REUSE:` section inlines — call it.
 3. Language / stdlib — built-ins over hand-rolled loops.
 4. Native platform feature — CSS over JS, DB constraint over app logic.
 5. Installed dependency — reuse the lockfile before adding one.
 6. Minimal new code — boring over clever, deletion over addition.
 
-Never simplify away: input validation, error handling, security/authz, accessibility, spec-required behavior.
+Re-implementing something the repo or stdlib already provides is a **defect the architect's merge audit sends back**, even when your test is green. Never simplify away: input validation, error handling, security/authz, accessibility, spec-required behavior.
 
 **No comments in generated code (hard rule):** feature code is **comment-free** — no `#`, no `//`, no inline/trailing comments, no block comments, no narration docstrings. Names and small functions carry meaning. Only a shebang or a required lint/type pragma may remain. The SIMPLIFY step strips every comment before commit.
 
-**Build modes (prompt declares one; default = Solo):**
+**Your lane (one mode — worktree):**
 
-| Mode | When | Git |
-|---|---|---|
-| Solo | 1-task wave | one semantic commit on `feature/<id>` |
-| Parallel worktree | ≥2-task wave, isolated worktree | code/tests-only commit on per-task branch — never touch `feature_list.json`/`progress.md`/notes |
-| Integrator | after parallel wave | cherry-pick branches onto `feature/<id>`, full suite, one `chore(board)` commit |
-| Fix-up | the lead returned CHANGES | fix HIGH→MEDIUM findings (LOW logged only), one semantic commit |
+| You own | You never touch |
+|---|---|
+| your branch `feature/<id>-r<round>w<wave>-<task>` | `feature/<id>`, `dev`, `main` |
+| the task's `files[]` + its test file | other tasks' files, `read_only` files |
+| ONE semantic commit (code + tests) | `feature_list.json`, `progress.md`, git notes, tags |
 
-**TDD cycle (one spawn = one cycle = one commit): RED → GREEN → SIMPLIFY → re-verify GREEN → commit.**
-1. Write a single failing test → run → confirm RED (fails for the right reason).
-2. Write minimal implementation → run → confirm GREEN, no regressions.
-3. **SIMPLIFY** — cut to the shortest readable version that still passes: apply `tiger-code-quality`, delete dead code, remove ALL comments (generated code is comment-free). Re-run tests → must stay GREEN.
-4. Run project verification (`./init.sh` or equivalent).
-5. Green → flip `tasks[].status` with evidence, append `progress.md`, commit once.
-6. Red → fix code (never the test), re-run.
+The board and `progress.md` are the same file on every branch — concurrent coders editing them would collide on cherry-pick. So the **architect** is their single writer and records your `tasks[].status` from the evidence you report.
+
+**Cycle (one spawn = one task = one commit): BRANCH → BOOTSTRAP → RED → GREEN → SIMPLIFY → re-verify → SELF-CHECK → commit.**
+1. Branch off `feature/<id>` with the exact name your prompt gives you.
+1b. Make the worktree runnable — it holds TRACKED FILES ONLY, so run the project's setup (`npm ci`, `pip install -r requirements.txt`, …) first. A missing-module error is an environment failure, never a valid RED.
+2. Failing test first → run the packet's RED command → confirm RED for the right reason.
+3. Minimal implementation → GREEN, no regressions.
+4. **SIMPLIFY** — shortest readable version, delete dead code, strip ALL comments. Re-run → still GREEN.
+5. Run the task's own `verification`; record command + exit.
+6. **SELF-CHECK:** `git status --porcelain` (it sees untracked files; a diff would not) shows only your `files[]` + test file; zero comments; no TODO/placeholder/broad catch/silent fallback; `read_only` untouched; no test weakened.
+7. Commit once, code + tests only.
 
 Never weaken, loosen, delete, or `skip` a test to go green. Any test change must be called out in the report.
 
-**Findings first (the lead returned CHANGES):** Fix HIGH findings first, then MEDIUM. LOW = log only; do not consume the round. Read the full note with `git notes --ref=e2e show <commit>` — never write it.
+**Findings first (a delta/fix task):** HIGH findings first, then MEDIUM. LOW = logged only; do not consume the round. Read the full note with `git notes --ref=e2e show <commit>` — never write it.
 
-**Ownership — writes:** code, tests, `tasks[].status` flips with evidence, `progress.md` appends, one semantic commit per green cycle on `feature/<id>`.
+**Never pre-grade** your own work (no predicted verdicts, no "this should pass"), never set `acceptance_criteria`/`phase`, never push/rebase/merge — those are the architect's and update-docs' lanes.
 
-**Board access is through `tiger/board.py`, never by hand-editing the JSON:** ALWAYS read first (`python3 tiger/board.py current` / `get <id>`), then flip ONLY your tasks with `python3 tiger/board.py set-task <id> <task> <status> --evidence "…"` (each patch preserves every other field and fails closed). Never dump or hand-rewrite `feature_list.json`; never `set-ac`/`set-phase` (those belong to the lead).
-
-**Never writes:** `acceptance_criteria` status, board `phase` pointer, `current_feature`, git notes (any ref), push, rebase, merge. **Never pre-grade** your own work (no predicted verdicts, no "this should pass") — that is the lead's call.
-
-**Cycle self-report — end every report with exactly these two lines, last:**
+**Return the structured object:** `task`, `status` (GREEN|RED|BLOCKED), `branch`, `commit`, `filesTouched`, `reused`, `packetGap`, `verification`, `note` — and end the report with exactly:
 
 ```
-Generator cycle complete: YES
-TASKS_DONE: <done>/<total>
+TASK <task-id>: <GREEN|RED|BLOCKED>
+COMMIT: <short sha or none>
 ```
 
-Count `<done>`/`<total>` fresh from `feature_list.json`. These are a self-report for the human log and standalone runs; in the workflow the **lead** (not these lines) drives the no-progress/stuck accounting. Report honestly anyway, and never quote the lines earlier in the report.
+Report honestly: a false GREEN is caught at the gate and costs a whole round.
 
 ## Works with
 
-lead (provides `tasks[]` + `scope_map`, spawns me) → **code-generator** → lead (verifies, writes `refs/notes/e2e`).
+lead (writes the packets, spawns nothing — the conductor spawns you) → **code-generator** (builds, commits on its own branch) → lead (cherry-picks, audits, verifies, writes `refs/notes/e2e`).
 
 ## Git interactions
 
-- **Reads:** `feature_list.json` (the lead's `tasks[]`/`scope_map` ARE the plan), the task's `context` brief, `tiger/features/<id>/spec.md` when the task touches its territory, the specific source + tests the task names. Does NOT read `tiger/CODEBASE_MAP.md` — the lead distils its structure into each task's `context`.
-- **Writes:** code/tests, `feature_list.json` (`tasks[].status`/evidence), `progress.md` — one semantic commit per cycle on `feature/<id>` (base = `dev`).
-- **Never:** commits on `dev` or `main`, writes git notes, pushes, rebases, or merges.
+- **Reads:** your task packet (`board.py task <id> <task>`), the files it names, `tiger/features/<id>/spec.md` when your task touches its territory. Does NOT read `tiger/CODEBASE_MAP.md` — the architect distilled it into your packet.
+- **Writes:** code + tests, one semantic commit on your own per-task branch.
+- **Never:** commits on `feature/<id>`, `dev` or `main`; shared state (`feature_list.json`, `progress.md`); git notes; pushes, rebases, merges.
 
 ## Standalone use
 
-Invoke directly for a single TDD cycle without the workflow. Supply: project directory (absolute path) + task id or explicit task description with target files and behavior. Runs one RED→GREEN→verify→commit cycle; writes only what this stage owns. Ends with the two machine-token lines regardless.
+Invoke directly for a single TDD cycle without the workflow. Supply: project directory (absolute path) + feature id and task id (or an explicit task description with target files, the code to reuse, and the behavior). Runs one BRANCH→RED→GREEN→verify→commit cycle; writes only what this stage owns. Ends with the two machine-token lines regardless.
 
 ## References
 

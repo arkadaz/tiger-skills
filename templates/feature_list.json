@@ -1,5 +1,5 @@
 {
-  "_comment": "SHAPE REFERENCE — this is what a project's feature_list.json looks like once features are specified, planned, and built: the full schema-v2 kanban with sub-feature tasks, cross-feature dependencies, phases, evidence, and learning. A real project STARTS EMPTY — /install writes {\"schema_version\":2,\"current_feature\":null,\"features\":{}} to the project root, and grill (WHY/SPECIFY fields) then the lead (PLAN fields) fill it one feature at a time. Two example features below: 'order-totals' is done (passing); 'discount-codes' depends on it and is mid-build. WIP=1, links are reciprocal + acyclic, so validate-board.py accepts it.",
+  "_comment": "SHAPE REFERENCE \u2014 this is what a project's feature_list.json looks like once features are specified, planned, and built: the full schema-v2 kanban with sub-feature tasks, cross-feature dependencies, phases, evidence, and learning. A real project STARTS EMPTY \u2014 /install writes {\"schema_version\":2,\"current_feature\":null,\"features\":{}} to the project root, and grill (WHY/SPECIFY fields) then the lead (PLAN fields) fill it one feature at a time. Two example features below: 'order-totals' is done (passing); 'discount-codes' depends on it and is mid-build. WIP=1, links are reciprocal + acyclic, so validate-board.py accepts it.",
   "schema_version": 2,
   "current_feature": "discount-codes",
   "features": {
@@ -13,24 +13,76 @@
       "user_context": "Storefront shoppers on web; high traffic at checkout.",
       "spec_file": "tiger/features/order-totals/feature.md",
       "spec_status": "approved",
-      "approval": { "approved_by": "jane@example.com", "date": "2026-05-30" },
+      "approval": {
+        "approved_by": "jane@example.com",
+        "date": "2026-05-30"
+      },
       "depends_on": [],
-      "blocks": ["discount-codes"],
+      "blocks": [
+        "discount-codes"
+      ],
       "scope_map": {
-        "modify": ["src/cart/total.ts"],
-        "read_only": ["src/cart/types.ts"],
-        "metric": { "name": "checkout_total_accuracy", "baseline": "n/a", "target": "100% line-sum match", "direction": "binary" }
+        "modify": [
+          "src/cart/total.ts"
+        ],
+        "read_only": [
+          "src/cart/types.ts"
+        ],
+        "metric": {
+          "name": "checkout_total_accuracy",
+          "baseline": "n/a",
+          "target": "100% line-sum match",
+          "direction": "binary"
+        }
       },
       "acceptance_criteria": [
-        { "id": "AC1", "criterion": "Total equals the sum of line subtotals, rounded once at the end", "verification": "npm test -- total.spec.ts -t 'sums lines' 2>&1 | grep -q '1 passed'", "status": "done", "evidence": ["commit a1b2c3d: 7 passed, exit 0"] }
+        {
+          "id": "AC1",
+          "criterion": "Total equals the sum of line subtotals, rounded once at the end",
+          "verification": "npm test -- total.spec.ts -t 'sums lines' 2>&1 | grep -q '1 passed'",
+          "status": "done",
+          "evidence": [
+            "commit a1b2c3d: 7 passed, exit 0"
+          ]
+        }
       ],
       "tasks": [
-        { "id": "T1", "title": "Sum line subtotals with single final rounding", "agent": "tiger-code-generator", "status": "done", "files": ["src/cart/total.ts"], "depends_on": [], "verification": "npm test -- total.spec.ts 2>&1 | grep -q '7 passed'", "evidence": ["commit a1b2c3d: RED->GREEN, 7 passed"], "scope_map": { "modify": ["src/cart/total.ts"], "read_only": ["src/cart/types.ts"], "metric": "binary" } }
+        {
+          "id": "T1",
+          "title": "Sum line subtotals with single final rounding",
+          "agent": "tiger-code-generator",
+          "status": "done",
+          "files": [
+            "src/cart/total.ts"
+          ],
+          "depends_on": [],
+          "verification": "npm test -- total.spec.ts 2>&1 | grep -q '7 passed'",
+          "evidence": [
+            "commit a1b2c3d: RED->GREEN, 7 passed"
+          ],
+          "scope_map": {
+            "modify": [
+              "src/cart/total.ts"
+            ],
+            "read_only": [
+              "src/cart/types.ts"
+            ],
+            "metric": "binary"
+          },
+          "context": "WHERE: src/cart/total.ts (existing module \u2014 extend, do not create a new one). REUSE: src/cart/types.ts:12 `export interface Line { sku: string; qty: number; unitCents: number }` and src/cart/types.ts:24 `export const roundHalfUp = (cents: number): number => Math.round(cents)` \u2014 round ONCE at the end, never per line. EXEMPLAR: src/cart/tax.ts:1-40 \u2014 same pure-function + integer-cents shape this repo uses for money. INTERFACES: `export function orderTotal(lines: Line[]): number` \u2014 cents in, cents out; never floats. CONNECTS: called from src/api/checkout.ts:88 (already imports `orderTotal`); no other call sites. CONVENTIONS: named exports only; throw `RangeError` on a negative qty (the repo never returns error codes). TEST: src/cart/total.spec.ts -> 'sums line subtotals with a single final rounding' \u2014 RED command: npm test -- total.spec.ts. BEHAVIOR: lines [{qty:3,unitCents:333},{qty:1,unitCents:1}] -> 1000 (3*333 + 1 = 1000; rounding applied once, not per line)."
+        }
       ],
-      "validation": { "user_acceptance": "passed", "business_metric": "line-sum match verified on 1000 sampled carts" },
+      "validation": {
+        "user_acceptance": "passed",
+        "business_metric": "line-sum match verified on 1000 sampled carts"
+      },
       "learning": {
-        "technical": ["round-once-at-end avoids per-line drift"],
-        "product": ["shoppers expect the total before, not at, checkout"],
+        "technical": [
+          "round-once-at-end avoids per-line drift"
+        ],
+        "product": [
+          "shoppers expect the total before, not at, checkout"
+        ],
         "process": [],
         "harness_updates": []
       }
@@ -45,26 +97,136 @@
       "user_context": "Shoppers with codes from email campaigns; codes are percentage or fixed-amount.",
       "spec_file": "tiger/features/discount-codes/feature.md",
       "spec_status": "approved",
-      "approval": { "approved_by": "jane@example.com", "date": "2026-06-08" },
-      "depends_on": ["order-totals"],
+      "approval": {
+        "approved_by": "jane@example.com",
+        "date": "2026-06-08"
+      },
+      "depends_on": [
+        "order-totals"
+      ],
       "blocks": [],
       "scope_map": {
-        "modify": ["src/cart/discount.ts", "src/cart/total.ts"],
-        "read_only": ["src/cart/types.ts"],
-        "metric": { "name": "promo_redemption_rate", "baseline": "0%", "target": "8%", "direction": "increase" }
+        "modify": [
+          "src/cart/discount.ts",
+          "src/cart/total.ts"
+        ],
+        "read_only": [
+          "src/cart/types.ts"
+        ],
+        "metric": {
+          "name": "promo_redemption_rate",
+          "baseline": "0%",
+          "target": "8%",
+          "direction": "increase"
+        }
       },
       "acceptance_criteria": [
-        { "id": "AC1", "criterion": "A valid percentage code reduces the total by that percent of the pre-discount total", "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'", "status": "done", "evidence": ["commit e4f5a6b: 3 passed, exit 0"] },
-        { "id": "AC2", "criterion": "A valid fixed code reduces the total by the fixed amount, never below zero", "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'", "status": "in_progress", "evidence": [] },
-        { "id": "AC3", "criterion": "An unknown or expired code is rejected and leaves the total unchanged", "verification": "npm test -- discount.spec.ts -t 'rejects invalid' 2>&1 | grep -q 'passed'", "status": "not_started", "evidence": [] }
+        {
+          "id": "AC1",
+          "criterion": "A valid percentage code reduces the total by that percent of the pre-discount total",
+          "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'",
+          "status": "done",
+          "evidence": [
+            "commit e4f5a6b: 3 passed, exit 0"
+          ]
+        },
+        {
+          "id": "AC2",
+          "criterion": "A valid fixed code reduces the total by the fixed amount, never below zero",
+          "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'",
+          "status": "in_progress",
+          "evidence": []
+        },
+        {
+          "id": "AC3",
+          "criterion": "An unknown or expired code is rejected and leaves the total unchanged",
+          "verification": "npm test -- discount.spec.ts -t 'rejects invalid' 2>&1 | grep -q 'passed'",
+          "status": "not_started",
+          "evidence": []
+        }
       ],
       "tasks": [
-        { "id": "T1", "title": "Parse + validate a discount code (known/expired/unknown)", "agent": "tiger-code-generator", "status": "done", "files": ["src/cart/discount.ts"], "depends_on": [], "verification": "npm test -- discount.spec.ts -t 'parse' 2>&1 | grep -q 'passed'", "evidence": ["commit e4f5a6b: RED->GREEN"], "scope_map": { "modify": ["src/cart/discount.ts"], "read_only": ["src/cart/types.ts"], "metric": "binary" } },
-        { "id": "T2", "title": "Apply percentage discount to the order total", "agent": "tiger-code-generator", "status": "in_progress", "files": ["src/cart/discount.ts", "src/cart/total.ts"], "depends_on": ["T1"], "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'", "evidence": [], "scope_map": { "modify": ["src/cart/discount.ts", "src/cart/total.ts"], "read_only": [], "metric": "promo_redemption_rate" } },
-        { "id": "T3", "title": "Apply fixed-amount discount with a zero floor", "agent": "tiger-code-generator", "status": "not_started", "files": ["src/cart/discount.ts"], "depends_on": ["T1"], "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'", "evidence": [], "scope_map": { "modify": ["src/cart/discount.ts"], "read_only": [], "metric": "binary" } }
+        {
+          "id": "T1",
+          "title": "Parse + validate a discount code (known/expired/unknown)",
+          "agent": "tiger-code-generator",
+          "status": "done",
+          "files": [
+            "src/cart/discount.ts"
+          ],
+          "depends_on": [],
+          "verification": "npm test -- discount.spec.ts -t 'parse' 2>&1 | grep -q 'passed'",
+          "evidence": [
+            "commit e4f5a6b: RED->GREEN"
+          ],
+          "scope_map": {
+            "modify": [
+              "src/cart/discount.ts"
+            ],
+            "read_only": [
+              "src/cart/types.ts"
+            ],
+            "metric": "binary"
+          },
+          "context": "WHERE: src/cart/discount.ts (new module beside src/cart/total.ts). REUSE: src/cart/types.ts:31 `export interface DiscountCode { code: string; kind: 'percent' | 'fixed'; value: number; expiresAt: string }` and src/cart/clock.ts:7 `export const now = (): Date => new Date()` \u2014 take time from `now()`, never construct a clock inline. EXEMPLAR: src/cart/coupon.ts:1-52 \u2014 the same parse -> validate -> typed-result shape. INTERFACES: `export type ParsedCode = { ok: true; code: DiscountCode } | { ok: false; reason: 'unknown' | 'expired' }`; `export function parseCode(raw: string, table: DiscountCode[]): ParsedCode`. CONNECTS: nothing imports it yet \u2014 T2 wires it into total.ts. CONVENTIONS: exhaustive switch on `kind`; no `any`; comparisons are case-insensitive on `code`. TEST: src/cart/discount.spec.ts -> 'parse rejects an expired code' \u2014 RED command: npm test -- discount.spec.ts -t 'parse'. BEHAVIOR: 'SAVE10' present with expiresAt in the past -> { ok:false, reason:'expired' }; absent -> { ok:false, reason:'unknown' }."
+        },
+        {
+          "id": "T2",
+          "title": "Apply percentage discount to the order total",
+          "agent": "tiger-code-generator",
+          "status": "in_progress",
+          "files": [
+            "src/cart/discount.ts",
+            "src/cart/total.ts"
+          ],
+          "depends_on": [
+            "T1"
+          ],
+          "verification": "npm test -- discount.spec.ts -t 'percentage' 2>&1 | grep -q 'passed'",
+          "evidence": [],
+          "scope_map": {
+            "modify": [
+              "src/cart/discount.ts",
+              "src/cart/total.ts"
+            ],
+            "read_only": [],
+            "metric": "promo_redemption_rate"
+          },
+          "context": "WHERE: src/cart/discount.ts (percentage branch) + the single call site in src/cart/total.ts. REUSE: src/cart/types.ts:24 `roundHalfUp`; T1's `parseCode` (same module) \u2014 do not re-validate the code here. EXEMPLAR: src/cart/tax.ts:22-38 \u2014 how a percentage is applied to integer cents in this repo. INTERFACES: `export function applyDiscount(totalCents: number, parsed: ParsedCode): number`. CONNECTS: src/cart/total.ts:41 \u2014 `orderTotal` returns its sum through `applyDiscount` when a code is present. CONVENTIONS: percentage math in integer cents, `roundHalfUp` applied once, at the end. TEST: src/cart/discount.spec.ts -> 'percentage discount rounds half up' \u2014 RED command: npm test -- discount.spec.ts -t 'percentage'. BEHAVIOR: total 1999 + SAVE10 (percent, 10) -> 1799 (199.9 rounds half-up to 200)."
+        },
+        {
+          "id": "T3",
+          "title": "Apply fixed-amount discount with a zero floor",
+          "agent": "tiger-code-generator",
+          "status": "not_started",
+          "files": [
+            "src/cart/discount.ts"
+          ],
+          "depends_on": [
+            "T1"
+          ],
+          "verification": "npm test -- discount.spec.ts -t 'fixed floor' 2>&1 | grep -q 'passed'",
+          "evidence": [],
+          "scope_map": {
+            "modify": [
+              "src/cart/discount.ts"
+            ],
+            "read_only": [],
+            "metric": "binary"
+          },
+          "context": "WHERE: src/cart/discount.ts (fixed-amount branch only \u2014 do not touch the percentage branch). REUSE: T1's `ParsedCode` + T2's `applyDiscount` signature (same module); no new helper is needed. EXEMPLAR: the percentage branch T2 adds \u2014 mirror its structure exactly. INTERFACES: unchanged \u2014 the fixed case is a branch inside `applyDiscount`. CONNECTS: no new call site. CONVENTIONS: clamp with `Math.max(0, ...)`; never return a negative total. TEST: src/cart/discount.spec.ts -> 'fixed floor never goes below zero' \u2014 RED command: npm test -- discount.spec.ts -t 'fixed floor'. BEHAVIOR: total 500 + a fixed 800 code -> 0 (floored), not -300."
+        }
       ],
-      "validation": { "user_acceptance": "pending", "business_metric": "pending" },
-      "learning": { "technical": [], "product": [], "process": [], "harness_updates": [] }
+      "validation": {
+        "user_acceptance": "pending",
+        "business_metric": "pending"
+      },
+      "learning": {
+        "technical": [],
+        "product": [],
+        "process": [],
+        "harness_updates": []
+      }
     }
   }
 }

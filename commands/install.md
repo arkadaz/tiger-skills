@@ -111,6 +111,20 @@ else echo "rm guard: NEEDS HUMAN — verification FAILED (rm=$RM_OUT, safe=$SAFE
 
 If verification fails, mark `NEEDS HUMAN` and state no build may proceed.
 
+**3d. Set `worktree.baseRef` to `"head"` in `.claude/settings.json`** (same key-preserving merge — only
+add it when the key is absent, never overwrite a human's value):
+
+```json
+{ "worktree": { "baseRef": "head" } }
+```
+
+WHY: the build stage runs one `tiger-code-generator` per task in an isolated git worktree. Subagent
+worktrees otherwise branch from the repository's **default** branch, not the in-progress
+`feature/<id>` — with `"head"` they branch from the current work, which is what a wave build means.
+(The coders also create their branch explicitly from `feature/<id>`, so a project without this setting
+still builds; the setting keeps the isolated checkouts on the feature's own history.) Report
+`created` / `skipped (already set)`.
+
 ## Step 4 — Copy the templates (markdown + Robot; refresh plugin-owned, keep customized)
 
 Copy the seven current templates into `tiger/templates/`: five markdown artifacts (`spec.md`,

@@ -101,20 +101,38 @@ def collect_scorecard(project_dir, version, feature_id=None):
         (feature_dir / "e2e_testcases.robot").exists(),
     ])
 
-    # Stages passed (inferred from board tasks + gate notes + phase). v7: the merged tiger-lead
-    # does plan (tasks exist) AND verify (the refs/notes/e2e pass below); "lead" = planned.
+    # Stages passed (inferred from durable evidence). v10 spine: lead PLAN (tasks[] + the e2e suite) →
+    # worktree coders (per-task branches) → lead E2E-HARNESS (the keyword layer) → lead INTEGRATE (the
+    # per-wave merge commits) → lead VERIFY (refs/notes/e2e) → update-docs (phase passing). Each stage
+    # leaves its own trace, so the scorecard shows which ones actually ran instead of only the endpoints.
     tasks = feature.get("tasks", [])
+    coder_branches = [
+        b.strip().lstrip("* ").strip()
+        for b in run_git(project_dir, "branch", "--list", f"feature/{feature_id}-r*w*-*").splitlines()
+        if b.strip()
+    ]
+    waves_built = sorted({m.group(1) for m in (re.search(r"-(r\d+w\d+)-", b) for b in coder_branches) if m})
+    integrate_commits = len([
+        1 for line in run_git(project_dir, "log", "--format=%s", "main..HEAD").splitlines()
+        if re.search(r"wave .* integrate", line, re.I)
+    ])
+    harness_ready = (project / "tiger" / "features" / feature_id / "e2e_keywords.resource").exists()
+
     stages_passed = []
     if tasks:
-        stages_passed.append("lead")
-    if any(t.get("status") == "done" for t in tasks):
+        stages_passed.append("lead-plan")
+    if coder_branches or any(t.get("status") == "done" for t in tasks):
         stages_passed.append("code-generator")
+    if harness_ready:
+        stages_passed.append("e2e-harness")
+    if integrate_commits:
+        stages_passed.append("lead-integrate")
     if any(n["ref"] == "security" and n["grade"] == "pass" for n in gate_notes):
         stages_passed.append("security")
     if any(n["ref"] == "review" and n["grade"] == "pass" for n in gate_notes):
         stages_passed.append("reviewer")
     if any(n["ref"] == "e2e" and n["grade"] == "pass" for n in gate_notes):
-        stages_passed.append("e2e")
+        stages_passed.append("lead-verify")
     if final_phase == "passing":
         stages_passed.append("update-docs")
 
@@ -148,6 +166,10 @@ def collect_scorecard(project_dir, version, feature_id=None):
         "commit_count": commit_count,
         "elapsed_seconds": elapsed_seconds,
         "artifacts_complete": artifacts_complete,
+        "coder_branches": len(coder_branches),
+        "waves_built": waves_built,
+        "integrate_commits": integrate_commits,
+        "harness_ready": harness_ready,
         "e2e_blockers": e2e_blockers,
         "e2e_screenshots": e2e_screenshots,
         "notes": {}

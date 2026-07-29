@@ -2,8 +2,9 @@
 
 T3 runs a **real** Tiger v2 pipeline against a *golden project* and scores the result.
 It copies a golden project into a throwaway repo, drives the saved `/tiger-workflow-dev`
-workflow with a headless `claude` session (bootstrap → lead → parallel build →
-e2e → close-out), and collects a `scorecard.json`. Unlike T1 (structural) and T2
+workflow with a headless `claude` session (lead PLAN → parallel worktree coders + the e2e
+harness → lead INTEGRATE → lead VERIFY → update-docs close-out), and collects a
+`scorecard.json`. Unlike T1 (structural) and T2
 (contract) checks, T3 actually **builds and exercises** a feature — including driving the
 generated UI with Playwright — so it measures whether the workflow *works*, not just
 whether the files are well-formed.
@@ -47,7 +48,8 @@ TIGER_PRO_MODEL=opus   TIGER_FAST_MODEL=sonnet  ./run-benchmark.sh   # defaults
 TIGER_PRO_MODEL=inherit TIGER_FAST_MODEL=inherit ./run-benchmark.sh  # session default (non-Anthropic backends)
 ```
 
-`PRO` drives lead/update-docs; `FAST` drives code-generator/integrator. These
+`PRO` drives the lead (plan / e2e-harness / integrate / verify) + update-docs; `FAST` drives the
+worktree code generators, one per task. These
 become the workflow's `proModel`/`fastModel` args (the agent frontmatter `model:` is
 ignored by the workflow runtime — it passes these directly).
 
@@ -56,8 +58,8 @@ ignored by the workflow runtime — it passes these directly).
 ## What a run does
 
 1. **Seed** — copy the golden project to `/tmp/tiger-bench-<timestamp>`, `git init`, set
-   the **`main`** trunk (v2 is trunk-based; bootstrap aborts without it), branch
-   `feature/<id>`.
+   a born **`main`** + the **`dev`** integration trunk (the lead's own discovery step aborts
+   without `dev`), then cuts `feature/<id>` from `dev`.
 2. **Install the local plugin** into the bench project (`claude plugin install --scope
    project`) so the workflow's namespaced subagents resolve. A **fidelity gate** then
    fails loud (exit 3) if the plugin isn't enabled — otherwise the run would silently
@@ -65,8 +67,13 @@ ignored by the workflow runtime — it passes these directly).
    **uninstalled on exit** (no global state left behind).
 3. **Run the workflow** headlessly with `--append-system-prompt` guarding against the
    runner improvising (it must run the workflow as-written and report, never patch around
-   failures). A live **progress poller** prints board phase / task progress / active
-   worktrees every ~10s, so a buffered `claude -p` run never looks stuck.
+   failures). **Two live views** run so no stage passes unseen:
+   - `stream-view.py` renders the session's `stream-json` event stream — every agent spawn
+     and tool call, timestamped, as it happens (raw NDJSON mirrored to `run.jsonl`).
+     `TIGER_BENCH_STREAM=0` falls back to the plain buffered transcript.
+   - `stage-probe.py` polls DURABLE state every ~10s — the inferred v10 stage (PLAN → BUILD
+     → INTEGRATE → VERIFY → FINALIZE), board phase, tasks, per-wave coder branches, active
+     worktrees, the e2e layer, evidence, and the e2e note grade.
 4. **Score** — write `config.json` + `scorecard.json`, copy Robot evidence (report/log
    HTML + screenshots) out of the bench dir.
 
@@ -76,7 +83,8 @@ Everything lands in (project name first, so a project's runs group together):
 tests/scorecards/<golden-name>-<timestamp>-<version>/
 ├── scorecard.json   # the metrics (see below)
 ├── config.json      # models, timeout, exit code, bench dir
-├── run.log          # full headless claude transcript
+├── run.log          # the human-readable stage stream (stream-view.py)
+├── run.jsonl        # raw stream-json events (post-mortem)
 └── evidence/        # report.html, log.html, output.xml, *.png (UI screenshots)
 ```
 
@@ -90,7 +98,12 @@ tests/scorecards/<golden-name>-<timestamp>-<version>/
   "final_phase": "passing",
   "rounds_to_pass": 0,          // e2e fix-up rounds needed (0 = passed first try)
   "blocked_count": 0,           // gate notes graded "blocked"
-  "stages_passed": ["lead", "code-generator", "e2e", "update-docs"],
+  "stages_passed": ["lead-plan", "code-generator", "e2e-harness",
+                    "lead-integrate", "lead-verify", "update-docs"],
+  "coder_branches": 3,          // per-task worktree branches the coders committed on
+  "waves_built": ["r1w1", "r1w2"],  // which dependency waves actually ran
+  "integrate_commits": 1,       // the architect's per-wave merge commits
+  "harness_ready": true,        // e2e_keywords.resource exists (PLAN authored the keyword layer)
   "gate_first_pass_rate": 1.0,  // pass-notes / total gate-notes
   "commit_count": 7,            // commits on feature/<id> over main..HEAD
   "elapsed_seconds": 1134,      // first→last feature commit span
@@ -99,6 +112,10 @@ tests/scorecards/<golden-name>-<timestamp>-<version>/
   "e2e_screenshots": 3          // Playwright captures = proof the UI was actually driven
 }
 ```
+
+`coder_branches` / `waves_built` / `integrate_commits` / `harness_ready` are the v10 stage
+signals — they show the coders really built in parallel worktrees and the architect really
+merged each wave, rather than one agent quietly doing everything inline.
 
 `e2e_blockers` + `e2e_screenshots` are the "clickable verified" signal: a pass with
 `high=0, medium=0` and N screenshots means the lead's verify launched a real browser, clicked
@@ -109,6 +126,15 @@ the UI, and asserted behavior — not just that unit tests passed.
 ```bash
 ./scorecard.py /tmp/tiger-bench-<ts> <version> [feature_id]
 ```
+
+### Metric caveat — `rounds_to_pass` and `gate_first_pass_rate` reward a WEAK gate
+
+Both signals measure "did the first verify round pass", which conflates *the code was good* with
+*the gate did not look hard enough*. A run that passes first try with 4 screenshots is not
+obviously better than one that takes two fix rounds because its gate proved three real defects
+over live HTTP and added the adversarial cases that catch them. Read them together with
+`e2e_screenshots`, the final `e2e_blockers`, and the `fixes:` list in `git notes --ref=e2e` before
+calling a change a regression.
 
 ### Compare two runs (A/B a plugin version or a change)
 

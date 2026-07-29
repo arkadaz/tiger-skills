@@ -72,8 +72,8 @@ TIMEOUT=18000 # 5 hours
 # Model tiers — override via env vars or edit here.
 # The workflow's agent() calls pass these directly; agent frontmatter model: is ignored by the runtime.
 # Use "inherit" to let the session default decide (no model arg sent).
-PRO_MODEL="${TIGER_PRO_MODEL:-opus}"     # architect, security, reviewer, e2e, update-docs
-FAST_MODEL="${TIGER_FAST_MODEL:-sonnet}" # code-generator, integrator
+PRO_MODEL="${TIGER_PRO_MODEL:-opus}"     # lead (plan / e2e-harness / integrate / verify) + update-docs
+FAST_MODEL="${TIGER_FAST_MODEL:-sonnet}" # the worktree code generators (one per task)
 
 # Read version from plugin.json
 VERSION=$(python3 -c "import json; print(json.load(open('$KIT_ROOT_N/.claude-plugin/plugin.json'))['version'])")
@@ -89,8 +89,8 @@ mkdir -p "$RUN_DIR"
 echo "=== Tiger T3 Benchmark ==="
 echo "Version  : $VERSION"
 echo "Golden   : $GOLDEN_NAME (feature: $FEATURE_ID)"
-echo "Pro model: $PRO_MODEL  (architect/security/reviewer/e2e/docs)"
-echo "Fast model: $FAST_MODEL  (code-generator/integrator)"
+echo "Pro model: $PRO_MODEL  (lead: plan/harness/integrate/verify + update-docs)"
+echo "Fast model: $FAST_MODEL  (worktree code generators, one per task)"
 echo "Bench dir: $BENCH_DIR"
 echo "Scorecard: $SCORECARD_OUT"
 
@@ -129,6 +129,26 @@ git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark ad
 git -C "$BENCH_DIR" -c user.email=benchmark@tiger.test -c user.name=Benchmark \
 	commit -q -m "chore: install tiger harness (board.py + templates)"
 
+# 3a. worktree.baseRef = head — what /tiger-skills:install writes. Subagent worktrees otherwise branch
+# from the repo's DEFAULT branch, not the in-progress feature/<id>; "head" keeps each parallel coder's
+# isolated checkout on the feature's own history.
+python3 - "$BENCH_DIR_N" <<'PY'
+import json, os, sys
+p = os.path.join(sys.argv[1], ".claude", "settings.json")
+os.makedirs(os.path.dirname(p), exist_ok=True)
+cfg = {}
+if os.path.exists(p):
+    try:
+        with open(p, encoding="utf-8") as fh:
+            cfg = json.load(fh) or {}
+    except Exception:
+        cfg = {}
+cfg.setdefault("worktree", {}).setdefault("baseRef", "head")
+with open(p, "w", encoding="utf-8") as fh:
+    json.dump(cfg, fh, indent=2)
+print("worktree.baseRef=head set in bench settings.json")
+PY
+
 # 3b. Install THIS repo's plugin into the bench project (REAL install, project scope) so the
 # workflow's `agentType: tiger-skills:tiger-*` subagents resolve. A settings-only
 # declaration (extraKnownMarketplaces + enabledPlugins) is NOT enough — verified: the agents
@@ -162,35 +182,32 @@ else
 	echo "WARN: timeout/gtimeout not found — running without timeout (install coreutils: brew install coreutils)"
 fi
 
+RUN_START_TS=$(date +%s)
 echo "Run dir  : $RUN_DIR"
 echo "Starting workflow (timeout: ${TIMEOUT}s)..."
 echo "Live log : $LOG_OUT"
 
-# ── Live progress poller ──────────────────────────────────────────────────────
-# `claude -p` buffers its own stdout until the whole run ends, so the console
-# looks frozen even while the pipeline is hard at work. This watcher shows what the
-# workflow is actually doing by polling DURABLE state in the bench repo every 10s —
-# the board phase, task progress, active git worktrees (parallel build waves), and
-# the latest commit — printing a line whenever any of them changes, plus a ~60s
-# heartbeat so it is never silent for long. Disk state is authoritative, so this is
-# accurate regardless of how claude buffers its own output.
+# ── Live stage tracker (durable state) ────────────────────────────────────────
+# Two independent views run during the workflow, so a stage can never pass unseen:
+#   1. this poller — DURABLE state in the bench repo (board phase, tasks, coder branches,
+#      worktrees, e2e layer, evidence, e2e note, HEAD) via stage-probe.py, which also infers
+#      the v10 stage (PLAN → BUILD → INTEGRATE → VERIFY → FINALIZE). Disk + git are
+#      authoritative regardless of how `claude -p` buffers its own output.
+#   2. stream-view.py — the live event stream of the headless session itself (every agent
+#      spawn and tool call), see the run block below.
 progress_poller() {
-	local last="" start_ts ticks=0 elapsed phase tasks wt head snap
+	local last="" start_ts ticks=0 elapsed snap
 	start_ts=$(date +%s)
 	while :; do
 		sleep 10
 		ticks=$((ticks + 1))
 		elapsed=$(($(date +%s) - start_ts))
-		phase=$(python3 -c "import json;print(json.load(open('$BENCH_DIR_N/feature_list.json'))['features']['$FEATURE_ID'].get('phase','?'))" 2>/dev/null || echo '?')
-		tasks=$(python3 -c "import json;t=json.load(open('$BENCH_DIR_N/feature_list.json'))['features']['$FEATURE_ID'].get('tasks') or [];print(f\"{sum(1 for x in t if x.get('status')=='done')}/{len(t)}\")" 2>/dev/null || echo '?')
-		wt=$(git -C "$BENCH_DIR" worktree list 2>/dev/null | wc -l | tr -d ' ')
-		head=$(git -C "$BENCH_DIR" log -1 --format='%h %s' 2>/dev/null || echo '<no commit>')
-		snap="$phase|$tasks|$wt|$head"
+		snap=$(python3 "$SCRIPT_DIR_N/stage-probe.py" "$BENCH_DIR_N" "$FEATURE_ID" 2>/dev/null || echo 'stage=? (probe failed)')
 		if [ "$snap" != "$last" ]; then
-			printf '  [+%5ds] phase=%-9s tasks=%-7s worktrees=%s | %s\n' "$elapsed" "$phase" "$tasks" "${wt:-1}" "$head"
+			printf '  [+%5ds] %s\n' "$elapsed" "$snap"
 			last="$snap"
 		elif [ $((ticks % 6)) -eq 0 ]; then
-			printf '  [+%5ds] …still working (phase=%s tasks=%s)\n' "$elapsed" "$phase" "$tasks"
+			printf '  [+%5ds] …still working | %s\n' "$elapsed" "$snap"
 		fi
 	done
 }
@@ -204,14 +221,36 @@ set +e
 # CLAUDE_CODE_SUBAGENT_MODEL: unset so proModel/fastModel args take effect.
 # CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0: wait indefinitely for background subagents
 #   (default 600s ceiling kills long-running workflows mid-run).
-(cd "$BENCH_DIR" && unset CLAUDE_CODE_SUBAGENT_MODEL &&
-	export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 &&
-	$TIMEOUT_CMD claude \
-		--dangerously-skip-permissions \
-		--verbose \
-		--append-system-prompt "BENCHMARK MODE: You are a non-interactive harness runner. Your ONLY job is to invoke the /tiger-workflow-dev workflow exactly as written and let it run to completion, then report its result verbatim. Do NOT edit, patch, or rewrite the workflow script or any .claude file. Do NOT substitute, reroute, or inline any agent. Do NOT work around errors or fix the environment (branches, plugins, settings). If the workflow aborts or any stage fails, report the failure exactly as given and STOP — a clean failure is a valid benchmark outcome, never something to repair." \
-		-p "/tiger-workflow-dev {\"proModel\":\"$PRO_MODEL\",\"fastModel\":\"$FAST_MODEL\"}") 2>&1 | tee "$LOG_OUT"
-WORKFLOW_EXIT=${PIPESTATUS[0]}
+BENCH_SYS_PROMPT="BENCHMARK MODE: You are a non-interactive harness runner. Your ONLY job is to invoke the /tiger-workflow-dev workflow exactly as written and let it run to completion, then report its result verbatim. Do NOT edit, patch, or rewrite the workflow script or any .claude file. Do NOT substitute, reroute, or inline any agent. Do NOT work around errors or fix the environment (branches, plugins, settings). If the workflow aborts or any stage fails, report the failure exactly as given and STOP — a clean failure is a valid benchmark outcome, never something to repair."
+BENCH_PROMPT="/tiger-workflow-dev {\"proModel\":\"$PRO_MODEL\",\"fastModel\":\"$FAST_MODEL\"}"
+# STREAM VIEW (default on): stream-json + stream-view.py prints every agent spawn and tool
+# call as it happens, so all stages of the workflow are visible live instead of arriving in
+# one buffered dump at the end. Raw NDJSON is mirrored to run.jsonl for post-mortem.
+# TIGER_BENCH_STREAM=0 falls back to the plain buffered transcript.
+RAW_OUT="$RUN_DIR/run.jsonl"
+RAW_OUT_N="$(winpath "$RAW_OUT")"
+if [ "${TIGER_BENCH_STREAM:-1}" = "1" ]; then
+	echo "Stream view: ON (raw NDJSON -> $RAW_OUT). Stages: plan -> build(waves, parallel worktree coders + e2e harness) -> integrate -> verify -> finalize"
+	(cd "$BENCH_DIR" && unset CLAUDE_CODE_SUBAGENT_MODEL &&
+		export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 &&
+		$TIMEOUT_CMD claude \
+			--dangerously-skip-permissions \
+			--verbose \
+			--output-format stream-json \
+			--append-system-prompt "$BENCH_SYS_PROMPT" \
+			-p "$BENCH_PROMPT") 2>&1 |
+		python3 "$SCRIPT_DIR_N/stream-view.py" --raw "$RAW_OUT_N" | tee "$LOG_OUT"
+	WORKFLOW_EXIT=${PIPESTATUS[0]}
+else
+	(cd "$BENCH_DIR" && unset CLAUDE_CODE_SUBAGENT_MODEL &&
+		export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 &&
+		$TIMEOUT_CMD claude \
+			--dangerously-skip-permissions \
+			--verbose \
+			--append-system-prompt "$BENCH_SYS_PROMPT" \
+			-p "$BENCH_PROMPT") 2>&1 | tee "$LOG_OUT"
+	WORKFLOW_EXIT=${PIPESTATUS[0]}
+fi
 set -e
 kill "$POLLER_PID" 2>/dev/null || true
 # EXIT trap stays armed — it uninstalls the bench plugin when the script finishes.
@@ -221,6 +260,11 @@ if [ "$WORKFLOW_EXIT" -eq 124 ]; then
 elif [ "$WORKFLOW_EXIT" -ne 0 ]; then
 	echo "WARN: workflow exited $WORKFLOW_EXIT — collecting partial scorecard"
 fi
+
+# True end-to-end wall clock of the headless run. scorecard.elapsed_seconds only spans the first to
+# last COMMIT, so it omits planning, the gate and finalize entirely — useless for A/B timing.
+RUN_WALL=$(( $(date +%s) - RUN_START_TS ))
+echo "Wall clock: ${RUN_WALL}s"
 
 # 5. Save run config
 python3 - <<EOF >"$CONFIG_OUT"
@@ -235,6 +279,7 @@ print(json.dumps({
     "golden_feature": "$FEATURE_ID",
     "bench_dir": "$BENCH_DIR",
     "workflow_exit_code": $WORKFLOW_EXIT,
+    "wall_clock_seconds": $RUN_WALL,
 }, indent=2))
 EOF
 echo "Config   written to: $CONFIG_OUT"
