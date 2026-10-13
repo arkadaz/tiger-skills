@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Harness engineering (outer loop) + code quality (inner loop): a lean, linear single-feature pipeline. grill interviews deeply and writes TWO markdown artifacts per feature \u2014 a detailed agent-facing spec.md (exact requirements, rules, error tables, worked examples, testable ACs) and a one-page human feature.md carrying the approval token \u2014 then cuts feature/<id> from dev. THE CODERS BUILD, THE ARCHITECT MERGES: tiger-lead plans from spec.md (paying the codebase recon ONCE and pushing it down as per-task packets that inline the exact code to reuse), AUTHORS the broad Robot e2e suite itself before any code exists (boundary/typical/adversarial/error, priority-tagged), and returns file-disjoint waves; the deterministic workflow spawns one tiger-code-generator per task, all concurrent in isolated git worktrees (strict TDD, reuse-before-build, simplify pass, NO comments), while the lead warms the Playwright/Robot runtime and authors the keyword layer in parallel; then the lead cherry-picks every wave itself, re-verifies the tip, audits the diff for reuse/comments/scope/dead code, repairs any failed task's packet, and finally runs the whole tiger/features/ folder for real (Playwright for UI) as the single quality gate \u2014 triaging by priority and re-planning the delta on HIGH/MEDIUM \u2014 before update-docs refreshes the markdown docs and fast-forward merges to dev (main stays protected; dev->main is manual). tiger-review is the standalone on-demand quality+security gate. A SECOND, git-free workflow \u2014 the research loop (/research-goal to grill + approve a goal, then /research-workflow) \u2014 drives an autonomous, self-deliberating series of genuinely-different experiments (novelty engine forbids parameter tuning; web/arxiv-grounded; results logged to local research/<goalId>/experimentN/ folders). 5 agents, 10 skills, two deterministic Workflows. Based on the walkinglabs learn-tiger-grill course.",
-  "version": "10.1.0",
+  "description": "Coding through one command: /vibe. Say what you want; it classifies the request (feature, bug fix, refactor, performance, chore, docs, review, question), plans it, hands each task to the tiger-engineer agent (Sonnet), has the tiger-reviewer agent (Opus) check the finished work, proves every result with a real run, and records it as the next version under docs/human and docs/agent. The engineer carries the best-practice skills: grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, hexagonal architecture, verification, code map, review.",
+  "version": "11.0.0",
   "author": {
     "name": "arkadaz"
   },
@@ -9,43 +9,12 @@
   "repository": "https://github.com/arkadaz/tiger-skills",
   "license": "MIT",
   "keywords": [
-    "tiger-grill",
-    "tiger-code-quality",
+    "vibe",
     "skills",
-    "agents",
-    "subagent-workflow",
-    "design-principles",
-    "verification",
-    "feature-tracking",
-    "code-review",
-    "tiger-review",
-    "e2e-testing",
+    "coding",
+    "hexagonal-architecture",
     "tdd",
-    "python",
-    "rust",
-    "walkinglabs"
-  ],
-  "autoDiscovery": {
-    "skills": [
-      "skills/tiger-grill/",
-      "skills/tiger-lead/",
-      "skills/tiger-code-generator/",
-      "skills/tiger-update-docs/",
-      "skills/tiger-docs/",
-      "skills/tiger-code-quality/",
-      "skills/tiger-review/",
-      "skills/research-goal/",
-      "skills/tiger-researcher/",
-      "skills/tiger-novelty-critic/"
-    ],
-    "agents": [
-      "agents/"
-    ],
-    "commands": [
-      "commands/"
-    ],
-    "hooks": [
-      "hooks/"
-    ]
-  }
+    "verification",
+    "code-review"
+  ]
 }

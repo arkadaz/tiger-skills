@@ -1,5 +1,0 @@
-{
-  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/mcp.schema.json",
-  "description": "MCP servers for tiger-skills — extend Claude with code search, sourcegraph, filesystem, and other capabilities. Add MCP servers here to activate them. Currently empty — customize for your project.",
-  "mcpServers": {}
-}

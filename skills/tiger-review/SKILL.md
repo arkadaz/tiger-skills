@@ -1,112 +1,113 @@
 ---
 name: tiger-review
-description: The standalone, human-invoked review gate — code quality AND security in one pass (merges the former tiger-reviewer and tiger-security skills). NOT part of the automated workflow (tiger-lead is the single in-loop gate). Runs the project's test suite as a real process, audits the branch diff across seven quality dimensions plus a 10-category vulnerability taxonomy and a secrets scan, validates every finding, records a pass/changes/blocked verdict as git notes (refs/notes/review for quality, refs/notes/security for security findings). Use when the user asks for a code review, "review this diff/branch/commit/MR/PR", "check test quality", a security review/audit, vuln or secrets scan, "is this change safe", or "audit this commit".
+description: Review a change by running things, not by opinion. Runs the unit, use case, adapter and end-to-end tests, the linter, type check and architecture check, rule checks as commands, security scans, and probes that a wrong implementation would fail. Every finding is a command and what it printed. Use when asked to review, audit or check a diff, branch, commit or pull request, or whether a change is safe.
 ---
 
-# Tiger Review — the standalone quality + security gate
+# Review
 
-One human-invoked skill, two halves that share the same evidence discipline: a **quality audit** (the old reviewer) and a **security audit** (the old security gate). Run both by default; run one half alone when the user asks for only that. **Not in the automated workflow** — tiger-lead is the single automated gate.
+A review is proof, not opinion. Every finding is one of two things: a command you ran and what it printed, or a written rule and the `file:line` that breaks it, with the rule quoted. No proof, no finding.
 
-## When to use
+The reviewer is never the one who wrote the code. An author reads the code the way it was meant, and a long session forgives what it has seen a hundred times. Review in a fresh context, from the spec and the diff alone.
 
-- Human asks for a code review, diff audit, test-quality check, MR/PR review — quality half (at least).
-- Human asks for a security review/audit, vuln scan, secrets scan, "is this safe" — security half (at least).
-- Standalone only — never spawned by `/tiger-workflow-dev`.
+You may add a test to prove a finding. You change no product code unless the user asks for the fixes.
 
-## Shared contract
+The rules behind these checks are in `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-logging` and `tiger-configuration`, and in `tiger-terraform` for infrastructure. Load them if they are not already in your context.
 
-**Inputs:** project dir (absolute), target (default `git log -1`; a branch-wide review baselines on `dev`):
+## What to review
 
-```bash
-BASE=$(git merge-base dev HEAD 2>/dev/null || git merge-base origin/dev HEAD 2>/dev/null || echo HEAD~1)
-git log -p "$BASE"..HEAD   # full patch series — audit ALL intermediate commits
-git diff "$BASE"..HEAD     # net change
-```
+The target the user named. Otherwise the current branch against the branch it was cut from: `git diff $(git merge-base HEAD <base>)..HEAD`.
 
-Optional: `tiger/features/<id>/spec.md` + `feature.md` for the business-logic audit (without them, say so plainly and skip that pass).
+A review needs a clear statement of what the change must do: the feature's acceptance criteria, or the bug and what should happen instead. For a version still being built that is `docs/agent/v<N>/spec.md`. Without one, say so first: you can check the rules, but not whether the behavior is right.
 
-**Suite run is mandatory.** A real OS process (`./init.sh` or documented path). Code-reading is not evidence. Red suite → automatic non-PASS with failing output quoted in `fixes:`.
+`docs/agent/behavior.md` lists what the system does today. A change that breaks one of its rules, when the spec did not ask for that, is a finding.
 
-**Confidence filter — flag ONLY IF:** code fails to parse/import (demonstrated by running it); logic definitely produces incorrect results (demonstrated or deterministically traced); or a clear guideline violation with the exact rule quoted. Never flag: style opinions, input-dependent "potentials", pre-existing issues, linter-catchable problems, anything without a file:line.
+## 1. Run the tests
 
-## Quality half (seven dimensions, one deliberate pass each)
-
-| Dimension | What to check |
+| Run | It is a finding when |
 |---|---|
-| Comments are a defect | flag EVERY comment for removal — generated code is comment-free. Sole exceptions: shebang, required lint/type pragma |
-| Test gaps | against `docs/tiger-unit-test-best-practice.md` only — no generic "more tests" |
-| Silent failures | swallowed exceptions, broad catches, error-hiding defaults |
-| Type design | unenforced invariants, leaked internals, stringly-typed state |
-| Design quality | the `tiger-code-quality` smells at file:line |
-| Guideline compliance | CLAUDE.md, scope_map writes, semantic-commit format, one-commit discipline |
-| Simplification | demand the smallest readable code (the write-less delete-list) — flag anything shorter/clearer with behavior preserved |
+| unit and use case tests | anything fails |
+| adapter tests | anything fails |
+| the journeys this change touches, and the smoke journeys | anything fails |
+| the runner's timing report | a run is over its time (see "What runs when" in `tiger-verification`) |
+| coverage of the changed lines, when the project has a coverage tool | a changed line that makes a decision is never run by a test |
 
-**Discriminating-check rule:** if a test's inputs cannot distinguish a correct implementation from a plausible wrong one, derive a discriminating input from the spec and run it yourself. Green-but-degenerate suite → CHANGES with the input quoted.
+## 2. Run the static checks
 
-## Security half (branch diff only, never pre-existing issues)
+The project's own linter, formatter check, type check, build and architecture check. Any failure is a finding.
 
-**10-category taxonomy — walk all; state n/a explicitly:** 1 Injection (SQL/command/LDAP/XPath/NoSQL/XXE) · 2 AuthN/AuthZ (broken auth, IDOR, privilege escalation) · 3 Data exposure (hardcoded secrets, sensitive logging, PII) · 4 Crypto (weak algorithms, key management, insecure RNG) · 5 Input validation (missing sanitization, overflows) · 6 Business-logic flaws (races, TOCTOU) · 7 Configuration (insecure defaults, missing headers, permissive CORS) · 8 Supply chain (vulnerable/bumped deps — diff the lockfile) · 9 Code execution (deserialization, pickle/eval) · 10 XSS (reflected/stored/DOM).
+## 3. Run the rule checks
 
-**Secrets scan — run all applicable:**
+Over the lines this change added. A hit is a finding unless a tool requires that line.
 
 ```bash
-PATCH=/tmp/tiger-review-$$.patch
-git log -p "$BASE"..HEAD > "$PATCH"
-grep -nEi '^\+.*(api[_-]?key|secret|passwd|password|token|auth|credential|private[_-]?key|connection[_-]?string)' "$PATCH"
-grep -nE '^\+.*(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|xox[baprs]-|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{20,}\.)' "$PATCH"
-grep -nE '^\+.*(eval\(|exec\(|pickle\.loads|yaml\.load\(|child_process|os\.system|subprocess.*shell=True|dangerouslySetInnerHTML|innerHTML *=)' "$PATCH"
-command -v gitleaks >/dev/null && gitleaks detect --log-opts="$BASE..HEAD" --no-banner
-command -v semgrep  >/dev/null && semgrep scan --error --quiet
-[ -f package.json ] && npm audit --omit=dev || true
-command -v bandit   >/dev/null && bandit -q $(git diff --name-only "$BASE"..HEAD -- '*.py') 2>/dev/null || true
+git diff <base>..HEAD | grep -nE '^\+\s*(#|//|/\*|\*)'
+git diff <base>..HEAD | grep -nE '^\+.*\b(def|function|func|fn) +_[a-z]'
+git diff <base>..HEAD | grep -nE '^\+.*(TODO|FIXME|XXX|NotImplemented)'
+git diff <base>..HEAD | grep -nE '^\+\s*(except:|except Exception|catch *\(\w*\) *\{ *\})'
+git diff <base>..HEAD | grep -nE '^\+.*(@skip|\.skip\(|\bxit\(|@Ignore|t\.Skip)'
+git diff <base>..HEAD | grep -nE '^\+.*\b(def|function|func|fn)\b.*(\bdict\b|\bAny\b|\bobject\b|: *any\b|interface\{\})'
 ```
 
-Suppress a false-positive only via a non-comment mechanism (a `.gitleaksignore` fingerprint or a path allowlist — lockfiles, test fixtures); name it in the report. A private-key block or cloud key ID is NEVER allowlisted by path alone.
+In order: comments, underscore helpers, left-overs, swallowed errors, skipped tests, signatures with a type that says nothing.
 
-**Hardcoded-secret 5-step playbook (verbatim in every such finding):** 1 **Revoke** immediately · 2 **Rotate** · 3 **Delete** from commits/logs/systems · 4 **Investigate** audit logs (who/when/IPs) · 5 **Document** + notify. Grading: local-only branch → `changes`; already pushed → `blocked`.
+A search finds only some of it. Then read every added line, product code and test code alike, against the numbered rules of `tiger-code-quality` and its "Instead of this, write that" table, and against every smell in the tables of `tiger-design-principles`. Each break is a medium finding: name the rule or the principle, quote the line, and say what it should be. The ones a search misses most:
 
-**Auto-drop (never report, even as minor):** DoS, rate limiting, resource exhaustion, generic input validation without proven impact, open redirect, speculative findings without a concrete path.
+- a loop hidden in a wrapped comprehension or chain, a value nested where a name belongs, a trick where a named function exists
+- a function with two jobs, more than four inputs, a flag input, hidden work, or more than two levels of indentation
+- a state written as a bare string, number or pair of booleans, and a bare number or string that carries a meaning
+- data changed after it was built, or input checked again deep inside instead of once at the edge
+- a name that is vague, shortened or negative, or two words for one thing
+- code that was written before its data was designed: the types say nothing and the functions pass loose values around
+- more than was asked: a limit, a check, an option or a rule the spec never named, or input checked far harder than whoever sends it can justify
+- a smell from `tiger-performance`: a query or a request in a loop, a search in a loop, everything loaded to use a little, a call with no time limit
+- a smell from `tiger-logging`: an error logged and passed on, a sentence glued from values, a secret or a whole record in a log line, a log line in a business rule
+- a smell from `tiger-configuration`: an address, a credential or a limit written in the code, the environment read deep inside, a setting checked late
 
-## Verdict + notes
+## 4. Probe it
 
-| Verdict | Meaning |
+Work on a scratch copy or a throwaway branch, so the change under review stays as it is.
+
+| Question | The run that answers it |
 |---|---|
-| `pass` | Suite green by own run; zero validated findings in the halves that ran |
-| `changes` | Validated findings a fix round can address |
-| `blocked` | Spec contradiction, pushed secret, or state a retry cannot fix |
+| Is the behavior right? | For each acceptance criterion, write the input a plausible wrong implementation would get wrong, as a test, and run it. A failing probe is a finding and the test is its proof. |
+| Is every path covered? | Build the decision tree from `tiger-verification` for each rule the change touches. A path with no row in the spec, or no row in a test, is a finding. Run that path to show what happens. |
+| Can the tests fail? | Break one line the change added, run its tests, restore the line. If nothing failed, those tests prove nothing. |
+| Is every test needed? | Remove a test, break the rule it claims to protect, run the rest. If another test still fails, it was a duplicate. If no rule of ours could break it at all, it tests the framework. |
+| Was a caller missed? | Rebuild the code map. For every function the change touched, find the line it is indented under in each block. A caller that needed the change and is not in the diff is a finding. So is a map that changed when you rebuilt it: it was stale. |
+| Was anything left behind? | In the rebuilt code map, look up everything the change added or stopped using: a new function that starts its own block and is not a real entry point is called by nothing. Run the project's unused-code and duplicate checks too. Code, a test, a fixture or a journey with no caller and no rule to protect is a finding. So is an old version kept beside the new one. |
+| Does a doc still claim something that is gone? | Run the docs check from `vibe`. Then, for everything the change removed or replaced, search `docs/agent/behavior.md`, `docs/agent/memory.md` and the "today" list in `docs/human/README.md` for its name. A line that still presents it as current is a finding. So is new code that calls something marked deprecated. |
+| Was something rebuilt? | Name the existing function, library or database feature, swap it in, run the tests. If they pass, the new code was not needed. |
+| Is it more than was asked? | Delete the option, layer or helper, run the tests. If they pass, it was dead weight. |
+| Does it hold up at real size? | Run the changed path with a realistic amount of data, and count its queries and requests. A count that grows with the data is a finding. |
+| Does it fail well? | Start it with a required setting missing: it must stop at once and name the setting. Make one request fail: the log must say what failed, for which thing and why, in one error line, with no secret in it. |
+| Does outside input break it? | Run the rows from "Input from outside" in `tiger-verification` against every place this change takes input. |
 
-Fail closed: an incomplete audit is `changes` or `blocked`, never `pass`.
+## 5. Security runs
 
-**Git notes — the only writes (and only when the user asks for the note, or a full gate run):** quality findings → `refs/notes/review`; security findings → `refs/notes/security`. Attach to the code commit, never a board commit:
+Only what this change added.
+
+- Run the scanners the project has: gitleaks, semgrep, bandit, `npm audit`, `pip-audit`, `cargo audit`.
+- Search the added lines for secrets:
 
 ```bash
-git notes --ref=review   add -f -m "grade: <pass|changes|blocked>\nfixes:\n- <file:line — finding + concrete fix, or 'none'>" <commit>
-git notes --ref=security add -f -m "grade: <pass|changes|blocked>\nfixes:\n- <file:line — finding + concrete fix, or 'none'>" <commit>
+git diff <base>..HEAD | grep -nEi '^\+.*(api[_-]?key|secret|passw|token|credential|private[_-]?key|connection[_-]?string)'
+git diff <base>..HEAD | grep -nE '^\+.*(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|xox[baprs]-|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
 ```
 
-**End every report with EXACTLY these lines, last** (machine-read; absent/garbled fails closed to CHANGES). Emit the line(s) for the half(ves) that ran; each must agree with its `grade:`:
+- Try each of these where it applies, with a real request or test, and count it only when the run shows the hole: injection into a query, shell, template or path; reaching another user's data; a secret or personal data in a response or a log; a check-then-act race; unsafe deserialization or `eval`; script injected into a page.
+
+A real secret in the code: revoke it, rotate it, remove it from history, check the logs for use, tell the owner — in that order. If it was already pushed, the result is `blocked`.
+
+## Result
+
+List findings worst first, one per line, each with its proof:
 
 ```
-TIGER_REVIEW: <PASS|CHANGES|BLOCKED>
-TIGER_SECURITY: <PASS|CHANGES|BLOCKED>
+high — src/orders/total.py:41 — rounds each line instead of the sum — python3 -m unittest tests.test_total.TotalTest.test_three_thirds → 0.99 != 1.00
 ```
 
-## Works with
+- **high** — a wrong result, a security hole, lost data, a failing test
+- **medium** — a broken rule, a test that cannot fail, a run over its time
+- **low** — cosmetic
 
-grill → tiger-lead → **[human invokes tiger-review standalone]** → update-docs. Independent of the loop; the human merges its fix list into the next round.
-
-## Git interactions
-
-- **Reads:** `git log -p`, `git diff`, `git show`, `feature_list.json`, touched files, spec artifacts, existing notes.
-- **Writes:** `refs/notes/review` and/or `refs/notes/security` on the reviewed commit — nothing else.
-- **Never:** `git commit`, push, branch ops, board writes, `progress.md`, code/test edits.
-
-## Standalone use
-
-Invoke by intent ("review this commit/branch/MR", "security-audit this diff"). Supply: project dir, target, optional spec path. Runs the suite for real, audits the requested half(ves), validates findings, prints the report, ends with the token line(s).
-
-## References
-
-- `docs/tiger-unit-test-best-practice.md` — test quality standard
-- `tiger-code-quality` skill — design principles + write-less delete-list
-- `docs/tiger-git-best-practice.md` — commit and note contract
+End with one line: `Review: pass`, `Review: changes` or `Review: blocked`. Pass needs every run green and no high or medium findings.
