@@ -1,7 +1,8 @@
 ---
 name: tiger-planner
 description: Planning agent with the tiger planning skills loaded. Spawn it with one job - understand (read the project, draw the decision tree, return the open questions), plan (write the spec and the tasks from the user's answers, return the build sheet), close (fold a finished version into the project's docs and land it) or answer (answer a question from the code). It writes the docs and never product code.
-model: opus
+model: sonnet
+effort: high
 skills:
   - tiger-planning
   - tiger-decision-tree

@@ -71,7 +71,7 @@ Your session is only the conductor: it starts the agents, runs the commands they
 4. **Confirm.** You see the finished tree and what "done" means, and it asks "Build this?". Nothing is built before you say yes.
 5. **Build.** One engineer per task, test first. Tasks that share no file are built at the same time.
 6. **Check.** After every task: its own check, the static checks, the tests. At the end: every acceptance command.
-7. **Review.** A reviewer that did not write the code runs it, probes it, and proves every finding. Findings go back to an engineer.
+7. **Review.** A reviewer that did not write the code runs it, probes it, and proves every finding. Findings go back to an engineer once, and a second reviewer checks the fix.
 8. **Close.** The planner edits the living docs to match, adds a page for the version, and lands the branch.
 
 | It decides this is a | So it |
@@ -143,13 +143,22 @@ post_order(store: OrderStore, body: dict) -> dict  [shop/adapters/http.py]
 
 ## What is in the box
 
-Three agents, each on the model its job needs, whatever model your session is on:
+Three agents, each pinned to its own model and its own level of thinking, whatever your session is on:
 
-| Agent | Model | Job |
-|---|---|---|
-| `tiger-planner` | Opus | reads the project, draws the decision tree, finds the questions, writes the spec, the tasks and the docs |
-| `tiger-engineer` | Sonnet | writes the code, one task at a time, with the building skills loaded |
-| `tiger-reviewer` | Opus | checks finished work it did not write, in a fresh context, and proves every finding |
+| Agent | Model | Thinking | Job |
+|---|---|---|---|
+| `tiger-planner` | Sonnet | high | reads the project, draws the decision tree, finds the questions, writes the spec, the tasks and the docs |
+| `tiger-engineer` | Haiku | medium | writes the code, one task at a time, with the building skills loaded |
+| `tiger-reviewer` | Opus | medium | checks finished work it did not write, in a fresh context, and proves every finding |
+
+To change one, edit two lines at the top of its file in `agents/`:
+
+```yaml
+model: sonnet     # haiku, sonnet or opus
+effort: high      # low, medium, high, xhigh or max
+```
+
+A bigger model and more thinking find more and take longer. The reviewer is where they pay most, and the engineer where they pay least, because it builds from a spec that already fixes the types and the signatures.
 
 Tasks that share no file are built at the same time, each engineer in its own git worktree.
 

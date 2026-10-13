@@ -29,11 +29,12 @@ You never write this file, and you never write a call chain anywhere else from m
 
 - CodeGraph parses the code. `codemap.mjs`, in this skill's folder, prints its index as the text above.
 - Set up once per machine: `npm i -g @colbymchenry/codegraph`.
-- Set up once per project: `codegraph init`, add `.codegraph/` to `.gitignore`, and copy `codemap.mjs` to `docs/agent/codemap.mjs`. Copy it again when the skill's copy has changed.
+- Set up once per project: add `.codegraph/` to `.gitignore`, and copy `codemap.mjs` to `docs/agent/codemap.mjs`. Copy it again when the skill's copy has changed.
+- The index in `.codegraph/` is not in git, so a fresh checkout or worktree has none. The build line makes it when it is missing.
 - Build it:
 
 ```bash
-codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md
+{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md
 ```
 
 ## It stays current

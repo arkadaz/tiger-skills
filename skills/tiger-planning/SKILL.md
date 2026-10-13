@@ -83,7 +83,7 @@ Drop: `<goes back to the starting branch and deletes vibe/v<N>>`
 - `Map` is this line, or `none` with the install line from `tiger-code-map` when the machine has no `codegraph`:
 
 ```bash
-codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && git add docs/agent/codemap.md && (git diff --cached --quiet || git commit -m "docs: code map (v<N>)")
+{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && git add docs/agent/codemap.md && (git diff --cached --quiet || git commit -m "docs: code map (v<N>)")
 ```
 
 - No git repository: `Branch: none`, every wave holds one task, `Range` lists the files instead, and `Drop` deletes the two things this job wrote.
@@ -92,14 +92,14 @@ codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && git add
 
 ### close
 
-You are handed the version, the result (`done` or `blocked`), what each `Accept` command printed, the reviewer's reply and the engineers' reports. Do "Close a version", then reply with this and nothing more:
+You are handed the version, the result (`done` or `blocked`), what each `Accept` command printed, the reviewer's reply, the findings still open and the engineers' reports. Do "Close a version", then reply with this and nothing more:
 
 ```
 Type: <type> · v<N> · <done | blocked>
 Changed: <two to four plain lines>
 Verified: <each acceptance criterion: command → result>
 Not verified: <what and why, or "nothing">
-Next: <leftovers and follow-ups worth a version of their own, or "nothing">
+Next: <findings still open, leftovers and follow-ups worth a version of their own, or "nothing">
 Read more: docs/human/v<N>.md
 ```
 
@@ -145,7 +145,7 @@ A mixed request is split into one version per type, in this order: bugfix, refac
 
 1. Open the next version and write `spec.md`: the exact behavior with real values, one worked example per rule, the drawn tree as Cases, and the acceptance criteria. Each criterion carries the command that proves it. As few criteria as prove the request.
 2. Design it in the spec, as `tiger-code-quality` rule 1 and `tiger-design-principles` say. How big the data is and how fast it must be. Which settings it needs. Then data first: every new or changed type with its fields, a named type and never a loose record. Then every new or changed function and port with its exact signature.
-3. Write `tasks.md`: small tasks from the inside out — domain, ports, use cases, adapters, wiring. Each names its layer, its files, what it reuses, which tasks it waits for, a skill the user named for it, and its verification.
+3. Write `tasks.md`: small tasks from the inside out — domain, ports, use cases, adapters, wiring. Each names its layer, its files, what it reuses, which tasks it waits for, a skill the user named for it, and its verification. A verification is one command and what it must print. Breaking the code to watch a test fail is the engineer's work and the reviewer's, not a step of the task.
 
 ### Bug fix
 

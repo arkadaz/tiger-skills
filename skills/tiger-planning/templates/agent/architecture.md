@@ -28,7 +28,7 @@ Names only, never values.
 
 - setup: `{{install the dependencies}}`
 - static checks: `{{formatter check, linter, type checker}}`
-- code map: `codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md`
+- code map: `{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md`
 - test: `{{command}}`
 - architecture check: `{{command}}`
 - run: `{{command}}`

@@ -70,7 +70,7 @@ Load `tiger-grill`. Ask each numbered question from the reply as its "How to ask
 
 ## 4. Plan
 
-Start a `tiger-planner`, or continue the one from step 2 when you can:
+Continue the planner from step 2 by sending it this message, so the project is not read twice. Start a new `tiger-planner` only when you cannot continue an agent:
 
 ```
 Job: plan
@@ -119,6 +119,8 @@ git worktree remove --force <the Worktree path from its report>
 git branch -D vibe/v<N>-T<id>
 ```
 
+Then run `git worktree prune`, and delete any other branch the worktrees left, such as `worktree-agent-...`, with `git branch -D`.
+
 A cherry-pick that stops on a conflict: run `git cherry-pick --abort`, and build that task again alone, after the wave. Never merge by hand.
 
 **After every wave**, of one task or of many, run in this order: each task's own command from the sheet, then `Checks`, then `Map`.
@@ -142,28 +144,41 @@ Range: <the Range line>
 
 Never tell it what you think of the work, and never pass it an engineer's report. A reviewer told that the work is good will agree.
 
-Each command that was red at step 7, and each `high` or `medium` finding, goes to a new `tiger-engineer`:
+`Review: pass` and nothing red at step 7 goes straight to step 9. Otherwise every command that was red and every `high` or `medium` finding goes to one new `tiger-engineer`, together:
 
 ```
 Project: <the folder you are in>
 Task: v<N> fix
 Spec: <the Spec path>
-Fix: <the finding, or the red output, unchanged>
+Fix: <the findings and the red output, unchanged>
 ```
 
-After the fixes, run `Checks`, `Map` and step 7 again, and start a new reviewer. Stop at `Review: pass`, or after the third review.
+After the fix, run `Checks`, `Map` and step 7 again. Then start a second `tiger-reviewer` that checks the fix and only the fix:
+
+```
+Project: <the folder you are in>
+Spec: <the Spec path>
+Range: <the Commit from the fix report>
+Recheck: <the findings that were sent to be fixed, unchanged>
+```
+
+There is no third review.
+
+- A `high` finding that is still open, or a command that is still red, gets one more fix and one more run of the commands. Still there after that: the result is `blocked`.
+- A `medium` finding that is still open does not block. It goes to step 9 under `Open`.
 
 ## 9. Close
 
-Start a `tiger-planner`:
+Continue the planner again, or start a new `tiger-planner`:
 
 ```
 Job: close
 Project: <the folder you are in>
 Version: v<N>
-Result: <done, or blocked when a command is still red or the third review did not pass>
+Result: <done, or blocked when a command is still red or a high finding is still open>
 Accept: <each command with what it printed last>
 Review: <the last reviewer's whole reply>
+Open: <the findings that are still open, or "none">
 Engineers: <every engineer's whole report>
 ```
 
