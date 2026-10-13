@@ -31,10 +31,14 @@ A mixed request is split into one version per type, in this order: bugfix, refac
 
 ## 2. Understand
 
-1. Read before you ask: the living docs `docs/agent/memory.md`, `docs/agent/behavior.md` and `docs/agent/architecture.md` if they exist, then `docs/agent/codemap.md` for the part of the code the request touches, then that code and its tests. A human version page is history, not a description of the system. Note what already exists that can be reused, and what calls the code you will change.
-2. Build the decision tree from `tiger-verification` for each rule in the request. A path nobody has answered is an open question.
-3. When an open question changes what gets built, load `tiger-grill` and interview the user: one question at a time, each with the answer you recommend. Do it yourself. A spawned agent cannot talk to the user.
-4. A clear, small request is not grilled. Choose the sensible default for anything cheap to change, write it under Decisions in the spec, and keep going. Money, permissions, personal data, deleting data, a public API and anything that cannot be undone are always asked.
+Every request that changes behavior goes through these four steps, in this order, before a line of the spec is written. Chores, docs, reviews and questions skip steps 2 to 4.
+
+1. **Read the project.** The living docs first: `docs/agent/memory.md`, `docs/agent/behavior.md` and `docs/agent/architecture.md`. Then `docs/agent/codemap.md` for the part the request touches, then that code and its tests. This is what the project is today. A human version page is history, not a description of the system. Note what already exists that can be reused, and what calls the code you will change.
+2. **Draw the decision tree.** Load `tiger-decision-tree` and draw the tree for each rule in the request: the conditions, every answer each can have, every path to its result. Mark what the request, the docs and the code already answer. Show the user the drawing.
+3. **Grill.** Load `tiger-grill` and ask the user about every leaf still marked `? OPEN`, one question at a time, each with the answer you recommend. Do it yourself: a spawned agent cannot talk to the user. Money, permissions, personal data, deleting data, a public API and anything that cannot be undone are always asked. A leaf that is cheap to change later may take a safe result, marked `[default]`.
+4. **Say it back.** Show the finished tree and the acceptance criteria in a few plain lines, and ask whether this is what they want built. When no leaf was open and nothing was defaulted, show it and carry on without waiting.
+
+Only then is the spec written, with the drawn tree as its Cases section.
 
 ### First time in a project
 
@@ -50,17 +54,17 @@ No agent holds the whole codebase in its head. The lead reads the living docs, a
 
 ## 3. Plan
 
-Load `tiger-verification` before you write acceptance criteria, and `tiger-design-principles` and `tiger-hexagonal` before you design the change and split it into tasks.
+By now the project has been read, the decision tree is built and the user has answered. Load `tiger-verification` before you write acceptance criteria, and `tiger-design-principles` and `tiger-hexagonal` before you design the change and split it into tasks.
 
 ### Feature
 
-1. Open the next version (section 6) and write `spec.md`: the exact behavior with real values, one worked example per rule, the error cases, and the acceptance criteria. Each criterion carries the command that proves it. Write as few criteria as prove the request.
+1. Open the next version (section 6) and write `spec.md` from what section 2 produced: the exact behavior with real values, one worked example per rule, the drawn decision tree as its Cases section, and the acceptance criteria. Each criterion carries the command that proves it. Write as few criteria as prove the request.
 2. Design it in the spec before any task, as `tiger-code-quality` rule 1 and `tiger-design-principles` say. State how big the data is and how fast it must be, as `tiger-performance` asks, and which settings it needs, as `tiger-configuration` asks. Data first: every new or changed type with its fields, a named type and never a bare dict or list. Then every new or changed function and port with its exact signature. This is where the quality of the code is decided. An engineer handed a vague shape writes vague code.
 3. Write `tasks.md`: small tasks from the inside out — domain, ports, use cases, adapters, wiring. Each task names its layer, its files, what it reuses, which tasks it must wait for, and its verification. Because the signatures are fixed in the spec, the code on both sides of a port can be built at the same time.
 
 ### Bug fix
 
-1. Reproduce it with the smallest input and keep the command. If you cannot reproduce it, say what you tried and ask for the missing fact. Never plan a fix from a guess.
+1. Reproduce it with the smallest input and keep the command. The decision tree here is built around the bug: which other inputs take the same wrong path. If you cannot reproduce it, say what you tried and ask for the missing fact. Never plan a fix from a guess.
 2. Find the cause: the line where the wrong decision is made, not where the symptom shows. Look for the same mistake in sibling code.
 3. Open the next version. The spec is the Bug section, the acceptance criteria and any decision, nothing more.
 4. Tasks: first a test that fails because of the bug, then the smallest fix at the cause, then the same for each sibling. No unrelated cleanup.
@@ -204,7 +208,7 @@ After acceptance and the review, in one commit:
 
 1. Fold the spec into `behavior.md`: change the lines this version changed, delete the lines it replaced, add the new ones. Each line names the test that proves it.
 2. Update `architecture.md` when the structure changed, and `memory.md` with what was learned.
-3. Finish `docs/human/v<N>.md`, add its line to the list in `docs/human/README.md`, and update the "today" part there when what the product can do changed.
+3. Finish `docs/human/v<N>.md`, moving the drawn tree from the spec into its Cases section, add its line to the list in `docs/human/README.md`, and update the "today" part there when what the product can do changed.
 4. Delete `docs/agent/v<N>/`, set the status, run the docs check below, commit.
 
 ### Memory

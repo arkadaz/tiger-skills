@@ -9,6 +9,7 @@ skills:
   - tiger-refactoring
   - tiger-hexagonal
   - tiger-verification
+  - tiger-decision-tree
   - tiger-performance
   - tiger-logging
   - tiger-configuration

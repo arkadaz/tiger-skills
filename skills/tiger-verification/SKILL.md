@@ -1,6 +1,6 @@
 ---
 name: tiger-verification
-description: Test-first building, proof that work is done, and tests that stay few and fast. The red, green, simplify, verify, commit loop; a verification for every task; evidence from a fresh run; formatter, linter and type checks such as clippy after every task; testing only what can break; a decision tree to find every edge case; inputs that can tell right from wrong; hostile input wherever data enters; screens checked with Playwright in a real browser; short independent end-to-end journeys that run in parallel; what to run when. Use when building a task, writing tests or acceptance criteria, trimming or speeding up a test suite, or before saying anything is done.
+description: Test-first building, proof that work is done, and tests that stay few and fast. The red, green, simplify, verify, commit loop; a verification for every task; evidence from a fresh run; formatter, linter and type checks such as clippy after every task; testing only what can break; one test row for every leaf of the decision tree; inputs that can tell right from wrong; hostile input wherever data enters; screens checked with Playwright in a real browser; short independent end-to-end journeys that run in parallel; what to run when. Use when building a task, writing tests or acceptance criteria, trimming or speeding up a test suite, or before saying anything is done.
 ---
 
 # Verification
@@ -124,26 +124,12 @@ Do not prove a rule through the screen when a unit test can prove it. A journey 
 Run journeys in parallel with the runner's own option: workers, `-n auto`, shards.
 A run that is over its time is a defect. Read the runner's timing report, take the slowest tests first, and fix them by moving the check down a layer, cutting the setup, or removing a wait. Never fix it by skipping tests.
 
-## Find the edge cases with a decision tree
+## The cases come from the decision tree
 
-Do not think up edge cases. Derive them.
+Do not think up edge cases while writing tests. They were derived before the spec was written, with `tiger-decision-tree`, and they sit in the tree drawn in the spec's Cases section.
 
-1. Write the conditions the rule depends on: each input, each piece of state, who is asking.
-2. Under each condition write its possible answers, edges included: missing, empty, zero, one, many, on the limit, just past it, not allowed.
-3. Walk the tree. Each path from top to bottom is one case. Write the paths as a table, one row each, with the result the spec gives.
-4. A path with no result is a hole in the spec. It becomes a question for the user through `tiger-grill`, or a default written under Decisions. Never fill it silently.
-5. Cut the paths that cannot happen and say why. Past about twenty paths, keep every single-condition edge and cover the combinations in pairs.
-6. The table is the Errors and edges section of the spec, and its rows are the rows of one table-driven test.
-
-For "a page size outside 1 to 100 is refused", the conditions are the page size and the number of items:
-
-| Page size | Items | Result |
-|---|---|---|
-| below 1 | any | refused |
-| 1 to 100 | none | 0 pages |
-| 1 to 100 | an exact multiple | items divided by size |
-| 1 to 100 | not a multiple | one page more |
-| above 100 | any | refused |
+- Every leaf of that tree is a row of one table-driven test. No leaf is skipped, and no row is added that the tree does not have.
+- A case you find while building that the tree lacks is a gap. Report it. Do not decide it yourself.
 
 ## Inputs that can tell right from wrong
 

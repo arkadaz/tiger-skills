@@ -23,11 +23,19 @@ Data first, then functions. Engineers build exactly these.
 - type `{{Product}}`: `{{name: str}}`
 - `{{search_page(products: list[Product], word: str, page_number: int, page_size: int) -> ProductPage}}` in `{{catalog/search.py}}`
 
-## Errors and edges
+## Cases
 
-| When | Then |
-|---|---|
-| {{one path of the decision tree}} | {{the exact result}} |
+The decision tree, drawn. Every leaf is a case, and a row of the tests.
+
+```
+{{condition}}?
+├─ {{answer}} ............ {{the exact result}}   [{{request, code, docs, user or default}}]
+├─ {{answer}}
+│  └─ {{next condition}}?
+│     ├─ {{answer}} ...... {{the exact result}}   [{{source}}]
+│     └─ {{answer}} ...... {{the exact result}}   [{{source}}]
+└─ {{answer}} ............ {{the exact result}}   [{{source}}]
+```
 
 ## Acceptance
 

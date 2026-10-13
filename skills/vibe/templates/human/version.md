@@ -14,6 +14,12 @@
 
 {{one real example: the command, the screen, or the call}}
 
+## The cases
+
+```
+{{the decision tree, as drawn in the spec}}
+```
+
 ## How we know it works
 
 - {{what was checked, in plain words}} — {{passed}}

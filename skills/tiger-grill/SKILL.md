@@ -11,7 +11,8 @@ Only the session that talks to the user can do this. Never hand it to a spawned 
 
 ## How to ask
 
-- Read first. Whatever the code, the docs or `docs/agent/memory.md` can answer is not a question.
+- Read first. Whatever the living docs, the code map, the code or the tests can answer is not a question.
+- Build the decision tree before the first question. The open paths are your questions, in order of how much they change what gets built.
 - One question at a time. Never a list.
 - Give two to four answers to pick from, and say which one you recommend and why.
 - Use your agent's question tool when it has one. Otherwise ask in chat and wait.
@@ -28,15 +29,17 @@ Go down the list. An item is closed when its answer is a number, a name or an ex
 | goal | who needs what, and what they can do afterwards that they cannot do now |
 | happy path | each step: what the user does, what the system answers |
 | rules | each rule with its real values: the formula, the limit, the rounding, what wins on a conflict |
-| errors and edges | the result of every path of the decision tree |
+| cases | the result of every path of the decision tree |
 | data and outside systems | what is stored, who owns it, what happens when the other system is down |
 | who is allowed | who can do it and who cannot |
 | limits | what must not change, what is out of scope |
 | acceptance | how we will see that it works, as given, when, then with real data |
 
-## Find the questions with a decision tree
+## The questions come from the decision tree
 
-Build the decision tree from `tiger-verification` for each rule. Every path whose result nobody has stated is your next question. This finds the cases the user did not think of, which are the ones that go wrong.
+Build the tree with `tiger-decision-tree` for each rule in the request. Every path whose result nobody has stated is a question. This finds the cases the user did not think of, which are the ones that go wrong.
+
+Show the user the drawn tree, and show it again each time it changes. Seeing the open leaves is often enough for them to answer three at once.
 
 ## Always ask
 
@@ -51,7 +54,7 @@ Never choose a default for these. Stop and ask, even when the user is in a hurry
 
 ## Finish
 
-1. Write the answers into the spec as you go: Behavior, Errors and edges, Acceptance, Decisions.
+1. Write the answers into the spec as you go: Behavior, Design, Cases, Acceptance, Decisions. Each leaf of the Cases tree says where its result came from.
 2. Read the acceptance criteria back in plain words, in ten lines at most.
 3. Ask one last question: "Is this what you want built?" Build only after a yes. A change of mind reopens the item it touches.
 

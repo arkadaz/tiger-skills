@@ -63,6 +63,17 @@ In Claude Code the command's full name is `/tiger-skills:vibe`, and `/vibe` find
 
 You never pick a mode. It classifies the request and tells you in one line, such as `Type: bugfix — checkout total ignores the coupon`.
 
+For anything that changes behavior, it then works in this order:
+
+1. **Reads the project**: the living docs, the code map, then the code and tests the request touches.
+2. **Draws a decision tree** of the request and shows it to you: every condition, every answer it can have, every path. This is how it finds the cases you did not mention.
+3. **Grills you** on every leaf still marked open, one question at a time, each with the answer it recommends.
+4. **Says it back**: the finished tree and the acceptance criteria, in plain words.
+5. **Writes the spec**, with that tree in it, then the tasks.
+6. **Builds** each task with an engineer, test first.
+7. **Checks and reviews** the result, with a separate reviewer.
+8. **Updates the docs**: the living docs are edited to match, and a page is added for the version.
+
 | It decides this is a | So it |
 |---|---|
 | feature | writes a short spec with the design and the acceptance criteria, splits it into tasks, has each built test-first, checks every criterion |
@@ -74,9 +85,22 @@ You never pick a mode. It classifies the request and tells you in one line, such
 | review | has a separate reviewer run the tests and checks, and reports problems with their proof |
 | question | answers from the code and changes nothing |
 
-- **It asks only when it must.** A small, clear request is just built. A vague, large or risky one is grilled first: one question at a time, each with the answer it recommends. Money, permissions, personal data and anything that cannot be undone are always asked. You can start that yourself with `/vibe grill me on ...`.
+- **It asks about what is open, not about everything.** What the docs and the code already answer is not asked. Money, permissions, personal data and anything that cannot be undone are always asked. When nothing is open it shows you the cases and carries on. You can start an interview yourself with `/vibe grill me on ...`.
 - **The first time in a project that already has code**, it maps the project once before doing anything else.
 - **It works on its own branch**, `vibe/v<N>`, one commit per task, and fast-forwards the branch you started from when everything passes. It never pushes.
+- **You can inspect the cases.** The tree is drawn in the chat, kept in the spec while the work is going on, and moved to the version's page in `docs/human/` when it is done:
+
+```
+page size?
+├─ below 1 ................ refused, the size in the message      [request]
+├─ 1 to 100
+│  └─ items?
+│     ├─ none ............. 0 pages                               [code]
+│     └─ not a multiple ... one page more                         [code]
+├─ above 100 .............. refused, the size in the message      [request]
+└─ not a whole number ..... ? OPEN                                [ask]
+```
+
 - **It ends with a short report**: what changed, what was checked and the result, and what it could not check.
 
 ### Picking up later
@@ -132,12 +156,13 @@ The skills are how a principal engineer works, in any language:
 | Skill | What it decides |
 |---|---|
 | `vibe` | the entry point: classifies the request, plans, checks, records |
-| `tiger-grill` | asking you until the request is exact |
+| `tiger-decision-tree` | finding every case before anything is built, and drawing it as a tree you can inspect. An open leaf is a question to you. |
+| `tiger-grill` | asking you until the request is exact, one question at a time |
 | `tiger-code-quality` | how the lines read: think first, reuse, plain steps, small functions, named types, plain names, no comments, nothing left behind |
 | `tiger-design-principles` | the shape of the code: one reason to change, one home for every rule, low coupling, small interfaces, no surprises |
 | `tiger-refactoring` | changing existing code safely: one named move per smell, tests green throughout |
 | `tiger-hexagonal` | where code lives: business rules in the middle, I/O at the edge |
-| `tiger-verification` | proof: test first, a decision tree for edge cases, lint and type checks every time, few and fast tests, Playwright for screens |
+| `tiger-verification` | proof: test first, one test row per case, lint and type checks every time, few and fast tests, Playwright for screens |
 | `tiger-performance` | performance first: know the size, the right data structure and the fewest round trips from the first line |
 | `tiger-logging` | logs for whoever has to find the fault: structured, at the edge, never a secret |
 | `tiger-configuration` | settings outside the code, read once, checked at startup, no secrets in the repository |

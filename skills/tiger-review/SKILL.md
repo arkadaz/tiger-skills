@@ -11,7 +11,7 @@ The reviewer is never the one who wrote the code. An author reads the code the w
 
 You may add a test to prove a finding. You change no product code unless the user asks for the fixes.
 
-The rules behind these checks are in `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-logging` and `tiger-configuration`, and in `tiger-terraform` for infrastructure. Load them if they are not already in your context.
+The rules behind these checks are in `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-decision-tree`, `tiger-performance`, `tiger-logging` and `tiger-configuration`, and in `tiger-terraform` for infrastructure. Load them if they are not already in your context.
 
 ## What to review
 
@@ -70,7 +70,7 @@ Work on a scratch copy or a throwaway branch, so the change under review stays a
 | Question | The run that answers it |
 |---|---|
 | Is the behavior right? | For each acceptance criterion, write the input a plausible wrong implementation would get wrong, as a test, and run it. A failing probe is a finding and the test is its proof. |
-| Is every path covered? | Build the decision tree from `tiger-verification` for each rule the change touches. A path with no row in the spec, or no row in a test, is a finding. Run that path to show what happens. |
+| Is every path covered? | Build the tree with `tiger-decision-tree` for each rule the change touches, from the request alone, before you read the tree in the spec's Cases section. A path with no row in the spec, or no row in a test, is a finding. Run that path to show what happens. |
 | Can the tests fail? | Break one line the change added, run its tests, restore the line. If nothing failed, those tests prove nothing. |
 | Is every test needed? | Remove a test, break the rule it claims to protect, run the rest. If another test still fails, it was a duplicate. If no rule of ours could break it at all, it tests the framework. |
 | Was a caller missed? | Rebuild the code map. For every function the change touched, find the line it is indented under in each block. A caller that needed the change and is not in the diff is a finding. So is a map that changed when you rebuilt it: it was stale. |

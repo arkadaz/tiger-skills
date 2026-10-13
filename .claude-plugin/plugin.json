@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
-  "description": "Coding through one command: /vibe. Say what you want; it classifies the request (feature, bug fix, refactor, performance, chore, docs, review, question), plans it, hands each task to the tiger-engineer agent (Sonnet), has the tiger-reviewer agent (Opus) check the finished work, proves every result with a real run, and records it as the next version under docs/human and docs/agent. The engineer carries the best-practice skills: grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, hexagonal architecture, verification, code map, review.",
-  "version": "11.0.0",
+  "description": "Coding through one command: /vibe. Say what you want; it classifies the request (feature, bug fix, refactor, performance, chore, docs, review, question), plans it, hands each task to the tiger-engineer agent (Sonnet), has the tiger-reviewer agent (Opus) check the finished work, proves every result with a real run, and records it as the next version under docs/human and docs/agent. The engineer carries the best-practice skills: decision tree, grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, hexagonal architecture, verification, code map, review.",
+  "version": "11.1.0",
   "author": {
     "name": "arkadaz"
   },
