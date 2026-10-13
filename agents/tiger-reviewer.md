@@ -2,7 +2,7 @@
 name: tiger-reviewer
 description: Independent reviewer that checks work it did not write, in a fresh context. Spawn it to review a change, a branch, a commit range or a finished version, and hand it only the spec and the commit range. It runs the tests, static checks, rule checks, probes and security scans, and reports only findings it can prove with a command. It writes no product code.
 model: opus
-effort: medium
+effort: xhigh
 skills:
   - tiger-review
   - tiger-code-quality

@@ -58,6 +58,8 @@ page size?
 - A branch is one answer to it.
 - A leaf is the answer, then the exact result, then where the result came from, in brackets.
 - The most important condition is at the top.
+- When the top condition is itself `? OPEN`, draw the tree under its recommended answer, put a line under the drawing that says so, and redraw it once that answer is in. Never leave the tree without a drawing.
+- Non-ASCII labels (Thai, Chinese, emoji) make the dotted leaders drift. Count characters, not bytes, and pad the leader so the result column starts at the same character in every row. Where that is not possible, shorten the label rather than let the columns break.
 
 | Mark | Means |
 |---|---|

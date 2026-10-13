@@ -35,6 +35,8 @@ Update with `npx skills update -g`, remove with `npx skills remove -g`.
 
 pi and other agents get the skills. Where an agent cannot start sub-agents, it does the planner's and the engineer's work itself, in the same order, with the same skills loaded.
 
+To get the three agents in pi, copy `pi/agents/*.md` into `.pi/agents/` in your project, or into `~/.pi/agent/agents/` for all projects. They need a pi subagent package that reads that folder. Those packages name their fields differently, so check yours; these files use `description`, `skills` and `thinking: xhigh`, and leave the model to whatever pi has active.
+
 ### The code map tool
 
 ```bash
@@ -147,9 +149,9 @@ Three agents, each pinned to its own model and its own level of thinking, whatev
 
 | Agent | Model | Thinking | Job |
 |---|---|---|---|
-| `tiger-planner` | Sonnet | high | reads the project, draws the decision tree, finds the questions, writes the spec, the tasks and the docs |
-| `tiger-engineer` | Haiku | medium | writes the code, one task at a time, with the building skills loaded |
-| `tiger-reviewer` | Opus | medium | checks finished work it did not write, in a fresh context, and proves every finding |
+| `tiger-planner` | Sonnet | xhigh | reads the project, draws the decision tree, finds the questions, writes the spec, the tasks and the docs |
+| `tiger-engineer` | Haiku | xhigh | writes the code, one task at a time, with the building skills loaded |
+| `tiger-reviewer` | Opus | xhigh | checks finished work it did not write, in a fresh context, and proves every finding |
 
 To change one, edit two lines at the top of its file in `agents/`:
 

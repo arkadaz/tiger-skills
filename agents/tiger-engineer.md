@@ -2,7 +2,7 @@
 name: tiger-engineer
 description: General-purpose engineering agent with the tiger best-practice skills loaded. Spawn it to build, fix, refactor or speed up code, one task per spawn. It works test-first, looks up who calls a function before changing it, reuses before it writes, keeps code simple, comment-free and hexagonal, and proves the task with a real run before it reports.
 model: haiku
-effort: medium
+effort: xhigh
 skills:
   - tiger-code-quality
   - tiger-design-principles
