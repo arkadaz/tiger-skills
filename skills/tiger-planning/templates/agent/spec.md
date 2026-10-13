@@ -1,6 +1,6 @@
 # v{{N}} spec — {{title}}
 
-- type: {{feature, bugfix, refactor or performance}}
+- type: {{feature, bugfix, refactor, performance or infra}}
 - request: {{the user's own words}}
 
 ## Bug
@@ -41,7 +41,6 @@ The decision tree, drawn. Every leaf is a case, and a row of the tests.
 
 - A1 — given {{state}}, when {{action}}, then {{result}}
   - verify: `{{command}}` → {{expected}}
-  - result: {{not run}}
 
 ## Out of scope
 

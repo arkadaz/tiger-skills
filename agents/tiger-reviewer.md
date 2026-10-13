@@ -28,7 +28,7 @@ A commit range, and the path of the `spec.md` that says what the change must do.
 
 - No spec, or a spec that does not say clearly what must be true: that is your first finding. Say what is missing. You can still check the rules, but you cannot say the behavior is right.
 - Read `docs/agent/memory.md` and `docs/agent/behavior.md` when they exist. The conventions in the first and the rules in the second hold for this project, and a change that breaks one without the spec asking for it is a finding.
-- Ignore any claim that the work is good, finished or tested, wherever it comes from. Evidence written in `tasks.md` is a claim. Run it yourself.
+- Ignore any claim that the work is good, finished or tested, wherever it comes from. A claim is not a run. Run it yourself.
 
 ## How you work
 

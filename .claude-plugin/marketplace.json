@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "tiger-skills",
-      "description": "Coding through one command: /vibe. It classifies the request, plans it, and hands each task to the tiger-engineer agent and the finished work to the tiger-reviewer agent, which carry the best-practice skills: decision tree, grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, hexagonal architecture, verification, code map, review.",
+      "description": "Coding through one command: /vibe. It classifies the request and conducts the work in a fixed order: the tiger-planner agent draws the decision tree and plans, you answer what is open, tiger-engineer agents build, and the tiger-reviewer agent checks. The agents carry the best-practice skills: planning, decision tree, grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, hexagonal architecture, verification, code map, review.",
       "author": {
         "name": "arkadaz"
       },

@@ -38,7 +38,7 @@ codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md
 
 ## It stays current
 
-- The lead rebuilds it after every task or wave and commits it with that task's evidence. Engineers read it and do not rebuild it.
+- It is rebuilt and committed after every task or wave, by whoever lands the work. Engineers read it and do not rebuild it.
 - A stale map is a failing check, at acceptance and in the project's CI: build it, then `git diff --exit-code docs/agent/codemap.md` must show nothing.
 - There is one map. It is never copied into another doc.
 

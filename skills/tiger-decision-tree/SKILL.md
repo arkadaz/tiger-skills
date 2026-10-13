@@ -73,8 +73,8 @@ page size?
 It is closed in one of three ways, in this order:
 
 1. The living docs, the code or the tests already answer it. Use that, and mark it `[code]` or `[docs]`.
-2. It changes what gets built, or it touches money, permissions, personal data, deleting data or anything that cannot be undone. Ask the user, through `tiger-grill`, and mark it `[user]`.
-3. It is cheap to change later. Choose the safe result and mark it `[default]`.
+2. It changes what gets built, or it is on the "Always ask" list of `tiger-grill`. It is a question for the user, asked as that skill says, and marked `[user]` once answered.
+3. It is cheap to change later and the user will not notice it. Choose the safe result and mark it `[default]`.
 
 Never close a leaf silently. A tree with no `? OPEN` left is finished.
 

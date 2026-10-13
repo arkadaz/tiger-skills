@@ -2,7 +2,7 @@
 
 Coding with an AI agent, through one command: **`/vibe`**.
 
-You say what you want. The agent works out what kind of job it is, plans it, hands the coding to an engineer agent that works the way a principal engineer does, has a separate reviewer check the result, and writes down what changed.
+You say what you want. It works out what kind of job it is, has a planner read the project and draw every case as a tree, asks you what is still open, hands the coding to engineer agents that work the way a principal engineer does, has a separate reviewer check the result, and writes down what changed.
 
 ## Install
 
@@ -15,7 +15,7 @@ claude plugin marketplace add arkadaz/tiger-skills
 claude plugin install tiger-skills@arkadaz
 ```
 
-This brings the skills and the two agents. Update with `claude plugin update tiger-skills@arkadaz`, remove with `claude plugin uninstall tiger-skills@arkadaz`.
+This brings the skills and the three agents. Update with `claude plugin update tiger-skills@arkadaz`, remove with `claude plugin uninstall tiger-skills@arkadaz`.
 
 ### pi
 
@@ -33,7 +33,7 @@ npx skills add arkadaz/tiger-skills -g
 
 Update with `npx skills update -g`, remove with `npx skills remove -g`.
 
-pi and other agents get the skills. Where an agent cannot start sub-agents, it does the engineer's and the reviewer's work itself, with the same skills loaded.
+pi and other agents get the skills. Where an agent cannot start sub-agents, it does the planner's and the engineer's work itself, in the same order, with the same skills loaded.
 
 ### The code map tool
 
@@ -63,16 +63,16 @@ In Claude Code the command's full name is `/tiger-skills:vibe`, and `/vibe` find
 
 You never pick a mode. It classifies the request and tells you in one line, such as `Type: bugfix — checkout total ignores the coupon`.
 
-For anything that changes behavior, it then works in this order:
+Your session is only the conductor: it starts the agents, runs the commands they hand it, shows you what came back, and asks you. It writes no code and makes no plan, so it works the same on a small model as on a large one. For anything that changes behavior, the order is fixed:
 
-1. **Reads the project**: the living docs, the code map, then the code and tests the request touches.
-2. **Draws a decision tree** of the request and shows it to you: every condition, every answer it can have, every path. This is how it finds the cases you did not mention.
-3. **Grills you** on every leaf still marked open, one question at a time, each with the answer it recommends.
-4. **Says it back**: the finished tree and the acceptance criteria, in plain words.
-5. **Writes the spec**, with that tree in it, then the tasks.
-6. **Builds** each task with an engineer, test first.
-7. **Checks and reviews** the result, with a separate reviewer.
-8. **Updates the docs**: the living docs are edited to match, and a page is added for the version.
+1. **Understand.** The planner reads the project: the living docs, the code map, then the code and tests the request touches. It draws a decision tree of the request: every condition, every answer it can have, every path. This is how it finds the cases you did not mention. You are shown the tree.
+2. **Ask.** You are asked about every leaf still marked open, one question at a time, each with the answer it recommends.
+3. **Plan.** The planner writes the spec, with the finished tree in it, and splits the work into tasks.
+4. **Confirm.** You see the finished tree and what "done" means, and it asks "Build this?". Nothing is built before you say yes.
+5. **Build.** One engineer per task, test first. Tasks that share no file are built at the same time.
+6. **Check.** After every task: its own check, the static checks, the tests. At the end: every acceptance command.
+7. **Review.** A reviewer that did not write the code runs it, probes it, and proves every finding. Findings go back to an engineer.
+8. **Close.** The planner edits the living docs to match, adds a page for the version, and lands the branch.
 
 | It decides this is a | So it |
 |---|---|
@@ -85,7 +85,8 @@ For anything that changes behavior, it then works in this order:
 | review | has a separate reviewer run the tests and checks, and reports problems with their proof |
 | question | answers from the code and changes nothing |
 
-- **It asks about what is open, not about everything.** What the docs and the code already answer is not asked. Money, permissions, personal data and anything that cannot be undone are always asked. When nothing is open it shows you the cases and carries on. You can start an interview yourself with `/vibe grill me on ...`.
+- **It asks about what is open, not about everything.** What the docs and the code already answer is not asked. Money, permissions, personal data, anything that cannot be undone, and what a new screen should look like are always asked. You can start an interview yourself with `/vibe grill me on ...`.
+- **Name a skill and it is used inside the work.** `/vibe build the landing page, use skill <name>` hands that skill to the planner and the engineers. It does not replace the steps.
 - **The first time in a project that already has code**, it maps the project once before doing anything else.
 - **It works on its own branch**, `vibe/v<N>`, one commit per task, and fast-forwards the branch you started from when everything passes. It never pushes.
 - **You can inspect the cases.** The tree is drawn in the chat, kept in the spec while the work is going on, and moved to the version's page in `docs/human/` when it is done:
@@ -105,7 +106,7 @@ page size?
 
 ### Picking up later
 
-Everything it needs is in the project's `docs/` folder and in git. Run `/vibe` again with the same request, or `/vibe continue`, and it resumes at the first task that is not done.
+Everything it needs is in the project's `docs/` folder and in git: every task's commit ends with its version and task, such as `(v3 T2)`. Run `/vibe continue` and it resumes at the first task that is not done.
 
 ## What your project gets
 
@@ -121,8 +122,8 @@ docs/
     codemap.md        every entry point traced call by call to the end. Written by a program
     codemap.mjs       the program that writes it
     v7/               exists only while version 7 is being built
-      spec.md         the change: behavior, design, edges, acceptance
-      tasks.md        tasks, each with its check and the result
+      spec.md         the change: behavior, design, cases, acceptance
+      tasks.md        the tasks and their verification
 ```
 
 Versions run `v1`, `v2`, `v3`. Start with `docs/human/README.md`: it says what the project does today and lists every version.
@@ -142,20 +143,22 @@ post_order(store: OrderStore, body: dict) -> dict  [shop/adapters/http.py]
 
 ## What is in the box
 
-Two agents:
+Three agents, each on the model its job needs, whatever model your session is on:
 
 | Agent | Model | Job |
 |---|---|---|
+| `tiger-planner` | Opus | reads the project, draws the decision tree, finds the questions, writes the spec, the tasks and the docs |
 | `tiger-engineer` | Sonnet | writes the code, one task at a time, with the building skills loaded |
 | `tiger-reviewer` | Opus | checks finished work it did not write, in a fresh context, and proves every finding |
 
-Planning runs on whatever model your session uses, so start `/vibe` in an Opus session when the plan matters. Tasks that share no file are built at the same time, each engineer in its own git worktree.
+Tasks that share no file are built at the same time, each engineer in its own git worktree.
 
 The skills are how a principal engineer works, in any language:
 
 | Skill | What it decides |
 |---|---|
-| `vibe` | the entry point: classifies the request, plans, checks, records |
+| `vibe` | the entry point: classifies the request and conducts the agents in a fixed order |
+| `tiger-planning` | the plan: reading the project, the spec, the tasks, and docs that stay true |
 | `tiger-decision-tree` | finding every case before anything is built, and drawing it as a tree you can inspect. An open leaf is a question to you. |
 | `tiger-grill` | asking you until the request is exact, one question at a time |
 | `tiger-code-quality` | how the lines read: think first, reuse, plain steps, small functions, named types, plain names, no comments, nothing left behind |
