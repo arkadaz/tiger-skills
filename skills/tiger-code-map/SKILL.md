@@ -59,7 +59,7 @@ You never write this file, and you never write a call chain anywhere else from m
 3. List every caller of what you will change, from the map.
 4. When a signature or a meaning changes, every caller is updated in the same task, and the tests of every caller are run.
 5. A caller outside the task's files is a gap. Report it. Do not edit it silently.
-6. A function that starts its own block and is not a real entry point is called by nothing: it is dead code. Say so instead of changing it.
+6. A function that starts its own block and is not a real entry point is called by nothing: it is dead code. Say so instead of changing it. First search for its name: the map does not see a function that is only passed as a value, such as a sort key, a callback or a handler.
 
 In a hexagonal project every block runs inbound adapter, use case, domain, port, outbound adapter. A block that skips a layer or runs backwards is a finding.
 

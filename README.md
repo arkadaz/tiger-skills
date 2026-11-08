@@ -87,7 +87,7 @@ Your session is only the conductor: it starts the agents, runs the commands they
 | review | has a separate reviewer run the tests and checks, and reports problems with their proof |
 | question | answers from the code and changes nothing |
 
-- **It asks about what is open, not about everything.** What the docs and the code already answer is not asked. Money, permissions, personal data, anything that cannot be undone, and what a new screen should look like are always asked. You can start an interview yourself with `/vibe grill me on ...`.
+- **It asks about what is open, not about everything.** What the docs and the code already answer is not asked, and neither is anything you answered in an earlier version. Money, permissions, personal data, anything that cannot be undone, and what a new screen should look like are always asked. You can start an interview yourself with `/vibe grill me on ...`.
 - **Name a skill and it is used inside the work.** `/vibe build the landing page, use skill <name>` hands that skill to the planner and the engineers. It does not replace the steps.
 - **The first time in a project that already has code**, it maps the project once before doing anything else.
 - **It works on its own branch**, `vibe/v<N>`, one commit per task, and fast-forwards the branch you started from when everything passes. It never pushes.

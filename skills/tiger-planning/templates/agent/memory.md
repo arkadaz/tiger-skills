@@ -9,6 +9,7 @@ What the next session needs to know and cannot see in the code. One line each. A
 ## Decisions
 
 - {{what was chosen, and why}} — v{{N}}
+- {{the question}} → {{the user's answer}} — user, v{{N}}
 
 ## Traps
 

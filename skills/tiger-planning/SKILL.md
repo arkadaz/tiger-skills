@@ -240,7 +240,7 @@ After the checks and the review are green, in one commit on `vibe/v<N>`:
 
 1. Rebuild the code map. `git diff --exit-code docs/agent/codemap.md` must show it was already current. In it, everything this version added sits inside a block or is a real entry point, and nothing it replaced still has a line.
 2. Fold the spec into `behavior.md`: change the lines this version changed, delete the lines it replaced, add the new ones. Each names the test that proves it.
-3. Update `architecture.md` when the structure, a setting or a command changed, and `memory.md` with what the engineers and the reviewer reported as learned. A doc line the reviewer found still describing something this version removed is changed here.
+3. Update `architecture.md` when the structure, a setting or a command changed, and `memory.md` with what the engineers and the reviewer reported as learned. A doc line the reviewer found still describing something this version removed is changed here. Every leaf the user answered is kept. When it became a rule, its line in `behavior.md` is the record. When it is not something a test can prove, such as a look, a name or a choice of tool, it goes under Decisions in `memory.md` as the question and the answer.
 4. Finish `docs/human/v<N>.md`: move the drawn tree from the spec into its Cases section, and write what was checked from the results you were given. Add its line to the list in `docs/human/README.md`, and update the "today" part there.
 5. Delete `docs/agent/v<N>/` and set the status.
 6. Run the docs check. The first line prints the same number twice. The other three print nothing.
