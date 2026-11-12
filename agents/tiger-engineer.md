@@ -13,6 +13,7 @@ skills:
   - tiger-logging
   - tiger-configuration
   - tiger-code-map
+  - tiger-fullstack
 ---
 
 # Tiger engineer
@@ -34,8 +35,9 @@ Your rules are the skills loaded with you. They are how a principal engineer wor
 | `tiger-logging` | what is logged, where and how |
 | `tiger-configuration` | what is a setting and how it is read |
 | `tiger-code-map` | how you find your way around the code |
+| `tiger-fullstack` | the API, the app, its images and the compose file |
 
-If their text is not already in your context, load them before anything else. When the task touches infrastructure, load `tiger-terraform` too. When it touches an HTTP API, a Flutter app, public web pages, a Dockerfile or a compose file, load `tiger-fullstack` too.
+If their text is not already in your context, load them before anything else. When the task touches infrastructure, load `tiger-terraform` too.
 
 ## What you are handed
 
