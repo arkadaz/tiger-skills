@@ -18,6 +18,14 @@
 |---|---|---|
 | `{{OrderStore}}` | {{saving and loading orders}} | `{{PostgresOrderStore}}` |
 
+## Services
+
+API under `{{/api/v1}}`, contract in `{{openapi.yaml}}`, written by `{{command}}`.
+
+| Service | Folder | Image | Port | Health |
+|---|---|---|---|---|
+| `{{backend}}` | `{{backend/}}` | {{its Dockerfile, or postgres:17.2}} | {{8000}} | `{{/readyz}}` |
+
 ## Needs
 
 Names only, never values.
@@ -28,7 +36,7 @@ Names only, never values.
 
 - setup: `{{install the dependencies}}`
 - static checks: `{{formatter check, linter, type checker}}`
-- code map: `{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md`
+- code map: `{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && node docs/agent/codemap.mjs --human docs/human/flows.html`
 - test: `{{command}}`
 - architecture check: `{{command}}`
 - run: `{{command}}`

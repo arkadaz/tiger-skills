@@ -11,7 +11,7 @@ The reviewer is never the one who wrote the code. An author reads the code the w
 
 You may add a test to prove a finding. You change no product code unless the user asks for the fixes.
 
-The rules behind these checks are in `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-decision-tree`, `tiger-performance`, `tiger-logging` and `tiger-configuration`, and in `tiger-terraform` for infrastructure. Load them if they are not already in your context.
+The rules behind these checks are in `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-decision-tree`, `tiger-performance`, `tiger-logging` and `tiger-configuration`, in `tiger-terraform` for infrastructure, and in `tiger-fullstack` for an HTTP API, a Flutter app or containers. Load them if they are not already in your context.
 
 ## What to review
 
@@ -65,15 +65,16 @@ A search finds only some of it. Then read every added line, product code and tes
 
 ## 4. Probe it
 
-Work on a scratch copy or a throwaway branch, so the change under review stays as it is.
+Work on a scratch copy or a throwaway branch, so the change under review stays as it is. The copy builds into its own folder. Never point it at the project's `target/` with `CARGO_TARGET_DIR`: Cargo then keeps running the copy's build, mutants included, in the project without rebuilding it, and the project's tests pass or fail on code it does not have.
 
 | Question | The run that answers it |
 |---|---|
 | Is the behavior right? | For each acceptance criterion, write the input a plausible wrong implementation would get wrong, as a test, and run it. A failing probe is a finding and the test is its proof. |
 | Is every path covered? | Build the tree with `tiger-decision-tree` for each rule the change touches, from the request alone, before you read the tree in the spec's Cases section. A path with no row in the spec, or no row in a test, is a finding. Run that path to show what happens. |
 | Can the tests fail? | Break one line the change added, run its tests, restore the line. If nothing failed, those tests prove nothing. |
+| Is a journey flaky? | Run the browser journeys this change touches, and the smoke journeys, 10 times in a row against one running stack. A journey that fails in any run is a high finding, with that run's output. One green run proves nothing about a journey that fails one time in five. |
 | Is every test needed? | Remove a test, break the rule it claims to protect, run the rest. If another test still fails, it was a duplicate. If no rule of ours could break it at all, it tests the framework. |
-| Was a caller missed? | Rebuild the code map. For every function the change touched, find the line it is indented under in each block. A caller that needed the change and is not in the diff is a finding. So is a map that changed when you rebuilt it: it was stale. |
+| Was a caller missed? | Rebuild the code map. For every function the change touched, print its direct callers, as "Read it" in `tiger-code-map` says, and search the code for its name. A caller that needed the change and is not in the diff is a finding. So is a map that changed when you rebuilt it: it was stale. |
 | Was anything left behind? | In the rebuilt code map, look up everything the change added or stopped using: a new function that starts its own block and is not a real entry point is called by nothing, unless a search for its name shows it is passed as a value. Run the project's unused-code and duplicate checks too. Code, a test, a fixture or a journey with no caller and no rule to protect is a finding. So is an old version kept beside the new one. |
 | Does a doc still claim something that is gone? | For everything the change removed or replaced, search `docs/agent/behavior.md`, `docs/agent/memory.md` and the "today" list in `docs/human/README.md` for its name. A line that still presents it as current is a low finding while its version is still open, because the docs are folded when it closes, and a medium finding after. When no version is open, run the docs check from `tiger-planning` too. New code that calls something marked deprecated is a finding. |
 | Was something rebuilt? | Name the existing function, library or database feature, swap it in, run the tests. If they pass, the new code was not needed. |
@@ -81,6 +82,7 @@ Work on a scratch copy or a throwaway branch, so the change under review stays a
 | Does it hold up at real size? | Run the changed path with a realistic amount of data, and count its queries and requests. A count that grows with the data is a finding. |
 | Does it fail well? | Start it with a required setting missing: it must stop at once and name the setting. Make one request fail: the log must say what failed, for which thing and why, in one error line, with no secret in it. |
 | Does outside input break it? | Run the rows from "Input from outside" in `tiger-verification` against every place this change takes input. |
+| Does the stack hold to the standard? | When the change touches an HTTP API, a Flutter app or containers, run every row of "Prove it" in `tiger-fullstack`. Each row that does not show what it must is a finding. So is a path, status code, error body or image rule from that skill that the diff breaks. |
 
 ## 5. Security runs
 

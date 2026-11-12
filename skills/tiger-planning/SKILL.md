@@ -7,7 +7,7 @@ description: How a principal engineer plans a change before any code is written 
 
 The plan decides the quality of everything after it. An engineer handed a vague shape writes vague code, so nothing here is left vague.
 
-`templates/` is inside this skill's folder. The rules a plan is built on are in `tiger-decision-tree`, `tiger-grill`, `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-configuration` and `tiger-code-map`. Load them if they are not already in your context.
+`templates/` is inside this skill's folder. The rules a plan is built on are in `tiger-decision-tree`, `tiger-grill`, `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-configuration` and `tiger-code-map`, and in `tiger-fullstack` when the request touches an HTTP API, a Flutter app or containers. Load them if they are not already in your context.
 
 ## Jobs
 
@@ -46,7 +46,7 @@ Note: <what the user must know now, such as a missing tool. Leave the line out w
 You are handed the request, your `understand` reply, and the user's answers.
 
 1. Put the answers in the tree, marked `[user]`. When an answer opens a leaf that must be asked, write nothing and reply with `Questions:` alone, in the same form.
-2. Open the version: cut `vibe/v<N>`, write `spec.md` and `tasks.md` as "Plan: by type" says, and start `docs/human/v<N>.md` with the status `building`.
+2. Open the version: cut `vibe/v<N>`, write `spec.md` and `tasks.md` as "Plan: by type" says, and start `docs/human/v<N>.md` with the status `building`. When `docs/agent/codemap.mjs` differs from the `codemap.mjs` in the `tiger-code-map` skill's folder, copy the skill's over it.
 3. Commit them as `docs: plan v<N>`.
 4. Reply with the build sheet:
 
@@ -83,7 +83,7 @@ Drop: `<goes back to the starting branch and deletes vibe/v<N>>`
 - `Map` is this line, or `none` with the install line from `tiger-code-map` when the machine has no `codegraph`:
 
 ```bash
-{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && git add docs/agent/codemap.md && (git diff --cached --quiet || git commit -m "docs: code map (v<N>)")
+{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && node docs/agent/codemap.mjs --human docs/human/flows.html && git add docs/agent/codemap.md docs/human/flows.html && (git diff --cached --quiet || git commit -m "docs: code map (v<N>)")
 ```
 
 - No git repository: `Branch: none`, every wave holds one task, `Range` lists the files instead, and `Drop` deletes the two things this job wrote.
@@ -112,7 +112,7 @@ You are handed a question. Answer it from the living docs, the code map and the 
 Read in this order, and trust in this order: the code and its tests, the code map, the living docs.
 
 1. `docs/agent/memory.md`, `docs/agent/behavior.md`, `docs/agent/architecture.md`.
-2. `docs/agent/codemap.md`, for the part the request touches.
+2. The part the request touches, found as "Find your way" in `tiger-code-map` says: by searching and reading the code, with the map for the callers of what will change.
 3. That code and its tests.
 
 A version page in `docs/human/` is history, not a description of the system. Something you remember, or read in an old page, is a lead to check, never a fact. Before you build on a function, a rule or a feature, confirm it exists now.
@@ -123,11 +123,11 @@ Note what already exists that can be reused, and what calls the code that will c
 
 When the project has code but no `docs/agent/architecture.md`, map it once, before anything else:
 
-1. Set up and build the code map as `tiger-code-map` says, then read it.
+1. Set up and build the code map as `tiger-code-map` says, then read it. Adding `.codegraph/` to `.gitignore` is part of that setup and goes into this commit, although `.gitignore` is not a doc.
 2. Write `architecture.md` from what is really there: which folders play which layer, the ports, what the project needs to run, the setup, check and test commands that actually work, the words the code uses. Run each command before you write it down.
 3. Seed `behavior.md` from the existing tests only: one line per rule a test proves. Never a rule no test proves. List what no test covers under Not proven.
 4. Put in `memory.md` only what you had to find out the hard way.
-5. Commit as `docs: map the project`.
+5. Commit as `docs: map the project`, with the `.gitignore` line.
 
 An empty project has nothing to map. Its `architecture.md` is written with the first version.
 
@@ -144,8 +144,9 @@ A mixed request is split into one version per type, in this order: bugfix, refac
 ### Feature
 
 1. Open the next version and write `spec.md`: the exact behavior with real values, one worked example per rule, the drawn tree as Cases, and the acceptance criteria. Each criterion carries the command that proves it. As few criteria as prove the request.
-2. Design it in the spec, as `tiger-code-quality` rule 1 and `tiger-design-principles` say. How big the data is and how fast it must be. Which settings it needs. Then data first: every new or changed type with its fields, a named type and never a loose record. Then every new or changed function and port with its exact signature.
-3. Write `tasks.md`: small tasks from the inside out — domain, ports, use cases, adapters, wiring. Each names its layer, its files, what it reuses, which tasks it waits for, a skill the user named for it, and its verification. A verification is one command and what it must print. Breaking the code to watch a test fail is the engineer's work and the reviewer's, not a step of the task.
+2. Design it in the spec, as `tiger-code-quality` rule 1 and `tiger-design-principles` say. How big the data is and how fast it must be. Which settings it needs. Then data first: every new or changed type with its fields, a named type and never a loose record. Then every new or changed function and port with its exact signature. A request with an HTTP API, a Flutter app or containers is designed with `tiger-fullstack`: every endpoint with its method, path, request type, response types and status codes, every Rust function the app's screens call, and every service with its image, port and health check.
+3. Write `tasks.md`: small tasks from the inside out — domain, ports, use cases, adapters, wiring, then the app's Rust functions and its screens, then the images and the compose file. Each names its layer, its files, what it reuses, which tasks it waits for, a skill the user named for it or `tiger-fullstack` when it touches what that skill covers, and its verification. A verification is one command and what it must print. A command that starts a stack or a server also stops it, also when the check fails: `docker compose up --build --wait; <the check>; result=$?; docker compose down; test $result -eq 0`. Breaking the code to watch a test fail is the engineer's work and the reviewer's, not a step of the task.
+4. Each rule is tested in one task only, at the lowest layer that proves it. A part with no rule of its own goes into the task whose test runs it, or is verified by its build: a database query that the API tests run against the real database goes with its route, and a bridge function that only passes values on is verified by `cargo check` and the generated code. Never plan a second test of a rule another task already tests.
 
 ### Bug fix
 
@@ -170,6 +171,7 @@ A mixed request is split into one version per type, in this order: bugfix, refac
 1. All infrastructure is Terraform, as `tiger-terraform` says. The spec lists every resource to add, change or remove, and what the program gets back as settings.
 2. Each task is verified by the format check, the validation and a plan. The acceptance criterion is the plan's summary line, with nothing destroyed that holds data.
 3. Nobody applies. The plan is handed to the user.
+4. Dockerfiles and the compose file are not Terraform. They follow `tiger-fullstack`, run on this machine, and are verified by running them: `docker compose up --build --wait`, then a request through `web`. Compose is for local runs only. What runs in production is Terraform.
 
 ## Tasks that can be built at the same time
 
@@ -185,6 +187,7 @@ docs/
   human/              for people: short, plain words
     README.md         what it does today, then the list of versions
     v1.md             one page per version: what changed
+    flows.html        how the code runs, drawn from the code map. Written by a program
   agent/              for agents: exact detail
     behavior.md       what the system does today: one line per rule, with its test
     architecture.md   layers, ports, settings, commands, words
@@ -238,7 +241,7 @@ docs/
 
 After the checks and the review are green, in one commit on `vibe/v<N>`:
 
-1. Rebuild the code map. `git diff --exit-code docs/agent/codemap.md` must show it was already current. In it, everything this version added sits inside a block or is a real entry point, and nothing it replaced still has a line.
+1. Rebuild the code map. `git diff --exit-code docs/agent/codemap.md docs/human/flows.html` must show it was already current. In it, everything this version added sits inside a block or is a real entry point, and nothing it replaced still has a line.
 2. Fold the spec into `behavior.md`: change the lines this version changed, delete the lines it replaced, add the new ones. Each names the test that proves it.
 3. Update `architecture.md` when the structure, a setting or a command changed, and `memory.md` with what the engineers and the reviewer reported as learned. A doc line the reviewer found still describing something this version removed is changed here. Every leaf the user answered is kept. When it became a rule, its line in `behavior.md` is the record. When it is not something a test can prove, such as a look, a name or a choice of tool, it goes under Decisions in `memory.md` as the question and the answer.
 4. Finish `docs/human/v<N>.md`: move the drawn tree from the spec into its Cases section, and write what was checked from the results you were given. Add its line to the list in `docs/human/README.md`, and update the "today" part there.

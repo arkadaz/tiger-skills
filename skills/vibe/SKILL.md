@@ -39,7 +39,7 @@ Say the type in one line, such as `Type: bugfix — login rejects valid emails`.
 | bugfix | behavior is wrong today | steps 2 to 9 |
 | refactor | structure changes, behavior must not | steps 2 to 9 |
 | performance | same behavior, must be faster or lighter | steps 2 to 9 |
-| infra | cloud resources, networking, permissions, deploy setup | steps 2 to 9 |
+| infra | cloud resources, networking, permissions, containers, deploy setup | steps 2 to 9 |
 | chore | dependencies, config, tooling, CI | start one `tiger-engineer` with the request as its task, and show its report |
 | docs | only words change | the same as chore |
 | review | "review", "audit", "is this safe" | start one `tiger-reviewer` with the request, and show its findings unchanged |
@@ -158,7 +158,7 @@ After the fix, run `Checks`, `Map` and step 7 again. Then start a second `tiger-
 ```
 Project: <the folder you are in>
 Spec: <the Spec path>
-Range: <the Commit from the fix report>
+Range: <the Commit from the fix report>~1..<the Commit from the fix report>
 Recheck: <the findings that were sent to be fixed, unchanged>
 ```
 
@@ -189,7 +189,7 @@ Print its reply, unchanged. That is the report, and it is the last thing you say
 Some agents have no way to start another agent. Only then, do each job yourself, in the same order and with the same waits at steps 3 and 5.
 
 - The planner's jobs: load `tiger-planning` and do the job as it is written there.
-- An engineer's task: load `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-logging`, `tiger-configuration` and `tiger-code-map`, then build the task with the task loop from `tiger-verification`.
+- An engineer's task: load `tiger-code-quality`, `tiger-design-principles`, `tiger-refactoring`, `tiger-hexagonal`, `tiger-verification`, `tiger-performance`, `tiger-logging`, `tiger-configuration` and `tiger-code-map`, and `tiger-fullstack` when the task touches an HTTP API, a Flutter app or containers, then build the task with the task loop from `tiger-verification`.
 - The review: never review what this session built. Skip step 8, close the version, and tell the user to open a new session and run `/vibe review`.
 
 You can start agents but there is no `tiger-planner`, `tiger-engineer` or `tiger-reviewer`: start a general one, and make the first line of its message the skills to load, from the list above, or `tiger-review` for the reviewer.

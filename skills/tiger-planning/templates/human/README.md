@@ -1,5 +1,7 @@
 # {{project name}}
 
+How the code runs, step by step: [flows.html](flows.html)
+
 ## What it does today
 
 - {{one thing a user can do, in plain words}}

@@ -15,7 +15,7 @@ claude plugin marketplace add arkadaz/tiger-skills
 claude plugin install tiger-skills@arkadaz
 ```
 
-This brings the skills and the three agents. Update with `claude plugin update tiger-skills@arkadaz`, remove with `claude plugin uninstall tiger-skills@arkadaz`.
+This brings the skills and the three agents. Update with `claude plugin update tiger-skills@arkadaz`, remove with `claude plugin uninstall tiger-skills@arkadaz`. After an update, start a new session: the agents of a running session keep the rules they were started with.
 
 ### pi
 
@@ -43,7 +43,7 @@ To get the three agents in pi, copy `pi/agents/*.md` into `.pi/agents/` in your 
 npm i -g @colbymchenry/codegraph
 ```
 
-The agents read a text map of your code that a program writes. This is the program. Without it they read the code directly and tell you they worked without the map. It sends anonymous usage stats unless you run `codegraph telemetry off`.
+The agents find their way by reading the code. Before a change they list every caller from a text map of your code that a program writes. This is the program. Without it they list callers with a search and tell you they worked without the map. It sends anonymous usage stats unless you run `codegraph telemetry off`.
 
 ## Use
 
@@ -82,7 +82,7 @@ Your session is only the conductor: it starts the agents, runs the commands they
 | bug fix | reproduces the bug, finds the real cause, has it fixed there with a test that failed first |
 | refactor | pins today's behavior with tests, then has the structure changed in small named moves with the tests staying green |
 | performance | measures first, changes one thing, measures again |
-| infra | writes it in Terraform and hands you the plan. It never applies unless you ask. |
+| infra | writes it in Terraform and hands you the plan. It never applies unless you ask. Docker images and the compose file are built and started on your machine to prove them. |
 | chore or docs | has it done, runs the checks and tests |
 | review | has a separate reviewer run the tests and checks, and reports problems with their proof |
 | question | answers from the code and changes nothing |
@@ -117,6 +117,7 @@ docs/
   human/              for you: short, plain words
     README.md         what it does today, then the list of versions
     v1.md             one page per version: what changed
+    flows.html        how the code runs, drawn from the code map. Open it in a browser
   agent/              for the agent: exact detail
     behavior.md       what the system does today: one line per rule, with its test
     architecture.md   layers, ports, settings, commands, words
@@ -128,19 +129,24 @@ docs/
       tasks.md        the tasks and their verification
 ```
 
-Versions run `v1`, `v2`, `v3`. Start with `docs/human/README.md`: it says what the project does today and lists every version.
+Versions run `v1`, `v2`, `v3`. Start with `docs/human/README.md`: it says what the project does today and lists every version. To see how the code runs, open `docs/human/flows.html`: pick a route, a program or an app function, and it shows the parts it passes through in order, such as `backend → domain` and `inbound → note → store → outbound`, and any step can be opened to its functions, with what each takes and gives.
 
 **Living docs are the truth; versions are history.** `behavior.md`, `architecture.md` and `memory.md` are edited in place, so they always describe the system as it is now. The version pages only record what changed. The spec and tasks are working paper: when a version closes, what lasts is folded into the living docs and the folder is deleted, so no agent can read an old spec as if it were current. Git keeps it.
 
-The code map looks like this. Each block starts where something is called from outside and follows every call until it ends:
+The code map looks like this. Each block starts where something is called from outside and follows every call until it ends. Every function's inputs and output are listed once, at the end:
 
 ```
+post_order  [shop/adapters/http.py]
+  place_order  [shop/domain/checkout.py]
+    order_total  [shop/domain/pricing.py]
+      line_total  [shop/domain/pricing.py]
+    OrderStore.save  [shop/domain/checkout.py]
+  read_lines  [shop/adapters/http.py]
+
+## Functions
+
 post_order(store: OrderStore, body: dict) -> dict  [shop/adapters/http.py]
-  place_order(store: OrderStore, customer: str, lines: list[tuple[Decimal, int]], percent_off: int) -> int  [shop/domain/checkout.py]
-    order_total(lines: list[tuple[Decimal, int]]) -> Decimal  [shop/domain/pricing.py]
-      line_total(unit_price: Decimal, quantity: int) -> Decimal  [shop/domain/pricing.py]
-    OrderStore.save(self, customer: str, amount: Decimal) -> int  [shop/domain/checkout.py]
-  read_lines(body: dict) -> list[tuple[Decimal, int]]  [shop/adapters/http.py]
+place_order(store: OrderStore, customer: str, lines: list[tuple[Decimal, int]], percent_off: int) -> int  [shop/domain/checkout.py]
 ```
 
 ## What is in the box
@@ -181,6 +187,7 @@ The skills are how a principal engineer works, in any language:
 | `tiger-logging` | logs for whoever has to find the fault: structured, at the edge, never a secret |
 | `tiger-configuration` | settings outside the code, read once, checked at startup, no secrets in the repository |
 | `tiger-terraform` | infrastructure as Terraform, verified by a reviewed plan |
+| `tiger-fullstack` | a Rust backend under `/api/v1` and one Flutter app for web, phone and desktop where every function is Rust: one error body, shared request and response types, Docker images, one compose file, public pages for Google |
 | `tiger-code-map` | the generated text map of the code, and how to read it |
 | `tiger-review` | a review made of proof: runs, checks and quoted rules |
 

@@ -7,7 +7,7 @@ description: Test-first building, proof that work is done, and tests that stay f
 
 A verification is a command and the result you expect from it. Nothing is done until you ran it and read what it printed.
 
-Use the project's own test runner. If it has none, use the standard one for its language. Do not add a test framework the project does not need. The one fixed choice: anything with a screen is checked with Playwright.
+Use the project's own test runner. If it has none, use the standard one for its language. Do not add a test framework the project does not need. The one fixed choice: a web page, the web build of a Flutter app included, is checked with Playwright, and a Flutter screen on a device with Flutter's `integration_test`.
 
 ## The task loop
 
@@ -49,6 +49,7 @@ After every task, and again at acceptance, run the formatter check, the linter a
 | Python | `ruff format --check .`, `ruff check .`, and the type checker the project uses |
 | JavaScript, TypeScript | `eslint .` and `tsc --noEmit` |
 | Go | `gofmt -l .` (must print nothing) and `go vet ./...` |
+| Dart, Flutter | `dart format --output=none --set-exit-if-changed .` and `flutter analyze` |
 | anything else | the formatter, linter and type checker that are standard for it |
 
 - The commands the project already defines in its scripts, Makefile or CI come first.
@@ -70,7 +71,7 @@ Do not test:
 
 One rule gets one test, with its edges as rows of that test. Rows are not separate tests.
 
-Plain create, read, update, delete needs about a dozen tests, not thousands: one per rule of ours (what is required, what must be unique, who is allowed), one adapter test per query we wrote by hand, and one journey that creates, reads, changes and deletes a record. The framework already proves that saving and loading work.
+Plain create, read, update, delete needs about a dozen tests, not thousands: one per rule of ours (what is required, what must be unique, who is allowed), one adapter test per query we wrote by hand that no API test already runs against the real database, and one journey that creates, reads, changes and deletes a record. The framework already proves that saving and loading work.
 
 Test code several times longer than the code it tests means too many tests. Stop and cut: keep the one test per rule.
 
@@ -187,6 +188,8 @@ A screen is verified with Playwright, in a real browser, against the real runnin
 - Assert on what the user sees: the text, the row, the message. Not on internal state.
 - A component test in a fake DOM, a snapshot, or a search of the HTML does not verify a screen.
 - A screen change that Playwright never clicked through is not verified.
+
+A Flutter app draws on a canvas. In the browser, Playwright finds its buttons once Flutter's accessibility tree is on: run `document.querySelector('flt-semantics-placeholder').click()` in the page first, then use `getByRole` and `getByText` inside `page.locator('flt-semantics-host')`, never on the whole page. Flutter also copies every message it announces, such as a snackbar, into a hidden element outside that tree, so a search of the whole page now and then finds the text twice and fails at random. Click a text field before you fill it: Flutter ignores `fill` on a field that has no focus. On an emulator or the desktop, the screen is verified with `flutter test integration_test -d <device>`, against the real running backend. Find things by visible text or label (`find.text`, `find.widgetWithText`, `find.bySemanticsLabel`), never by a `Key` made for the test. Tap and type as a user does, and read what the screen shows. A widget test alone does not verify a screen.
 
 Playwright already has what keeps journeys fast, so use it and build none of it yourself:
 
