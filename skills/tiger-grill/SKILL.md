@@ -21,7 +21,7 @@ Two jobs are in here. Finding the questions is done by whoever plans: in `/vibe`
 
 ## What to ask
 
-- Read first. Whatever the living docs, the code map, the code or the tests can answer is not a question.
+- Read first. Whatever the living docs, the code map, the code or the tests can answer is not a question. Nor is what a skill's rule already decides, such as moving the code into its layers.
 - Draw the tree with `tiger-decision-tree` for each rule in the request, before the first question. Every leaf whose result nobody has stated is a question. This finds the cases the user did not think of, which are the ones that go wrong.
 - Ask only what changes what gets built. If every answer leads to the same code, do not ask.
 - Order them by how much they change what gets built.

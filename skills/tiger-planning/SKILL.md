@@ -20,7 +20,7 @@ You cannot talk to the user. Whoever handed you the job shows them your reply an
 You are handed the request, word for word. Change no product code.
 
 1. Read the project. Map it first when this is the first time.
-2. Run the architecture check, and the layout search from `tiger-hexagonal` when the check has none. When a source file is outside its layer and the request is not a bug fix, this version is the move into the shape, as "Existing projects" in `tiger-hexagonal` says, and the request is the version after it: `Type: refactor — move the code into its layers, then <the request> as v<N+1>`.
+2. Run the architecture check, and the layout search from `tiger-hexagonal` when the check has none. When a source file is outside its layer and the request is not a bug fix, this version is the move into the shape, as "Existing projects" in `tiger-hexagonal` says, and the request is the version after it: `Type: refactor — move the code into its layers, then <the request> as v<N+1>`. This is a rule, not a question. Never ask the user whether to move, never recommend building in the old shape, and never plan the request first. The tree, the questions and "Will be built" are for the move.
 3. Draw the tree.
 4. Reply:
 

@@ -54,7 +54,7 @@ An inbound adapter does three things: read the input, call one use case, format 
 
 ## Existing projects
 
-The shape is not optional. A project whose architecture check fails is moved into the shape before anything else is built in it.
+The shape is not optional. A project whose architecture check fails is moved into the shape before anything else is built in it. Whether to move is never a question for the user, and how the project was built before is no reason to wait.
 
 - The move is a refactor version of its own, planned as `tiger-planning` says. Until it is done, every other request waits for it, except a bug fix.
 - `docs/agent/architecture.md` lists each file that is not in its layer's folder yet, and the folder it moves to.
