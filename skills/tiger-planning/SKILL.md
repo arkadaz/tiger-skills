@@ -20,8 +20,9 @@ You cannot talk to the user. Whoever handed you the job shows them your reply an
 You are handed the request, word for word. Change no product code.
 
 1. Read the project. Map it first when this is the first time.
-2. Draw the tree.
-3. Reply:
+2. Run the architecture check, and the layout search from `tiger-hexagonal` when the check has none. When a source file is outside its layer and the request is not a bug fix, this version is the move into the shape, as "Existing projects" in `tiger-hexagonal` says, and the request is the version after it: `Type: refactor — move the code into its layers, then <the request> as v<N+1>`.
+3. Draw the tree.
+4. Reply:
 
 ````
 Type: <type> — <the request in one line>
@@ -46,7 +47,7 @@ Note: <what the user must know now, such as a missing tool. Leave the line out w
 You are handed the request, your `understand` reply, and the user's answers.
 
 1. Put the answers in the tree, marked `[user]`. When an answer opens a leaf that must be asked, write nothing and reply with `Questions:` alone, in the same form.
-2. Open the version: cut `vibe/v<N>`, write `spec.md` and `tasks.md` as "Plan: by type" says, and start `docs/human/v<N>.md` with the status `building`. When `docs/agent/codemap.mjs` differs from the `codemap.mjs` in the `tiger-code-map` skill's folder, copy the skill's over it.
+2. Open the version: cut `vibe/v<N>`, write `spec.md` and `tasks.md` as "Plan: by type" says, and start `docs/human/v<N>.md` with the status `building`. When `docs/agent/codemap.mjs` differs from the `codemap.mjs` in the `tiger-code-map` skill's folder, copy the skill's over it. When the architecture check in `architecture.md` does not fail on a file outside its layer, rewrite it as `tiger-hexagonal` says, and run it.
 3. Commit them as `docs: plan v<N>`.
 4. Reply with the build sheet:
 
@@ -124,7 +125,7 @@ Note what already exists that can be reused, and what calls the code that will c
 When the project has code but no `docs/agent/architecture.md`, map it once, before anything else:
 
 1. Set up and build the code map as `tiger-code-map` says, then read it. Adding `.codegraph/` to `.gitignore` is part of that setup and goes into this commit, although `.gitignore` is not a doc.
-2. Write `architecture.md` from what is really there: which folders play which layer, the ports, what the project needs to run, the setup, check and test commands that actually work, the words the code uses. Run each command before you write it down.
+2. Write `architecture.md` from what is really there: which folders hold which layer, each file that is not in its layer's folder yet with the folder it moves to, the architecture check from `tiger-hexagonal`, the ports, what the project needs to run, the setup, check and test commands that actually work, the words the code uses. Run each command before you write it down.
 3. Seed `behavior.md` from the existing tests only: one line per rule a test proves. Never a rule no test proves. List what no test covers under Not proven.
 4. Put in `memory.md` only what you had to find out the hard way.
 5. Commit as `docs: map the project`, with the `.gitignore` line.
@@ -137,7 +138,7 @@ Draw the decision tree for each rule in the request, as `tiger-decision-tree` sa
 
 When the request names another skill, load it and use it for the part it covers. Whatever that skill needs to ask the user becomes an open question here, and each task it applies to names it. It works inside the plan. It never replaces the tree, the spec or the tasks.
 
-A mixed request is split into one version per type, in this order: bugfix, refactor, feature. Plan the first, and say on the `Type` line what follows.
+A mixed request is split into one version per type, in this order: bugfix, refactor, feature. Plan the first, and say on the `Type` line what follows. In a project that is not in the shape of `tiger-hexagonal`, the move into it comes before every version but a bug fix.
 
 ## Plan: by type
 
@@ -159,7 +160,8 @@ A mixed request is split into one version per type, in this order: bugfix, refac
 
 1. Plan it with `tiger-refactoring`: each task is one named move for one smell.
 2. The first task adds tests for what the code does today, wherever coverage is missing, in its own commit.
-3. The same tests pass, unchanged, after every task. No behavior change and no changed public interface, unless that is the request.
+3. When the architecture check fails, the next tasks move the code into the shape, as "Existing projects" in `tiger-hexagonal` says: one task per layer, before any other move. The version is not done while the check fails.
+4. The same tests pass, unchanged, after every task, apart from the paths a move changes. No behavior change and no changed public interface, unless that is the request.
 
 ### Performance
 

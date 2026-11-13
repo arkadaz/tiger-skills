@@ -37,6 +37,7 @@ Changing the shape of code without changing what it does. It is how code stays e
 | data changed from many places | return new values, and narrow who may change it |
 | a comment explaining a block | extract the block into a function with that name, and delete the comment |
 | a layer that only forwards calls | remove it and call the real thing |
+| a file outside the folder of its layer | move it there, as "Existing projects" in `tiger-hexagonal` says |
 | an interface with one implementation, an option with one value | collapse it |
 | code, an input or a field nothing uses | delete it |
 | one change that means editing many files | bring that rule into one home |

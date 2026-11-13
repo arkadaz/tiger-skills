@@ -1,6 +1,6 @@
 ---
 name: tiger-hexagonal
-description: Hexagonal architecture, also called ports and adapters. Business rules in the middle, everything that touches the outside world at the edge, imports pointing inward only. Covers where each kind of code goes, tests by layer, the architecture check, and fitting it onto an existing or framework project. Use when designing, placing, moving or reviewing code structure.
+description: Hexagonal architecture, also called ports and adapters. Business rules in the middle, everything that touches the outside world at the edge, every file in the folder of its layer, imports pointing inward only. Covers where each kind of code goes, tests by layer, the architecture check that fails on a file outside its layer, and moving an existing or framework project into the shape. Use when designing, placing, moving or reviewing code structure.
 ---
 
 # Hexagonal architecture
@@ -20,7 +20,15 @@ src/
   main               builds the adapters and hands them to the use cases.
 ```
 
-**The one rule: imports point inward.** `adapters → application → domain`. Adapters never import each other.
+**Rule one: every source file is in the folder of its layer,** named as above, so anyone can see where a piece of code belongs and what it may import.
+
+- A part of a bigger project has the same folders inside it: `crates/backend/src/adapters/inbound/notes.rs`.
+- A whole crate or package can be one layer when its folder is named for the layer: `crates/domain/`.
+- Outside the layer folders sit only the wiring and the tests. The wiring is `main`, the settings it reads, and the files that only declare modules, such as `lib.rs`, `mod.rs` and `__init__.py`.
+
+**Rule two: imports point inward.** `adapters → application → domain`. Adapters never import each other.
+
+The architecture check below fails when either rule is broken.
 
 The domain is free to use the language and the pure parts of its standard library: math, decimals, dates as values, collections. It never imports the application, an adapter, a framework, or anything that does I/O.
 
@@ -46,9 +54,14 @@ An inbound adapter does three things: read the input, call one use case, format 
 
 ## Existing projects
 
-- Lay the hexagon over the folders the project already has. Do not rename the world. Write the mapping in `docs/agent/architecture.md`.
-- In a framework project (Rails, Django, Next.js, Spring, Laravel) the framework is the adapter layer. Controllers, views, models and jobs stay where the framework wants them. Rules move into plain modules that the framework code calls, never the other way round.
-- Code that breaks the rule is not rewritten all at once. New code follows the rule. Old code moves when a task touches it: put its I/O behind a port and move its rule into the domain. A large move is its own refactor.
+The shape is not optional. A project whose architecture check fails is moved into the shape before anything else is built in it.
+
+- The move is a refactor version of its own, planned as `tiger-planning` says. Until it is done, every other request waits for it, except a bug fix.
+- `docs/agent/architecture.md` lists each file that is not in its layer's folder yet, and the folder it moves to.
+- Each task moves the files of one layer into its folder and fixes the imports, with no other change. The same tests pass after it.
+- A file that holds both a rule and its I/O is split first: the rule into the domain, the I/O into an adapter behind a port.
+- The version is done when the architecture check passes.
+- In a framework project (Rails, Django, Next.js, Spring, Laravel, Flutter), the framework's own folders are the inbound adapters. Controllers, views, models, jobs and screens stay where the framework wants them, and the check names those folders. The rules and the use cases move into `domain/` and `application/` folders, which the framework code calls, never the other way round.
 
 ## Tests by layer
 
@@ -61,20 +74,28 @@ An inbound adapter does three things: read the input, call one use case, format 
 
 ## The architecture check
 
-One command that fails when an import points outward. It runs with the tests and is written in `docs/agent/architecture.md`. It looks for outward imports only: a standard library import in the domain is fine and must not trip it.
+One command, written in `docs/agent/architecture.md`, that runs with the tests. It fails in two cases:
 
-Use what the project already has: import-linter (Python), dependency-cruiser or an ESLint boundaries rule (JavaScript, TypeScript), ArchUnit (JVM), NetArchTest or project references (.NET), `internal/` packages or depguard (Go), separate crates (Rust).
+1. A source file is outside the layer folders, the wiring and the tests.
+2. An import points outward. A standard library import in the domain is fine and must not trip it.
 
-Nothing installed? One search is enough. Do not add a dependency for this. Put the project's own folder and framework names in the pattern:
+For the imports, use what the project already has: import-linter (Python), dependency-cruiser or an ESLint boundaries rule (JavaScript, TypeScript), ArchUnit (JVM), NetArchTest or project references (.NET), `internal/` packages or depguard (Go), separate crates (Rust).
+
+Nothing installed? Two searches are enough. Do not add a dependency for this. Put the project's own file types, framework folders, one-file tools, generated code and names in the patterns:
 
 ```bash
-! grep -rnE "(import|from|require|use).*(adapters|django|flask|express|sqlalchemy)" src/domain src/application
+! git ls-files '*.rs' '*.py' '*.ts' '*.go' | grep -vE '(^|/)(domain|application|adapters)(/|\.[a-z]+$)|(^|/)(main|lib|mod|__init__|settings)\.[a-z]+$|(^|/)tests?/' \
+  && ! grep -rnE "(import|from|require|use).*(adapters|django|flask|express|sqlalchemy)" src/domain src/application
 ```
+
+The first search prints every file that is outside the layers. While it prints any, the check fails.
 
 ## Smells
 
 | You see | Do this |
 |---|---|
+| a source file outside the folder of its layer | move it there, as "Existing projects" says |
+| a port in the domain | move it to `application/ports/` |
 | the domain imports a framework or a driver | move the I/O to an adapter behind a port |
 | a controller holds a business rule | move the rule to the domain; the controller calls a use case |
 | a use case builds SQL or calls HTTP | that is an adapter's job |

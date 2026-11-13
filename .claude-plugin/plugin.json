@@ -1,7 +1,7 @@
 {
   "name": "tiger-skills",
   "description": "Coding through one command: /vibe. Say what you want; it classifies the request (feature, bug fix, refactor, performance, infra, chore, docs, review, question) and conducts the work in a fixed order: the tiger-planner agent (Sonnet) reads the project and draws the decision tree, you are asked every open question and say yes, tiger-engineer agents (Haiku) build each task test-first, the tiger-reviewer agent (Opus) checks the finished work, every result is proven with a real run, and it is recorded as the next version under docs/human and docs/agent. The agents carry the best-practice skills: planning, decision tree, grill, code quality, design principles, refactoring, performance, logging, configuration, Terraform, full stack (a Rust backend under /api/v1, one Flutter app for every platform with every function in Rust, Docker images, SEO), hexagonal architecture, verification, code map, review.",
-  "version": "11.5.1",
+  "version": "11.6.0",
   "author": {
     "name": "arkadaz"
   },

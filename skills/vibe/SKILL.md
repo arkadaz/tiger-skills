@@ -182,7 +182,7 @@ Open: <the findings that are still open, or "none">
 Engineers: <every engineer's whole report>
 ```
 
-Print its reply, unchanged. That is the report, and it is the last thing you say.
+Print its reply, unchanged. That is the report. When the `Type` line from step 2 said another version follows, such as the request after a move into the layers, and this version is done, go back to step 2 with the user's request. Otherwise the report is the last thing you say.
 
 ## When you cannot start agents
 

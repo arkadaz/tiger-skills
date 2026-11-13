@@ -181,7 +181,7 @@ The skills are how a principal engineer works, in any language:
 | `tiger-code-quality` | how the lines read: think first, reuse, plain steps, small functions, named types, plain names, no comments, nothing left behind |
 | `tiger-design-principles` | the shape of the code: one reason to change, one home for every rule, low coupling, small interfaces, no surprises |
 | `tiger-refactoring` | changing existing code safely: one named move per smell, tests green throughout |
-| `tiger-hexagonal` | where code lives: business rules in the middle, I/O at the edge |
+| `tiger-hexagonal` | where code lives: business rules in the middle, I/O at the edge, every file in its layer's folder; a project that is not is moved into the shape first |
 | `tiger-verification` | proof: test first, one test row per case, lint and type checks every time, few and fast tests, Playwright for screens |
 | `tiger-performance` | performance first: know the size, the right data structure and the fewest round trips from the first line |
 | `tiger-logging` | logs for whoever has to find the fault: structured, at the edge, never a secret |

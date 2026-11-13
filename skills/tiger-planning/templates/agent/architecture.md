@@ -12,6 +12,8 @@
 | adapters out | `{{src/adapters/outbound}}` | {{database, APIs, files}} |
 | wiring | `{{src/main}}` | builds the adapters, starts the app |
 
+Not in its layer yet: {{each file that is outside its layer's folder, and the folder it moves to; "none" when the architecture check passes}}
+
 ## Ports
 
 | Port | Needed for | Implemented by |
@@ -38,7 +40,7 @@ Names only, never values.
 - static checks: `{{formatter check, linter, type checker}}`
 - code map: `{ [ -d .codegraph ] || codegraph init -y; } && codegraph sync && node docs/agent/codemap.mjs > docs/agent/codemap.md && node docs/agent/codemap.mjs --human docs/human/flows.html`
 - test: `{{command}}`
-- architecture check: `{{command}}`
+- architecture check: `{{fails on a file outside its layer and on an import that points outward}}`
 - run: `{{command}}`
 
 ## Words
